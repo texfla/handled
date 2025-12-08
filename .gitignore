@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Prisma
+apps/backoffice/api/prisma/*.db
+apps/backoffice/api/prisma/*.db-journal
+
+# Uploads (if any temporary files)
+uploads/
+*.tmp
+
+# Python (if any remnants)
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+*.egg-info/

@@ -1,0 +1,12 @@
+# Copy this file to .env and fill in the values
+
+# Database
+DATABASE_URL="postgresql://handled_user:your_password@localhost:5432/handled"
+
+# Server
+PORT=3001
+HOST=0.0.0.0
+
+# Auth
+AUTH_SECRET="your-secret-key-min-32-chars-long-here"
+

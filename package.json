@@ -1,0 +1,18 @@
+{
+  "name": "handled",
+  "version": "1.0.0",
+  "description": "Handled 3PL Platform - Internal tools and data management",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "dev:api": "pnpm --filter @handled/api run dev",
+    "dev:web": "pnpm --filter @handled/web run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "db:migrate": "psql -U handled_user -d handled -f database/migrations/001_create_schemas.sql"
+  },
+  "keywords": ["3pl", "logistics", "warehouse"],
+  "author": "",
+  "license": "UNLICENSED"
+}
+
