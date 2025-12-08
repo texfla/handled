@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -34,14 +35,22 @@ import {
 import { api } from '../lib/api';
 import { Plus, Pencil, Trash2, KeyRound, Ban, CheckCircle, Loader2 } from 'lucide-react';
 
+interface Role {
+  id: number;
+  code: string;
+  name: string;
+}
+
 interface User {
   id: string;
   email: string;
   name: string;
   role: string;
+  roleId: number;
   disabled: boolean;
   createdAt: string;
   updatedAt?: string;
+  userRole: Role;
 }
 
 export function UsersPage() {
@@ -50,15 +59,21 @@ export function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
+  const [userFilter, setUserFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   // Form states
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     name: '',
-    role: 'admin',
+    roleId: 0,
   });
   const [newPassword, setNewPassword] = useState('');
+
+  const { data: rolesData } = useQuery({
+    queryKey: ['roles'],
+    queryFn: () => api.get<{ roles: Role[] }>('/api/roles'),
+  });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-users'],
@@ -66,7 +81,7 @@ export function UsersPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: { email: string; password: string; name: string; role: string }) =>
+    mutationFn: (data: { email: string; password: string; name: string; roleId: number }) =>
       api.post('/api/admin/users', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
@@ -76,7 +91,7 @@ export function UsersPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...data }: { id: string; email?: string; name?: string; role?: string }) =>
+    mutationFn: ({ id, ...data }: { id: string; email?: string; name?: string; roleId?: number }) =>
       api.put(`/api/admin/users/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
@@ -112,7 +127,8 @@ export function UsersPage() {
   });
 
   const resetForm = () => {
-    setFormData({ email: '', password: '', name: '', role: 'admin' });
+    const defaultRole = rolesData?.roles.find(r => r.code === 'admin');
+    setFormData({ email: '', password: '', name: '', roleId: defaultRole?.id || 0 });
   };
 
   const handleCreate = (e: React.FormEvent) => {
@@ -127,7 +143,7 @@ export function UsersPage() {
       id: editingUser.id,
       email: formData.email,
       name: formData.name,
-      role: formData.role,
+      roleId: formData.roleId,
     });
   };
 
@@ -145,12 +161,25 @@ export function UsersPage() {
       email: user.email,
       password: '',
       name: user.name,
-      role: user.role,
+      roleId: user.roleId,
     });
     setEditingUser(user);
   };
 
-  const users = data?.users || [];
+  const allUsers = data?.users || [];
+  const roles = rolesData?.roles || [];
+  
+  // Filter users based on selection
+  const users = allUsers.filter(user => {
+    if (userFilter === 'active') return !user.disabled;
+    if (userFilter === 'inactive') return user.disabled;
+    return true; // 'all'
+  });
+  
+  // Calculate counts
+  const allCount = allUsers.length;
+  const activeCount = allUsers.filter(u => !u.disabled).length;
+  const inactiveCount = allUsers.filter(u => u.disabled).length;
 
   if (error) {
     return (
@@ -216,15 +245,18 @@ export function UsersPage() {
                 <div className="grid gap-2">
                   <Label htmlFor="role">Role</Label>
                   <Select
-                    value={formData.role}
-                    onValueChange={(value) => setFormData({ ...formData, role: value })}
+                    value={formData.roleId.toString()}
+                    onValueChange={(value) => setFormData({ ...formData, roleId: parseInt(value) })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="user">User</SelectItem>
+                      {roles.map(role => (
+                        <SelectItem key={role.id} value={role.id.toString()}>
+                          {role.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -245,8 +277,41 @@ export function UsersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All Users</CardTitle>
-          <CardDescription>{users.length} users total</CardDescription>
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="userFilter"
+                value="all"
+                checked={userFilter === 'all'}
+                onChange={(e) => setUserFilter(e.target.value as 'all' | 'active' | 'inactive')}
+                className="h-4 w-4"
+              />
+              <span className="text-sm font-medium">All {allCount} Users</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="userFilter"
+                value="active"
+                checked={userFilter === 'active'}
+                onChange={(e) => setUserFilter(e.target.value as 'all' | 'active' | 'inactive')}
+                className="h-4 w-4"
+              />
+              <span className="text-sm font-medium">Active Only ({activeCount})</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="userFilter"
+                value="inactive"
+                checked={userFilter === 'inactive'}
+                onChange={(e) => setUserFilter(e.target.value as 'all' | 'active' | 'inactive')}
+                className="h-4 w-4"
+              />
+              <span className="text-sm font-medium">Inactive Only ({inactiveCount})</span>
+            </label>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -256,70 +321,82 @@ export function UsersPage() {
           ) : users.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No users found</p>
           ) : (
-            <div className="space-y-2">
-              {users.map((user) => (
-                <div
-                  key={user.id}
-                  className={`flex items-center justify-between p-4 border rounded-lg ${
-                    user.disabled ? 'bg-muted/50 opacity-75' : ''
-                  }`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{user.name}</span>
-                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                        {user.role}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow
+                    key={user.id}
+                    className={user.disabled ? 'bg-muted/50 opacity-75' : ''}
+                  >
+                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>
+                      <Badge variant={user.userRole.code === 'admin' ? 'default' : 'secondary'}>
+                        {user.userRole.name}
                       </Badge>
-                      {user.disabled && (
-                        <Badge variant="destructive">Disabled</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground truncate">{user.email}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Created {new Date(user.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openEditDialog(user)}
-                      title="Edit user"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setResetPasswordUser(user)}
-                      title="Reset password"
-                    >
-                      <KeyRound className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => toggleDisableMutation.mutate({ id: user.id, disabled: !user.disabled })}
-                      title={user.disabled ? 'Enable user' : 'Disable user'}
-                    >
+                    </TableCell>
+                    <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>
                       {user.disabled ? (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <Badge variant="destructive">Disabled</Badge>
                       ) : (
-                        <Ban className="h-4 w-4 text-orange-600" />
+                        <Badge className="bg-green-600 hover:bg-green-700">Active</Badge>
                       )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteUser(user)}
-                      title="Delete user"
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(user)}
+                          title="Edit user"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setResetPasswordUser(user)}
+                          title="Reset password"
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => toggleDisableMutation.mutate({ id: user.id, disabled: !user.disabled })}
+                          title={user.disabled ? 'Enable user' : 'Disable user'}
+                        >
+                          {user.disabled ? (
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <Ban className="h-4 w-4 text-orange-600" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteUser(user)}
+                          title="Delete user"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
@@ -355,15 +432,18 @@ export function UsersPage() {
               <div className="grid gap-2">
                 <Label htmlFor="edit-role">Role</Label>
                 <Select
-                  value={formData.role}
-                  onValueChange={(value) => setFormData({ ...formData, role: value })}
+                  value={formData.roleId.toString()}
+                  onValueChange={(value) => setFormData({ ...formData, roleId: parseInt(value) })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="user">User</SelectItem>
+                    {roles.map(role => (
+                      <SelectItem key={role.id} value={role.id.toString()}>
+                        {role.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

@@ -23,10 +23,26 @@ export async function authRoutes(fastify: FastifyInstance) {
 
     const user = await prisma.user.findUnique({
       where: { email: body.email },
+      include: {
+        userRole: {
+          include: {
+            rolePermissions: {
+              where: { granted: true },
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!user) {
       return reply.status(401).send({ error: 'Invalid email or password' });
+    }
+
+    if (user.disabled) {
+      return reply.status(403).send({ error: 'Account is disabled' });
     }
 
     const validPassword = await verifyPassword(user.hashedPassword, body.password);
@@ -37,8 +53,21 @@ export async function authRoutes(fastify: FastifyInstance) {
     const session = await lucia.createSession(user.id, {});
     const sessionCookie = lucia.createSessionCookie(session.id);
 
+    const permissions = user.userRole.rolePermissions.map(rp => rp.permission.code);
+
     reply.setCookie(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
-    return { user: { id: user.id, email: user.email, name: user.name, role: user.role } };
+    return { 
+      user: { 
+        id: user.id, 
+        email: user.email, 
+        name: user.name, 
+        role: user.role,
+        roleId: user.roleId,
+        roleName: user.userRole.name,
+        roleCode: user.userRole.code,
+        permissions,
+      } 
+    };
   });
 
   // Register (admin only in production, open in dev)
@@ -53,6 +82,23 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'Email already registered' });
     }
 
+    // Get admin role
+    const adminRole = await prisma.role.findUnique({
+      where: { code: 'admin' },
+      include: {
+        rolePermissions: {
+          where: { granted: true },
+          include: {
+            permission: true,
+          },
+        },
+      },
+    });
+
+    if (!adminRole) {
+      return reply.status(500).send({ error: 'Admin role not found. Run migrations.' });
+    }
+
     const hashedPassword = await hashPassword(body.password);
     const userId = generateId(15);
 
@@ -62,15 +108,29 @@ export async function authRoutes(fastify: FastifyInstance) {
         email: body.email,
         hashedPassword,
         name: body.name,
-        role: 'admin', // Default role
+        role: 'admin', // Deprecated field
+        roleId: adminRole.id,
       },
     });
 
     const session = await lucia.createSession(user.id, {});
     const sessionCookie = lucia.createSessionCookie(session.id);
 
+    const permissions = adminRole.rolePermissions.map(rp => rp.permission.code);
+
     reply.setCookie(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
-    return { user: { id: user.id, email: user.email, name: user.name, role: user.role } };
+    return { 
+      user: { 
+        id: user.id, 
+        email: user.email, 
+        name: user.name, 
+        role: user.role,
+        roleId: user.roleId,
+        roleName: adminRole.name,
+        roleCode: adminRole.code,
+        permissions,
+      } 
+    };
   });
 
   // Logout
@@ -94,13 +154,51 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Not authenticated' });
     }
 
-    const { session, user } = await lucia.validateSession(sessionId);
+    const { session, user: sessionUser } = await lucia.validateSession(sessionId);
     
     if (!session) {
       return reply.status(401).send({ error: 'Invalid session' });
     }
 
-    return { user: { id: user.id, email: user.email, name: user.name, role: user.role } };
+    // Get full user with permissions
+    const user = await prisma.user.findUnique({
+      where: { id: sessionUser.id },
+      include: {
+        userRole: {
+          include: {
+            rolePermissions: {
+              where: { granted: true },
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return reply.status(401).send({ error: 'User not found' });
+    }
+
+    if (user.disabled) {
+      return reply.status(403).send({ error: 'Account is disabled' });
+    }
+
+    const permissions = user.userRole.rolePermissions.map(rp => rp.permission.code);
+
+    return { 
+      user: { 
+        id: user.id, 
+        email: user.email, 
+        name: user.name, 
+        role: user.role,
+        roleId: user.roleId,
+        roleName: user.userRole.name,
+        roleCode: user.userRole.code,
+        permissions,
+      } 
+    };
   });
 }
 

@@ -1,8 +1,9 @@
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Users } from 'lucide-react';
+import { Users, Shield } from 'lucide-react';
 
 const sidebarNavigation = [
   { name: 'Users', href: '/admin/users', icon: Users },
+  { name: 'Roles', href: '/admin/roles', icon: Shield },
 ];
 
 export function AdminLayout() {

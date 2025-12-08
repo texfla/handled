@@ -8,6 +8,7 @@ import { uploadRoutes } from './routes/uploads.js';
 import { transformationRoutes } from './routes/transformations.js';
 import { exportRoutes } from './routes/exports.js';
 import { adminRoutes } from './routes/admin.js';
+import { roleRoutes } from './routes/roles.js';
 
 const fastify = Fastify({
   logger: true,
@@ -35,6 +36,7 @@ await fastify.register(uploadRoutes, { prefix: '/api/upload' });
 await fastify.register(transformationRoutes, { prefix: '/api/transformations' });
 await fastify.register(exportRoutes, { prefix: '/api/exports' });
 await fastify.register(adminRoutes, { prefix: '/api/admin' });
+await fastify.register(roleRoutes, { prefix: '/api/roles' });
 
 // Health check
 fastify.get('/api/health', async () => {

@@ -1,17 +1,37 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Database, LogOut, User, Shield } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { usePermissions, PERMISSIONS } from '../hooks/usePermissions';
 import { Button } from './ui/button';
-
-const navigation = [
-  { name: 'Home', href: '/', icon: Home },
-  { name: 'Data', href: '/data', icon: Database },
-  { name: 'Admin', href: '/admin', icon: Shield, adminOnly: true },
-];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { hasAnyPermission } = usePermissions();
+
+  const navigation = [
+    { name: 'Home', href: '/', icon: Home },
+    { 
+      name: 'Data', 
+      href: '/data', 
+      icon: Database, 
+      show: hasAnyPermission(
+        PERMISSIONS.VIEW_DATA,
+        PERMISSIONS.IMPORT_DATA,
+        PERMISSIONS.EXPORT_DATA,
+        PERMISSIONS.RUN_TRANSFORMATIONS
+      ),
+    },
+    { 
+      name: 'Admin', 
+      href: '/admin', 
+      icon: Shield, 
+      show: hasAnyPermission(
+        PERMISSIONS.MANAGE_USERS,
+        PERMISSIONS.MANAGE_ROLES
+      ),
+    },
+  ];
 
   // Check if current path starts with the nav item's href (for nested routes)
   const isActive = (href: string) => {
@@ -33,7 +53,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           <nav className="ml-8 flex gap-1">
             {navigation
-              .filter((item) => !item.adminOnly || user?.role === 'admin')
+              .filter((item) => item.show !== false)
               .map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);

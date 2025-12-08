@@ -6,6 +6,10 @@ interface User {
   email: string;
   name: string;
   role: string;
+  roleId: number;
+  roleName: string;
+  roleCode: string;
+  permissions: string[];
 }
 
 export function useAuth() {

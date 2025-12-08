@@ -9,7 +9,8 @@
     "dev:web": "pnpm --filter @handled/web run dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
-    "db:migrate": "psql -U handled_user -d handled -f database/migrations/001_create_schemas.sql"
+    "db:migrate": "bash database/migrate.sh",
+    "db:migrate:status": "psql -U handled_user -d handled -c 'SELECT version, description, applied_at, execution_time_ms FROM config.schema_migrations ORDER BY version;'"
   },
   "keywords": ["3pl", "logistics", "warehouse"],
   "author": "",

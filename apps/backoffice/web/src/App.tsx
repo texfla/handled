@@ -10,6 +10,7 @@ import { ImportFilesPage } from './pages/ImportFilesPage';
 import { TransformationsPage } from './pages/TransformationsPage';
 import { ExportsPage } from './pages/ExportsPage';
 import { UsersPage } from './pages/UsersPage';
+import { RolesPage } from './pages/RolesPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -49,6 +50,7 @@ export default function App() {
                 <Route path="/admin" element={<AdminLayout />}>
                   <Route index element={<Navigate to="/admin/users" replace />} />
                   <Route path="users" element={<UsersPage />} />
+                  <Route path="roles" element={<RolesPage />} />
                 </Route>
               </Routes>
             </Layout>

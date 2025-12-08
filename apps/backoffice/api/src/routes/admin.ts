@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../db/index.js';
-import { requireAdmin } from '../middleware/requireAdmin.js';
+import { requirePermission } from '../middleware/requirePermission.js';
+import { PERMISSIONS } from '../auth/permissions.js';
 import { Argon2id } from 'oslo/password';
 import { generateId } from 'lucia';
 
@@ -8,13 +9,13 @@ interface CreateUserBody {
   email: string;
   password: string;
   name: string;
-  role?: string;
+  roleId: number;
 }
 
 interface UpdateUserBody {
   email?: string;
   name?: string;
-  role?: string;
+  roleId?: number;
   disabled?: boolean;
 }
 
@@ -27,8 +28,8 @@ interface UserParams {
 }
 
 export async function adminRoutes(fastify: FastifyInstance) {
-  // Apply admin middleware to all routes in this plugin
-  fastify.addHook('preHandler', requireAdmin);
+  // Apply permission check to all routes in this plugin
+  fastify.addHook('preHandler', requirePermission(PERMISSIONS.MANAGE_USERS));
 
   // GET /api/admin/users - List all users
   fastify.get('/users', async (_request, reply) => {
@@ -38,9 +39,17 @@ export async function adminRoutes(fastify: FastifyInstance) {
         email: true,
         name: true,
         role: true,
+        roleId: true,
         disabled: true,
         createdAt: true,
         updatedAt: true,
+        userRole: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -58,9 +67,17 @@ export async function adminRoutes(fastify: FastifyInstance) {
         email: true,
         name: true,
         role: true,
+        roleId: true,
         disabled: true,
         createdAt: true,
         updatedAt: true,
+        userRole: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
       },
     });
 
@@ -73,11 +90,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   // POST /api/admin/users - Create new user
   fastify.post<{ Body: CreateUserBody }>('/users', async (request, reply) => {
-    const { email, password, name, role = 'admin' } = request.body;
+    const { email, password, name, roleId } = request.body;
 
     // Validate required fields
-    if (!email || !password || !name) {
-      return reply.status(400).send({ error: 'Email, password, and name are required' });
+    if (!email || !password || !name || !roleId) {
+      return reply.status(400).send({ error: 'Email, password, name, and roleId are required' });
     }
 
     // Check if email already exists
@@ -89,18 +106,28 @@ export async function adminRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'Email already in use' });
     }
 
+    // Verify role exists
+    const roleExists = await prisma.role.findUnique({
+      where: { id: roleId },
+    });
+
+    if (!roleExists) {
+      return reply.status(400).send({ error: 'Invalid role' });
+    }
+
     // Hash password
     const hashedPassword = await new Argon2id().hash(password);
     const userId = generateId(15);
 
-    // Create user
+    // Create user - set both role (deprecated) and roleId for migration compatibility
     const user = await prisma.user.create({
       data: {
         id: userId,
         email,
         hashedPassword,
         name,
-        role,
+        role: roleExists.code,
+        roleId,
         disabled: false,
       },
       select: {
@@ -108,8 +135,16 @@ export async function adminRoutes(fastify: FastifyInstance) {
         email: true,
         name: true,
         role: true,
+        roleId: true,
         disabled: true,
         createdAt: true,
+        userRole: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
       },
     });
 
@@ -119,7 +154,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
   // PUT /api/admin/users/:id - Update user
   fastify.put<{ Params: UserParams; Body: UpdateUserBody }>('/users/:id', async (request, reply) => {
     const { id } = request.params;
-    const { email, name, role, disabled } = request.body;
+    const { email, name, roleId, disabled } = request.body;
 
     // Check user exists
     const existingUser = await prisma.user.findUnique({
@@ -140,11 +175,26 @@ export async function adminRoutes(fastify: FastifyInstance) {
       }
     }
 
+    // If changing role, verify it exists and update both role and roleId
+    let roleCode: string | undefined;
+    if (roleId !== undefined) {
+      const newRole = await prisma.role.findUnique({
+        where: { id: roleId },
+      });
+      if (!newRole) {
+        return reply.status(400).send({ error: 'Invalid role' });
+      }
+      roleCode = newRole.code;
+    }
+
     // Build update data
-    const updateData: Partial<UpdateUserBody> = {};
+    const updateData: any = {};
     if (email !== undefined) updateData.email = email;
     if (name !== undefined) updateData.name = name;
-    if (role !== undefined) updateData.role = role;
+    if (roleId !== undefined) {
+      updateData.roleId = roleId;
+      updateData.role = roleCode; // Keep deprecated field in sync
+    }
     if (disabled !== undefined) updateData.disabled = disabled;
 
     const user = await prisma.user.update({
@@ -155,9 +205,17 @@ export async function adminRoutes(fastify: FastifyInstance) {
         email: true,
         name: true,
         role: true,
+        roleId: true,
         disabled: true,
         createdAt: true,
         updatedAt: true,
+        userRole: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
       },
     });
 
@@ -215,7 +273,13 @@ export async function adminRoutes(fastify: FastifyInstance) {
         email: true,
         name: true,
         role: true,
+        roleId: true,
         disabled: true,
+        userRole: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
 
@@ -239,7 +303,13 @@ export async function adminRoutes(fastify: FastifyInstance) {
         email: true,
         name: true,
         role: true,
+        roleId: true,
         disabled: true,
+        userRole: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
 

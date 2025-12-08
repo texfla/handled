@@ -16,16 +16,62 @@ datasource db {
 // CONFIG SCHEMA - Auth and runtime state
 // ============================================
 
+model Role {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+  @@schema("config")
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  category    String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+  @@schema("config")
+}
+
+model RolePermission {
+  roleId       Int      @map("role_id")
+  permissionId Int      @map("permission_id")
+  granted      Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+  @@schema("config")
+}
+
 model User {
   id             String    @id
   email          String    @unique
   hashedPassword String    @map("hashed_password")
   name           String
-  role           String    @default("admin")
+  role           String    @default("admin") // Deprecated - kept for migration compatibility
+  roleId         Int       @map("role_id")
   disabled       Boolean   @default(false)
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
+  userRole        Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
   sessions        Session[]
   integrationRuns IntegrationRun[]
 
