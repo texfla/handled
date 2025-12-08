@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -70,7 +70,7 @@ export function UsersPage() {
   });
   const [newPassword, setNewPassword] = useState('');
 
-  const { data: rolesData } = useQuery({
+  const { data: rolesData, isLoading: rolesLoading } = useQuery({
     queryKey: ['roles'],
     queryFn: () => api.get<{ roles: Role[] }>('/api/roles'),
   });
@@ -79,6 +79,16 @@ export function UsersPage() {
     queryKey: ['admin-users'],
     queryFn: () => api.get<{ users: User[] }>('/api/admin/users'),
   });
+
+  // Initialize roleId with default role when roles data loads
+  useEffect(() => {
+    if (rolesData?.roles && formData.roleId === 0) {
+      const defaultRole = rolesData.roles.find(r => r.code === 'admin') || rolesData.roles[0];
+      if (defaultRole) {
+        setFormData(prev => ({ ...prev, roleId: defaultRole.id }));
+      }
+    }
+  }, [rolesData, formData.roleId]);
 
   const createMutation = useMutation({
     mutationFn: (data: { email: string; password: string; name: string; roleId: number }) =>
@@ -127,7 +137,7 @@ export function UsersPage() {
   });
 
   const resetForm = () => {
-    const defaultRole = rolesData?.roles.find(r => r.code === 'admin');
+    const defaultRole = rolesData?.roles.find(r => r.code === 'admin') || rolesData?.roles[0];
     setFormData({ email: '', password: '', name: '', roleId: defaultRole?.id || 0 });
   };
 
@@ -247,9 +257,10 @@ export function UsersPage() {
                   <Select
                     value={formData.roleId.toString()}
                     onValueChange={(value) => setFormData({ ...formData, roleId: parseInt(value) })}
+                    disabled={rolesLoading}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
+                      <SelectValue placeholder={rolesLoading ? "Loading roles..." : "Select role"} />
                     </SelectTrigger>
                     <SelectContent>
                       {roles.map(role => (
@@ -265,7 +276,7 @@ export function UsersPage() {
                 <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={createMutation.isPending}>
+                <Button type="submit" disabled={createMutation.isPending || formData.roleId === 0}>
                   {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Create User
                 </Button>
@@ -434,9 +445,10 @@ export function UsersPage() {
                 <Select
                   value={formData.roleId.toString()}
                   onValueChange={(value) => setFormData({ ...formData, roleId: parseInt(value) })}
+                  disabled={rolesLoading}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
+                    <SelectValue placeholder={rolesLoading ? "Loading roles..." : "Select role"} />
                   </SelectTrigger>
                   <SelectContent>
                     {roles.map(role => (
@@ -452,7 +464,7 @@ export function UsersPage() {
               <Button type="button" variant="outline" onClick={() => setEditingUser(null)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={updateMutation.isPending}>
+              <Button type="submit" disabled={updateMutation.isPending || formData.roleId === 0}>
                 {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Save Changes
               </Button>
@@ -522,4 +534,3 @@ export function UsersPage() {
     </div>
   );
 }
-
