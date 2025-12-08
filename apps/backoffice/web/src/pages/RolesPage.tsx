@@ -37,6 +37,7 @@ export function RolesPage() {
   const queryClient = useQueryClient();
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [error, setError] = useState<string>('');
 
   const { data: rolesData, isLoading: rolesLoading } = useQuery({
     queryKey: ['roles'],
@@ -50,23 +51,24 @@ export function RolesPage() {
 
   const updatePermissionsMutation = useMutation({
     mutationFn: async ({ roleId, permissions }: { roleId: number; permissions: string[] }) => {
-      await fetch(`/api/roles/${roleId}/permissions`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permissions }),
-      });
+      return api.put(`/api/roles/${roleId}/permissions`, { permissions });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       setEditingRole(null);
       setSelectedPermissions([]);
+      setError('');
+    },
+    onError: (error: Error) => {
+      console.error('Failed to update role permissions:', error.message);
+      setError(error.message || 'Failed to update permissions');
     },
   });
 
   const openEditDialog = (role: Role) => {
     setEditingRole(role);
     setSelectedPermissions(role.permissions);
+    setError('');
   };
 
   const handleSavePermissions = (e: React.FormEvent) => {
@@ -88,19 +90,6 @@ export function RolesPage() {
 
   const roles = rolesData?.roles || [];
   const permissionsByCategory = permissionsData?.grouped || {};
-
-  const getRoleBadgeColor = (code: string) => {
-    switch (code) {
-      case 'admin':
-        return 'bg-red-100 text-red-800 border-red-300';
-      case 'sales':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'warehouse':
-        return 'bg-green-100 text-green-800 border-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-    }
-  };
 
   if (rolesLoading) {
     return (
@@ -169,6 +158,12 @@ export function RolesPage() {
                 Select which permissions this role should have
               </DialogDescription>
             </DialogHeader>
+
+            {error && (
+              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+                {error}
+              </div>
+            )}
 
             <div className="py-4 space-y-6">
               {Object.entries(permissionsByCategory).map(([category, permissions]) => (
