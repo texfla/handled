@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Upload, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { api } from '../lib/api';
+import { api } from '../../lib/api';
 
 interface Integration {
   id: string;
@@ -32,7 +32,7 @@ interface BatchResult {
   results: FileResult[];
 }
 
-export function ImportFilesPage() {
+export function ImportsPage() {
   const queryClient = useQueryClient();
   const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null);
   const [uploadResult, setUploadResult] = useState<BatchResult | null>(null);
@@ -265,7 +265,7 @@ export function ImportFilesPage() {
                     <div
                       key={index}
                       className={`flex items-start gap-2 p-2 rounded text-sm ${
-                        result.success ? 'bg-green-50' : 'bg-red-50'
+                        result.success ? 'bg-green-50 dark:bg-green-950/30' : 'bg-red-50 dark:bg-red-950/30'
                       }`}
                     >
                       {result.success ? (

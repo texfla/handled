@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Upload, Layers, Database } from 'lucide-react';
-import { api } from '../lib/api';
+import { api } from '../../lib/api';
 import { Link } from 'react-router-dom';
 
 interface Integration {
@@ -12,7 +12,7 @@ interface Integration {
   fileTypes: string[];
 }
 
-export function DataOverviewPage() {
+export function IntegrationsOverviewPage() {
   const { data: integrationsData } = useQuery({
     queryKey: ['integrations'],
     queryFn: () => api.get<{ integrations: Integration[] }>('/api/integrations'),
@@ -23,7 +23,7 @@ export function DataOverviewPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Data Overview</h1>
+        <h1 className="text-3xl font-bold">Integrations Overview</h1>
         <p className="text-muted-foreground mt-1">
           Manage data imports, transformations, and exports
         </p>
@@ -62,7 +62,7 @@ export function DataOverviewPage() {
           </CardHeader>
           <CardContent>
             <Link
-              to="/data/imports"
+              to="/integrations/imports"
               className="text-primary hover:underline text-sm font-medium"
             >
               Import Files →
@@ -111,4 +111,3 @@ export function DataOverviewPage() {
     </div>
   );
 }
-

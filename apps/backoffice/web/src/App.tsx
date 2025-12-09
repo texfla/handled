@@ -1,16 +1,21 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
-import { Layout } from './components/Layout';
-import { DataLayout } from './components/DataLayout';
-import { AdminLayout } from './components/AdminLayout';
+import { AppLayout } from './components/layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
-import { HomePage } from './pages/HomePage';
-import { DataOverviewPage } from './pages/DataOverviewPage';
-import { ImportFilesPage } from './pages/ImportFilesPage';
-import { TransformationsPage } from './pages/TransformationsPage';
-import { ExportsPage } from './pages/ExportsPage';
-import { UsersPage } from './pages/UsersPage';
-import { RolesPage } from './pages/RolesPage';
+import { DashboardPage } from './pages/DashboardPage';
+
+// Integrations
+import { IntegrationsOverviewPage } from './pages/integrations/OverviewPage';
+import { ImportsPage } from './pages/integrations/ImportsPage';
+import { TransformationsPage } from './pages/integrations/TransformationsPage';
+import { ExportsPage } from './pages/integrations/ExportsPage';
+
+// Settings
+import { UsersPage } from './pages/settings/UsersPage';
+import { RolesPage } from './pages/settings/RolesPage';
+
+// Placeholders
+import { ComingSoonPage } from './pages/placeholders/ComingSoonPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -38,25 +43,67 @@ export default function App() {
         path="/*"
         element={
           <ProtectedRoute>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/data" element={<DataLayout />}>
-                  <Route index element={<DataOverviewPage />} />
-                  <Route path="imports" element={<ImportFilesPage />} />
-                  <Route path="transformations" element={<TransformationsPage />} />
-                  <Route path="exports" element={<ExportsPage />} />
-                </Route>
-                <Route path="/admin" element={<AdminLayout />}>
-                  <Route index element={<Navigate to="/admin/users" replace />} />
-                  <Route path="users" element={<UsersPage />} />
-                  <Route path="roles" element={<RolesPage />} />
-                </Route>
-              </Routes>
-            </Layout>
+            <AppLayout />
           </ProtectedRoute>
         }
-      />
+      >
+        {/* Dashboard */}
+        <Route index element={<DashboardPage />} />
+
+        {/* Clients - Coming Soon */}
+        <Route path="clients/*" element={<ComingSoonPage />} />
+
+        {/* Inventory - Coming Soon */}
+        <Route path="inventory/*" element={<ComingSoonPage />} />
+
+        {/* Receiving - Coming Soon */}
+        <Route path="receiving/*" element={<ComingSoonPage />} />
+
+        {/* Orders - Coming Soon */}
+        <Route path="orders/*" element={<ComingSoonPage />} />
+
+        {/* Shipping - Coming Soon */}
+        <Route path="shipping/*" element={<ComingSoonPage />} />
+
+        {/* Returns - Coming Soon */}
+        <Route path="returns/*" element={<ComingSoonPage />} />
+
+        {/* Billing - Coming Soon */}
+        <Route path="billing/*" element={<ComingSoonPage />} />
+
+        {/* Operations - Coming Soon */}
+        <Route path="operations/*" element={<ComingSoonPage />} />
+
+        {/* Reports - Coming Soon */}
+        <Route path="reports/*" element={<ComingSoonPage />} />
+
+        {/* Integrations - Implemented */}
+        <Route path="integrations">
+          <Route index element={<IntegrationsOverviewPage />} />
+          <Route path="imports" element={<ImportsPage />} />
+          <Route path="transformations" element={<TransformationsPage />} />
+          <Route path="exports" element={<ExportsPage />} />
+          <Route path="channels" element={<ComingSoonPage />} />
+          <Route path="carriers" element={<ComingSoonPage />} />
+          <Route path="edi" element={<ComingSoonPage />} />
+          <Route path="webhooks" element={<ComingSoonPage />} />
+        </Route>
+
+        {/* Settings - Partially Implemented */}
+        <Route path="settings">
+          <Route index element={<Navigate to="/settings/users" replace />} />
+          <Route path="users" element={<UsersPage />} />
+          <Route path="roles" element={<RolesPage />} />
+          <Route path="company" element={<ComingSoonPage />} />
+          <Route path="warehouse" element={<ComingSoonPage />} />
+          <Route path="billing-rules" element={<ComingSoonPage />} />
+          <Route path="notifications" element={<ComingSoonPage />} />
+          <Route path="audit-log" element={<ComingSoonPage />} />
+        </Route>
+
+        {/* Catch-all redirect */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
     </Routes>
   );
 }

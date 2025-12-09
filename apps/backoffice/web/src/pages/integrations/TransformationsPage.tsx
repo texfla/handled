@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
 import { Play, CheckCircle, XCircle, Loader2, Database, ArrowRight } from 'lucide-react';
-import { api } from '../lib/api';
+import { api } from '../../lib/api';
 
 interface Transformation {
   id: string;
@@ -147,17 +147,17 @@ export function TransformationsPage() {
                   {/* Data flow visualization */}
                   <div className="flex items-center gap-2 text-sm mb-4">
                     <div className="flex flex-wrap gap-1">
-                      {transformation.sources.map((source, i) => (
+                      {transformation.sources.map((source) => (
                         <span
                           key={source}
-                          className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-mono"
+                          className="px-2 py-1 bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200 rounded text-xs font-mono"
                         >
                           {source}
                         </span>
                       ))}
                     </div>
                     <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-mono">
+                    <span className="px-2 py-1 bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 rounded text-xs font-mono">
                       {transformation.targetTable}
                     </span>
                   </div>
@@ -166,13 +166,13 @@ export function TransformationsPage() {
                   {result && (
                     <div
                       className={`flex items-center gap-2 p-3 rounded ${
-                        result.success ? 'bg-green-50' : 'bg-red-50'
+                        result.success ? 'bg-green-50 dark:bg-green-950/30' : 'bg-red-50 dark:bg-red-950/30'
                       }`}
                     >
                       {result.success ? (
                         <>
                           <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span className="text-green-800">
+                          <span className="text-green-800 dark:text-green-200">
                             {result.recordsAffected.toLocaleString()} records created in {result.duration}ms
                           </span>
                         </>
