@@ -23,7 +23,7 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-50 flex h-screen flex-col bg-slate-900 transition-all duration-300 ease-in-out',
+          'fixed left-0 top-0 z-50 flex h-screen flex-col bg-slate-900 transition-all duration-250 ease-in-out',
           isCollapsed ? 'w-20' : 'w-[280px]',
           // Mobile: hidden by default, shown as overlay when isMobileOpen
           'max-lg:hidden',

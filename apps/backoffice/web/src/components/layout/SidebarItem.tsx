@@ -61,7 +61,7 @@ export function SidebarItem({ section }: SidebarItemProps) {
         to={isImplemented ? (section.href || '/') : '#'}
         onClick={isImplemented ? handleClick : (e) => e.preventDefault()}
         className={cn(
-          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-250',
           isActive
             ? 'bg-slate-800 text-white border-l-2 border-primary'
             : 'text-slate-400 hover:bg-slate-800/50 hover:text-white',
@@ -98,7 +98,7 @@ export function SidebarItem({ section }: SidebarItemProps) {
             to={isImplemented ? (section.href || section.children?.[0]?.href || '/') : '#'}
             onClick={isImplemented ? handleClick : (e) => e.preventDefault()}
             className={cn(
-              'flex items-center justify-center rounded-lg px-2 py-2.5 text-sm font-medium transition-all duration-200',
+              'flex items-center justify-center rounded-lg px-2 py-2.5 text-sm font-medium transition-all duration-250',
               isActive
                 ? 'bg-slate-800 text-white border-l-2 border-primary'
                 : 'text-slate-400 hover:bg-slate-800/50 hover:text-white',
@@ -139,7 +139,7 @@ export function SidebarItem({ section }: SidebarItemProps) {
       <CollapsibleTrigger asChild>
         <button
           className={cn(
-            'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+            'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-250',
             // Active route gets primary border
             isActive && 'border-l-2 border-primary',
             // Expanded or active gets darker background
@@ -153,7 +153,7 @@ export function SidebarItem({ section }: SidebarItemProps) {
           <span className="flex-1 text-left">{section.label}</span>
           <ChevronRight
             className={cn(
-              'h-4 w-4 shrink-0 transition-transform duration-200',
+              'h-4 w-4 shrink-0 transition-transform duration-250',
               isOpen && 'rotate-90'
             )}
           />

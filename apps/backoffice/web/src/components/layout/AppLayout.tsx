@@ -13,7 +13,7 @@ function AppLayoutContent() {
       <Header />
       <main
         className={cn(
-          'min-h-screen pt-16 transition-all duration-300',
+          'min-h-screen pt-16 transition-all duration-250',
           isCollapsed ? 'lg:pl-20' : 'lg:pl-[280px]'
         )}
       >
