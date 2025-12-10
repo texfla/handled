@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
 
 interface User {
@@ -14,6 +15,10 @@ interface User {
 
 export function useAuth() {
   const queryClient = useQueryClient();
+  const location = useLocation();
+
+  // Don't fetch user on login page - prevents unnecessary 401 error
+  const isLoginPage = location.pathname === '/login';
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['auth', 'me'],
@@ -30,8 +35,11 @@ export function useAuth() {
         throw error;
       }
     },
+    enabled: !isLoginPage, // Skip query on login page
     retry: false,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    refetchOnMount: false, // Don't refetch on component mount if data exists
   });
 
   const loginMutation = useMutation({
