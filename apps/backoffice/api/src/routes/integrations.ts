@@ -2,11 +2,20 @@ import { FastifyInstance } from 'fastify';
 import { integrations, integrationsByCategory, getIntegration } from '../integrations/index.js';
 import { prisma } from '../db/index.js';
 
+// Type for API responses (subset of Integration)
+interface IntegrationResponse {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  fileTypes: string[];
+}
+
 export async function integrationRoutes(fastify: FastifyInstance) {
   // List all integrations
   fastify.get('/', async () => {
     return {
-      integrations: integrations.map((i) => ({
+      integrations: integrations.map((i): IntegrationResponse => ({
         id: i.id,
         name: i.name,
         description: i.description,
@@ -18,10 +27,10 @@ export async function integrationRoutes(fastify: FastifyInstance) {
 
   // List integrations grouped by category
   fastify.get('/by-category', async () => {
-    const result: Record<string, typeof integrations> = {};
-    
+    const result: Record<string, IntegrationResponse[]> = {};
+
     for (const [category, items] of Object.entries(integrationsByCategory)) {
-      result[category] = items.map((i) => ({
+      result[category] = items.map((i): IntegrationResponse => ({
         id: i.id,
         name: i.name,
         description: i.description,
@@ -29,7 +38,7 @@ export async function integrationRoutes(fastify: FastifyInstance) {
         fileTypes: i.fileTypes,
       }));
     }
-    
+
     return result;
   });
 

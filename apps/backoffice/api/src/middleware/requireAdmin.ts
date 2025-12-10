@@ -2,16 +2,8 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { lucia } from '../auth/lucia.js';
 import { prisma } from '../db/index.js';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    user?: {
-      id: string;
-      email: string;
-      name: string;
-      role: string;
-    };
-  }
-}
+// User type is already declared in requirePermission.ts
+// This file uses the same user type for consistency
 
 export async function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
   // Read session from cookie
@@ -31,6 +23,9 @@ export async function requireAdmin(request: FastifyRequest, reply: FastifyReply)
   // Get full user from database to check role and disabled status
   const user = await prisma.user.findUnique({
     where: { id: sessionUser.id },
+    include: {
+      userRole: true,
+    },
   });
 
   if (!user) {
@@ -50,7 +45,10 @@ export async function requireAdmin(request: FastifyRequest, reply: FastifyReply)
     id: user.id,
     email: user.email,
     name: user.name,
-    role: user.role,
+    roleId: user.userRole.id,
+    roleName: user.userRole.name,
+    roleCode: user.userRole.code,
+    permissions: [], // Will be loaded by requirePermission middleware if needed
   };
 }
 

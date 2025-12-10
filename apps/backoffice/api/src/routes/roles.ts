@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../db/index.js';
 import { requirePermission } from '../middleware/requirePermission.js';
-import { PERMISSIONS, PERMISSION_INFO, getPermissionsByCategory } from '../auth/permissions.js';
+import { PERMISSIONS } from '../auth/permissions.js';
 
 interface RoleParams {
   id: string;
