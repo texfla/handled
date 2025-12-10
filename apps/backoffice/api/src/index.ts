@@ -17,7 +17,9 @@ const fastify = Fastify({
 
 // Plugins
 await fastify.register(cors, {
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: process.env.NODE_ENV === 'production'
+    ? true  // Allow all origins in production (can be restricted to specific IP later)
+    : ['http://localhost:5173', 'http://localhost:3000'],
   credentials: true,
 });
 
