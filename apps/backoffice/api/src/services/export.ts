@@ -88,8 +88,8 @@ export class ExportService {
       SELECT zip3 FROM reference.zip3_reference ORDER BY zip3
     `;
     
-    const allZip3s = zip3Rows.map(r => r.zip3);
-    const zip3ToIdx = new Map(allZip3s.map((zip3, idx) => [zip3, idx]));
+    const allZip3s = zip3Rows.map((r: { zip3: string }) => r.zip3);
+    const zip3ToIdx = new Map(allZip3s.map((zip3: string, idx: number) => [zip3, idx]));
     const numZip3s = allZip3s.length;
 
     // Initialize matrix with 99 (no service)
@@ -105,7 +105,7 @@ export class ExportService {
       dest_zip3: string;
       transit_days: number;
     }>>`
-      SELECT 
+      SELECT
         origin_zip3,
         dest_zip3,
         MIN(transit_days) as transit_days
@@ -121,7 +121,7 @@ export class ExportService {
       const destIdx = zip3ToIdx.get(route.dest_zip3);
 
       if (originIdx !== undefined && destIdx !== undefined) {
-        matrix[originIdx][destIdx] = route.transit_days;
+        matrix[originIdx!][destIdx!] = route.transit_days;
       }
     }
 
@@ -144,8 +144,8 @@ export class ExportService {
       SELECT zip3 FROM reference.zip3_reference ORDER BY zip3
     `;
     
-    const allZip3s = zip3Rows.map(r => r.zip3);
-    const zip3ToIdx = new Map(allZip3s.map((zip3, idx) => [zip3, idx]));
+    const allZip3s = zip3Rows.map((r: { zip3: string }) => r.zip3);
+    const zip3ToIdx = new Map(allZip3s.map((zip3: string, idx: number) => [zip3, idx]));
     const numZip3s = allZip3s.length;
 
     // Initialize matrix with 99 (no service)
@@ -159,7 +159,7 @@ export class ExportService {
     if (carrierCode === 'UPS') {
       // UPS Ground only
       routes = await prisma.$queryRaw`
-        SELECT 
+        SELECT
           origin_zip3,
           dest_zip3,
           MIN(transit_days) as transit_days
@@ -170,7 +170,7 @@ export class ExportService {
     } else if (carrierCode === 'USPS') {
       // USPS Ground services: GAL, GAH, PKG
       routes = await prisma.$queryRaw`
-        SELECT 
+        SELECT
           origin_zip3,
           dest_zip3,
           MIN(transit_days) as transit_days
@@ -188,7 +188,7 @@ export class ExportService {
       const destIdx = zip3ToIdx.get(route.dest_zip3);
 
       if (originIdx !== undefined && destIdx !== undefined) {
-        matrix[originIdx][destIdx] = route.transit_days;
+        matrix[originIdx!][destIdx!] = route.transit_days;
       }
     }
 

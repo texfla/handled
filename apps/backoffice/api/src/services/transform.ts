@@ -39,9 +39,9 @@ export class TransformService {
       const duration = Date.now() - startTime;
       
       // Get actual row count
-      const countResult = await prisma.$queryRawUnsafe<{ count: bigint }[]>(
+      const countResult = await prisma.$queryRawUnsafe(
         `SELECT COUNT(*) as count FROM ${transformation.targetTable}`
-      );
+      ) as Array<{ count: bigint }>;
       const recordsAffected = Number(countResult[0]?.count ?? 0);
       
       console.log(`Transformation ${transformation.id} completed: ${recordsAffected} records in ${duration}ms`);
