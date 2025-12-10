@@ -18,8 +18,17 @@ export function useAuth() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['auth', 'me'],
     queryFn: async () => {
-      const response = await api.get<{ user: User }>('/api/auth/me');
-      return response.user;
+      try {
+        const response = await api.get<{ user: User }>('/api/auth/me');
+        return response.user;
+      } catch (error: any) {
+        // If 401 (not authenticated), return null instead of throwing
+        // This prevents console errors after logout
+        if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+          return null;
+        }
+        throw error;
+      }
     },
     retry: false,
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -40,8 +49,12 @@ export function useAuth() {
       await api.post('/api/auth/logout', {});
     },
     onSuccess: () => {
+      // Set user to null first
       queryClient.setQueryData(['auth', 'me'], null);
-      queryClient.clear();
+      // Clear all other queries but don't remove the auth query data
+      queryClient.removeQueries({
+        predicate: (query) => query.queryKey[0] !== 'auth',
+      });
     },
   });
 
