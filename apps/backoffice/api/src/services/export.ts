@@ -93,7 +93,7 @@ export class ExportService {
     const numZip3s = allZip3s.length;
 
     // Initialize matrix with 99 (no service)
-    const matrix: number[][] = Array.from({ length: numZip3s }, () =>
+    const matrix: number[][] = Array.from({ length: numZip3s }, (): number[] =>
       Array(numZip3s).fill(99)
     );
 
@@ -149,7 +149,7 @@ export class ExportService {
     const numZip3s = allZip3s.length;
 
     // Initialize matrix with 99 (no service)
-    const matrix: number[][] = Array.from({ length: numZip3s }, () =>
+    const matrix: number[][] = Array.from({ length: numZip3s }, (): number[] =>
       Array(numZip3s).fill(99)
     );
 
