@@ -158,7 +158,7 @@ export class ExportService {
 
     if (carrierCode === 'UPS') {
       // UPS Ground only
-      routes = await prisma.$queryRaw`
+      routes = await prisma.$queryRaw<Array<{ origin_zip3: string; dest_zip3: string; transit_days: number }>>`
         SELECT
           origin_zip3,
           dest_zip3,
@@ -169,7 +169,7 @@ export class ExportService {
       `;
     } else if (carrierCode === 'USPS') {
       // USPS Ground services: GAL, GAH, PKG
-      routes = await prisma.$queryRaw`
+      routes = await prisma.$queryRaw<Array<{ origin_zip3: string; dest_zip3: string; transit_days: number }>>`
         SELECT
           origin_zip3,
           dest_zip3,
