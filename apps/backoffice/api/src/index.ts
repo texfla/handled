@@ -20,6 +20,7 @@ await fastify.register(cors, {
   origin: process.env.NODE_ENV === 'production'
     ? [
         'http://167.99.166.9',
+        '64.23.147.101',
         'https://ops.handledcommerce.com',
         'http://ops.handledcommerce.com', // Temporary for DNS testing before SSL
       ]
