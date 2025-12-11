@@ -38,7 +38,7 @@ export function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img src="/handled_logo.png" alt="Handled" className="h-12 w-12" />
+            <img src="/handled_icon.png" alt="Handled" className="h-16 w-16" />
           </div>
           <CardTitle>{isRegistering ? 'Create Account' : 'Sign In'}</CardTitle>
           <CardDescription>
