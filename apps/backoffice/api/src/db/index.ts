@@ -7,7 +7,7 @@ let _prismaData: DataClient | null = null;
 
 // Configure Prisma logging based on environment
 const LOG_QUERIES = process.env.LOG_DB_QUERIES === 'true';
-const LOG_LEVEL = LOG_QUERIES ? ['query', 'error', 'warn'] as const : ['error', 'warn'] as const;
+const LOG_LEVEL: Array<'query' | 'error' | 'warn'> = LOG_QUERIES ? ['query', 'error', 'warn'] : ['error', 'warn'];
 
 function getPrismaPrimary(): PrimaryClient {
   if (!_prismaPrimary) {
