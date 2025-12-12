@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { prismaPrimary } from '../db/index.js';
+import { sessionCache } from '../db/session-cache.js';
 import { requirePermission } from '../middleware/requirePermission.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { Argon2id } from 'oslo/password';
@@ -248,9 +249,20 @@ export async function adminRoutes(fastify: FastifyInstance) {
       data: { hashedPassword },
     });
 
-    // Optionally invalidate all sessions for this user
+    // Get all session IDs for this user before deleting them
+    const userSessions = await prismaPrimary.session.findMany({
+      where: { userId: id },
+      select: { id: true },
+    });
+
+    // Invalidate all sessions for this user (database + cache)
     await prismaPrimary.session.deleteMany({
       where: { userId: id },
+    });
+
+    // Invalidate cached sessions
+    userSessions.forEach(session => {
+      sessionCache.invalidate(session.id);
     });
 
     return reply.send({ message: 'Password reset successfully. User will need to log in again.' });
@@ -283,9 +295,20 @@ export async function adminRoutes(fastify: FastifyInstance) {
       },
     });
 
-    // Invalidate all sessions for disabled user
+    // Get all session IDs for this user before deleting them
+    const userSessions = await prismaPrimary.session.findMany({
+      where: { userId: id },
+      select: { id: true },
+    });
+
+    // Invalidate all sessions for disabled user (database + cache)
     await prismaPrimary.session.deleteMany({
       where: { userId: id },
+    });
+
+    // Invalidate cached sessions
+    userSessions.forEach(session => {
+      sessionCache.invalidate(session.id);
     });
 
     return reply.send({ user, message: 'User disabled successfully' });
@@ -334,9 +357,20 @@ export async function adminRoutes(fastify: FastifyInstance) {
       return reply.status(404).send({ error: 'User not found' });
     }
 
+    // Get all session IDs for this user before deleting
+    const userSessions = await prismaPrimary.session.findMany({
+      where: { userId: id },
+      select: { id: true },
+    });
+
     // Delete user (sessions will cascade delete due to FK constraint)
     await prismaPrimary.user.delete({
       where: { id },
+    });
+
+    // Invalidate cached sessions
+    userSessions.forEach(session => {
+      sessionCache.invalidate(session.id);
     });
 
     return reply.send({ message: 'User deleted successfully' });

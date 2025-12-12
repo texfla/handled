@@ -302,6 +302,10 @@ describe('Database Split - Backward Compatibility', () => {
 
 // Cleanup after all tests
 afterAll(async () => {
+  // Stop session cache cleanup interval
+  sessionCache.stopCleanup();
+  
+  // Disconnect Prisma clients
   await prismaPrimary.$disconnect();
   await prismaData.$disconnect();
 });

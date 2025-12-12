@@ -5,6 +5,10 @@ import { PrismaClient as DataClient } from '@prisma/client-data';
 let _prismaPrimary: PrimaryClient | null = null;
 let _prismaData: DataClient | null = null;
 
+// Configure Prisma logging based on environment
+const LOG_QUERIES = process.env.LOG_DB_QUERIES === 'true';
+const LOG_LEVEL = LOG_QUERIES ? ['query', 'error', 'warn'] : ['error', 'warn'];
+
 function getPrismaPrimary(): PrimaryClient {
   if (!_prismaPrimary) {
     const url = process.env.PRIMARY_DATABASE_URL;
@@ -18,7 +22,7 @@ function getPrismaPrimary(): PrimaryClient {
       datasources: { 
         db: { url }
       },
-      log: ['query', 'error']
+      log: LOG_LEVEL
     });
   }
   return _prismaPrimary;
@@ -34,7 +38,7 @@ function getPrismaData(): DataClient {
       datasources: { 
         db: { url }
       },
-      log: ['query', 'error']
+      log: LOG_LEVEL
     });
   }
   return _prismaData;
