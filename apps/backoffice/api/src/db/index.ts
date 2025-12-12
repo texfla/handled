@@ -7,7 +7,7 @@ let _prismaData: DataClient | null = null;
 
 // Configure Prisma logging based on environment
 const LOG_QUERIES = process.env.LOG_DB_QUERIES === 'true';
-const LOG_LEVEL = LOG_QUERIES ? ['query', 'error', 'warn'] : ['error', 'warn'];
+const LOG_LEVEL = LOG_QUERIES ? ['query', 'error', 'warn'] as const : ['error', 'warn'] as const;
 
 function getPrismaPrimary(): PrimaryClient {
   if (!_prismaPrimary) {
@@ -46,13 +46,13 @@ function getPrismaData(): DataClient {
 
 // Export lazy getters
 export const prismaPrimary = new Proxy({} as PrimaryClient, {
-  get(target, prop) {
+  get(_target, prop) {
     return getPrismaPrimary()[prop as keyof PrimaryClient];
   }
 });
 
 export const prismaData = new Proxy({} as DataClient, {
-  get(target, prop) {
+  get(_target, prop) {
     return getPrismaData()[prop as keyof DataClient];
   }
 });
@@ -62,7 +62,7 @@ export const prisma = prismaPrimary;
 
 // Graceful shutdown
 process.on('beforeExit', async () => {
-  const promises = [];
+  const promises: Promise<void>[] = [];
   if (_prismaPrimary) promises.push(_prismaPrimary.$disconnect());
   if (_prismaData) promises.push(_prismaData.$disconnect());
   await Promise.all(promises);
