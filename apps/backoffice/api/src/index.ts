@@ -23,6 +23,7 @@ await fastify.register(cors, {
     ? [
         'http://167.99.166.9',
         'http://64.23.147.101',
+        'http://137.184.46.185',
         'https://ops.handledcommerce.com',
         'http://ops.handledcommerce.com', // Temporary for DNS testing before SSL
       ]
