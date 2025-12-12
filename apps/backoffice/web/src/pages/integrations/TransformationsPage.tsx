@@ -21,6 +21,22 @@ interface TransformationResult {
   error?: string;
 }
 
+// Format duration from milliseconds to human-readable format
+function formatDuration(ms: number): string {
+  if (ms < 1000) {
+    return '< 1 second';
+  }
+  
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+  return `${seconds}s`;
+}
+
 export function TransformationsPage() {
   const queryClient = useQueryClient();
   const [results, setResults] = useState<Record<string, TransformationResult>>({});
@@ -173,7 +189,7 @@ export function TransformationsPage() {
                         <>
                           <CheckCircle className="h-4 w-4 text-green-600" />
                           <span className="text-green-800 dark:text-green-200">
-                            {result.recordsAffected.toLocaleString()} records created in {result.duration}ms
+                            {result.recordsAffected.toLocaleString()} records created in {formatDuration(result.duration)}
                           </span>
                         </>
                       ) : (
