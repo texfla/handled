@@ -2,6 +2,8 @@
 
 Internal tools and data management platform for Handled 3PL operations.
 
+> **📊 Implementation Status**: See [DATABASE_SPLIT_STATUS.md](DATABASE_SPLIT_STATUS.md) for current progress on the database split implementation (Phase 1: ✅ Complete)
+
 ## Project Structure
 
 ```
