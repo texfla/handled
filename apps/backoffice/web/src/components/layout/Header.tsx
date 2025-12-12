@@ -27,7 +27,10 @@ export function Header({ children }: HeaderProps) {
       if (section.href && section.href !== '/' && path.startsWith(section.href)) {
         // Check for matching child
         if (section.children) {
-          for (const child of section.children) {
+          // Sort children by href length (longest first) to match most specific routes first
+          const sortedChildren = [...section.children].sort((a, b) => b.href.length - a.href.length);
+          
+          for (const child of sortedChildren) {
             if (path === child.href || path.startsWith(child.href + '/')) {
               return `${section.label} / ${child.label}`;
             }
