@@ -3,9 +3,11 @@
  * 
  * Generates JSON files for the warehouse-optimizer project.
  * Updated for code-based schema (carrier_code/service_code instead of IDs).
+ * 
+ * Uses DATA DB (prismaData) - queries reference schema
  */
 
-import { prisma } from '../db/index.js';
+import { prismaData } from '../db/index.js';
 
 interface Zip3ReferenceEntry {
   lat: number;
@@ -32,7 +34,7 @@ export class ExportService {
    * Format: { "006": { lat, lng, city, state, population }, ... }
    */
   async generateZip3Reference(): Promise<Zip3ReferenceOutput> {
-    const rows = await prisma.$queryRaw<Array<{
+    const rows = await prismaData.$queryRaw<Array<{
       zip3: string;
       total_population: number;
       primary_state: string | null;
@@ -84,7 +86,7 @@ export class ExportService {
    */
   async generateZoneMatrix(): Promise<ZoneMatrixOutput> {
     // Get all unique ZIP3s from zip3_reference
-    const zip3Rows = await prisma.$queryRaw<Array<{ zip3: string }>>`
+    const zip3Rows = await prismaData.$queryRaw<Array<{ zip3: string }>>`
       SELECT zip3 FROM reference.zip3_reference ORDER BY zip3
     `;
     
@@ -100,7 +102,7 @@ export class ExportService {
     // Query delivery matrix for ground services by code
     // Ground services: UPS GND, USPS GAL/GAH/PKG
     // Takes MIN transit days across all ground options
-    const routes = await prisma.$queryRaw<Array<{
+    const routes = await prismaData.$queryRaw<Array<{
       origin_zip3: string;
       dest_zip3: string;
       transit_days: number;
@@ -140,7 +142,7 @@ export class ExportService {
    */
   async generateZoneMatrixByCarrier(carrierCode: string): Promise<ZoneMatrixOutput> {
     // Get all unique ZIP3s from zip3_reference
-    const zip3Rows = await prisma.$queryRaw<Array<{ zip3: string }>>`
+    const zip3Rows = await prismaData.$queryRaw<Array<{ zip3: string }>>`
       SELECT zip3 FROM reference.zip3_reference ORDER BY zip3
     `;
     
@@ -158,7 +160,7 @@ export class ExportService {
 
     if (carrierCode === 'UPS') {
       // UPS Ground only
-      routes = await prisma.$queryRaw<Array<{ origin_zip3: string; dest_zip3: string; transit_days: number }>>`
+      routes = await prismaData.$queryRaw<Array<{ origin_zip3: string; dest_zip3: string; transit_days: number }>>`
         SELECT
           origin_zip3,
           dest_zip3,
@@ -169,7 +171,7 @@ export class ExportService {
       `;
     } else if (carrierCode === 'USPS') {
       // USPS Ground services: GAL, GAH, PKG
-      routes = await prisma.$queryRaw<Array<{ origin_zip3: string; dest_zip3: string; transit_days: number }>>`
+      routes = await prismaData.$queryRaw<Array<{ origin_zip3: string; dest_zip3: string; transit_days: number }>>`
         SELECT
           origin_zip3,
           dest_zip3,

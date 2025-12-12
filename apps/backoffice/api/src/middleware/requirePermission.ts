@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { lucia } from '../auth/lucia.js';
-import { prisma } from '../db/index.js';
+import { prismaPrimary } from '../db/index.js';
+import { sessionCache } from '../db/session-cache.js';
 import type { Permission } from '../auth/permissions.js';
 
 declare module 'fastify' {
@@ -28,15 +29,18 @@ async function loadUserWithPermissions(request: FastifyRequest, reply: FastifyRe
     return reply.status(401).send({ error: 'Authentication required' });
   }
 
-  // Validate session
-  const { session, user: sessionUser } = await lucia.validateSession(sessionId);
+  // Validate session with cache
+  const { session, user: sessionUser } = await sessionCache.get(
+    sessionId,
+    () => lucia.validateSession(sessionId)
+  );
   
   if (!session) {
     return reply.status(401).send({ error: 'Invalid session' });
   }
 
-  // Get full user with role and permissions
-  const user = await prisma.user.findUnique({
+  // Get full user with role and permissions from PRIMARY DB
+  const user = await prismaPrimary.user.findUnique({
     where: { id: sessionUser.id },
     include: {
       userRole: {

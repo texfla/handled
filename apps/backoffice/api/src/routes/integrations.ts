@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { integrations, integrationsByCategory, getIntegration } from '../integrations/index.js';
-import { prisma } from '../db/index.js';
+import { prismaPrimary } from '../db/index.js';
 
 // Type for API responses (subset of Integration)
 interface IntegrationResponse {
@@ -66,7 +66,7 @@ export async function integrationRoutes(fastify: FastifyInstance) {
   fastify.get('/:id/runs', async (request) => {
     const { id } = request.params as { id: string };
     
-    const runs = await prisma.integrationRun.findMany({
+    const runs = await prismaPrimary.integrationRun.findMany({
       where: { integrationId: id },
       orderBy: { createdAt: 'desc' },
       take: 20,

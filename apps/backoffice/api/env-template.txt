@@ -1,12 +1,53 @@
 # Copy this file to .env and fill in the values
 
-# Database
-DATABASE_URL="postgresql://handled_user:your_password@localhost:5432/handled"
+# Database Configuration
+# =====================
 
-# Server
+# ┌─────────────────────────────────────────────────────────────────┐
+# │  LOCAL DEVELOPMENT (Simple Setup)                               │
+# ├─────────────────────────────────────────────────────────────────┤
+# │  1. Set SPLIT_DB_MODE=false                                     │
+# │  2. Include your system username in connection string           │
+# │  3. Both URLs point to same database (handled_dev)              │
+# └─────────────────────────────────────────────────────────────────┘
+
+SPLIT_DB_MODE=false
+PRIMARY_DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/handled_dev"
+DATA_DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/handled_dev"
+
+# ┌─────────────────────────────────────────────────────────────────┐
+# │  PRODUCTION (Split Database Setup)                              │
+# ├─────────────────────────────────────────────────────────────────┤
+# │  Uncomment and configure these for production deployment:       │
+# └─────────────────────────────────────────────────────────────────┘
+
+# SPLIT_DB_MODE=true
+# 
+# # PRIMARY DATABASE (DBaaS - Digital Ocean Managed PostgreSQL)
+# # Contains: config schema (auth, users, roles, permissions, integration_runs)
+# #           customer schema (organizations, facilities, orders, shipments)
+# PRIMARY_DATABASE_URL="postgresql://handled_user:PASSWORD@db-postgresql-nyc3-xxxxx.ondigitalocean.com:25060/handled_primary?sslmode=require&pgbouncer=true&connection_limit=15"
+# 
+# # DATA DATABASE (VPS Local PostgreSQL)
+# # Contains: workspace schema (raw imports: us_zips, ups_zones, etc.)
+# #           reference schema (transformed data: carriers, delivery_matrix, etc.)
+# DATA_DATABASE_URL="postgresql://handled_user:PASSWORD@localhost:5432/handled_data"
+
+# Server Configuration
+# ====================
 PORT=3001
 HOST=0.0.0.0
+NODE_ENV=production
 
-# Auth
-AUTH_SECRET="your-secret-key-min-32-chars-long-here"
+# Authentication
+# ==============
+# Must be at least 32 characters for security
+AUTH_SECRET="your-production-secret-key-must-be-at-least-32-characters-long"
+
+# Optional: Session caching (enabled by default)
+# SESSION_CACHE_TTL=30000  # milliseconds (default: 30 seconds)
+
+# Optional: Logging
+# LOG_LEVEL=info
+# LOG_DB_QUERIES=false
 

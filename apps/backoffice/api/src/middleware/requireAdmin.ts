@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { lucia } from '../auth/lucia.js';
-import { prisma } from '../db/index.js';
+import { prismaPrimary } from '../db/index.js';
+import { sessionCache } from '../db/session-cache.js';
 
 // User type is already declared in requirePermission.ts
 // This file uses the same user type for consistency
@@ -13,15 +14,18 @@ export async function requireAdmin(request: FastifyRequest, reply: FastifyReply)
     return reply.status(401).send({ error: 'Authentication required' });
   }
 
-  // Validate session
-  const { session, user: sessionUser } = await lucia.validateSession(sessionId);
+  // Validate session with cache
+  const { session, user: sessionUser } = await sessionCache.get(
+    sessionId,
+    () => lucia.validateSession(sessionId)
+  );
   
   if (!session) {
     return reply.status(401).send({ error: 'Invalid session' });
   }
 
-  // Get full user from database to check role and disabled status
-  const user = await prisma.user.findUnique({
+  // Get full user from database to check role and disabled status (PRIMARY DB)
+  const user = await prismaPrimary.user.findUnique({
     where: { id: sessionUser.id },
     include: {
       userRole: true,

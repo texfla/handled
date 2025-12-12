@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { prisma } from '../db/index.js';
+import { prismaPrimary } from '../db/index.js';
 import { requirePermission } from '../middleware/requirePermission.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 
@@ -14,7 +14,7 @@ interface UpdatePermissionsBody {
 export async function roleRoutes(fastify: FastifyInstance) {
   // GET /api/permissions - List all available permissions (no auth required for dropdown)
   fastify.get('/permissions', async (_request, reply) => {
-    const permissions = await prisma.permission.findMany({
+    const permissions = await prismaPrimary.permission.findMany({
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
     });
 
@@ -44,7 +44,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
   // GET /api/roles - List all roles
   fastify.get('/', async (_request, reply) => {
-    const roles = await prisma.role.findMany({
+    const roles = await prismaPrimary.role.findMany({
       include: {
         _count: {
           select: { users: true },
@@ -82,7 +82,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'Invalid role ID' });
     }
 
-    const role = await prisma.role.findUnique({
+    const role = await prismaPrimary.role.findUnique({
       where: { id: roleId },
       include: {
         _count: {
@@ -130,7 +130,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'Invalid role ID' });
     }
 
-    const rolePermissions = await prisma.rolePermission.findMany({
+    const rolePermissions = await prismaPrimary.rolePermission.findMany({
       where: { roleId, granted: true },
       include: {
         permission: true,
@@ -158,7 +158,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       }
 
       // Check if role exists
-      const role = await prisma.role.findUnique({
+      const role = await prismaPrimary.role.findUnique({
         where: { id: roleId },
       });
 
@@ -167,7 +167,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       }
 
       // Get all permission IDs
-      const permissionRecords = await prisma.permission.findMany({
+      const permissionRecords = await prismaPrimary.permission.findMany({
         where: { code: { in: permissions } },
       });
 
@@ -184,7 +184,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       }
 
       // Update permissions in a transaction
-      await prisma.$transaction(async (tx) => {
+      await prismaPrimary.$transaction(async (tx) => {
         // Delete existing permissions for this role
         await tx.rolePermission.deleteMany({
           where: { roleId },

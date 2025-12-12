@@ -1,0 +1,87 @@
+// Prisma Schema for DATA Database (VPS Local)
+// Contains: workspace schema (raw imported data - disposable)
+//           reference schema (transformed data - rebuildable)
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../node_modules/@prisma/client-data"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATA_DATABASE_URL")
+  schemas  = ["workspace", "reference"]
+}
+
+// ============================================
+// REFERENCE SCHEMA - Transformed stable data
+// ============================================
+
+model Carrier {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  services Service[]
+
+  @@map("carriers")
+  @@schema("reference")
+}
+
+model Service {
+  id        Int      @id @default(autoincrement())
+  carrierId Int      @map("carrier_id")
+  code      String
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  carrier Carrier @relation(fields: [carrierId], references: [id])
+
+  @@unique([carrierId, code])
+  @@map("services")
+  @@schema("reference")
+}
+
+model Zip3Demographics {
+  zip3            String   @id
+  totalPopulation Int      @default(0) @map("total_population")
+  totalHouseholds Int      @default(0) @map("total_households")
+  zipCount        Int      @default(0) @map("zip_count")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("zip3_demographics")
+  @@schema("reference")
+}
+
+model Zip3Centroid {
+  zip3            String   @id
+  latitude        Decimal? @db.Decimal(10, 7)
+  longitude       Decimal? @db.Decimal(10, 7)
+  primaryCity     String?  @map("primary_city")
+  stateId         String?  @map("state_id")
+  stateName       String?  @map("state_name")
+  statePopulation Int?     @map("state_population")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("zip3_centroids")
+  @@schema("reference")
+}
+
+model DeliveryMatrix {
+  id          Int      @id @default(autoincrement())
+  originZip   String   @map("origin_zip")
+  destZip     String   @map("dest_zip")
+  carrierCode String   @map("carrier_code")
+  serviceCode String   @map("service_code")
+  transitDays Int      @map("transit_days")
+  zone        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([originZip, destZip, carrierCode, serviceCode])
+  @@map("delivery_matrix")
+  @@schema("reference")
+}

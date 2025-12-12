@@ -6,21 +6,62 @@ Internal tools and data management platform for Handled 3PL operations.
 
 ```
 handled/
-├── database/           # Shared SQL migrations
-│   └── migrations/
+├── database/              # SQL migrations (split by database)
+│   ├── migrations-primary/   # Config + customer schemas (DBaaS)
+│   ├── migrations-data/      # Workspace + reference schemas (VPS)
+│   ├── migrate-primary.sh
+│   ├── migrate-data.sh
+│   └── migrate-all.sh
 ├── apps/
-│   └── backoffice/     # Internal admin tools
-│       ├── api/        # Node.js + Fastify + Prisma backend
-│       └── web/        # React + Vite + shadcn/ui frontend
-├── file_importer/      # Legacy reference (deprecated)
-└── package.json        # pnpm workspace root
+│   └── backoffice/        # Internal admin tools
+│       ├── api/           # Node.js + Fastify + Prisma backend
+│       │   ├── prisma/
+│       │   │   ├── schema-primary.prisma
+│       │   │   └── schema-data.prisma
+│       │   └── src/
+│       └── web/           # React + Vite + shadcn/ui frontend
+├── docs/
+│   ├── DEVELOPER_SETUP.md  # Developer onboarding guide
+│   └── OPS_RUNBOOK.md      # Operations guide
+└── package.json           # pnpm workspace root
 ```
+
+## Architecture
+
+### Split Database Design
+
+The platform uses **two separate PostgreSQL databases** for optimal data safety and performance:
+
+```
+┌─────────────────┐         ┌──────────────────┐
+│  PRIMARY DB     │         │   DATA DB        │
+│  (DBaaS)        │         │   (VPS Local)    │
+├─────────────────┤         ├──────────────────┤
+│ ● Config        │         │ ● Workspace      │
+│   - Auth        │         │   - Imports      │
+│   - Users       │         │   - Raw data     │
+│   - Roles       │         │                  │
+│                 │         │ ● Reference      │
+│ ● Customer      │         │   - Carriers     │
+│   - Orders      │         │   - Matrix       │
+│   - Shipments   │         │   - Transforms   │
+└─────────────────┘         └──────────────────┘
+  Managed, backed up         Fast, local, rebuildable
+```
+
+**Why Split?**
+- 🔒 Critical customer data protected in managed database
+- ⚡ High-volume data processing stays fast on local VPS
+- 💾 Automatic backups for irreplaceable data
+- 📈 Independent scaling for each workload
 
 ## Tech Stack
 
-- **Database:** PostgreSQL with schemas (workspace, config, reference)
-- **Backend:** Node.js + TypeScript + Fastify + Prisma
-- **Auth:** Lucia Auth (self-hosted)
+- **Databases:** 
+  - PRIMARY: PostgreSQL 17 (Digital Ocean DBaaS) - Config + Customer
+  - DATA: PostgreSQL 17 (VPS Local) - Workspace + Reference
+- **Backend:** Node.js + TypeScript + Fastify + Prisma (dual clients)
+- **Auth:** Lucia Auth with session caching
 - **Frontend:** React + TypeScript + Vite + shadcn/ui + Tailwind CSS
 
 ## Getting Started
@@ -29,107 +70,159 @@ handled/
 
 - Node.js 20+
 - pnpm 8+
-- PostgreSQL 15+
+- PostgreSQL 17+ (local installation)
 
-### Setup
+### Quick Start (Single DB Mode - Recommended for New Developers)
+
+The simplest way to get started. See [DEVELOPER_SETUP.md](docs/DEVELOPER_SETUP.md) for full details.
 
 1. **Install dependencies:**
    ```bash
    pnpm install
    ```
 
-2. **Create database:**
+2. **Create local database:**
    ```bash
-   createdb handled
+   createdb handled_dev
    ```
 
-3. **Run all migrations:**
+3. **Configure environment:**
    ```bash
+   cd apps/backoffice/api
+   cp env-template.txt .env
+   # Edit .env and update:
+   #  - Replace YOUR_USERNAME with your system username
+   #  - Set AUTH_SECRET (32+ characters)
+   # Both URLs should point to handled_dev for local development
+   ```
+
+4. **Run migrations:**
+   ```bash
+   cd ../../..  # Back to root
+   export PRIMARY_DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/handled_dev"
+   export DATA_DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/handled_dev"
    pnpm db:migrate
    ```
    
-   This will automatically:
-   - Create all schemas (config, workspace, reference)
-   - Set up authentication tables
-   - Create integration and reference tables
-   - Track which migrations have been applied
-
-4. **Generate Prisma client:**
+   **Note:** If you encounter "schema does not exist" errors, use repair mode:
    ```bash
-   cd apps/backoffice/api
-   pnpm db:generate
+   bash database/migrate-data.sh --repair
    ```
 
-5. **Start development:**
+5. **Generate Prisma clients:**
+   ```bash
+   pnpm --filter @handled/api db:generate
+   ```
+
+6. **Start development:**
    ```bash
    pnpm dev
    ```
+   - API: http://localhost:3001
+   - Web: http://localhost:5173
+
+### Advanced Setup (Split DB Mode)
+
+For working on customer features or mirroring production:
+
+```bash
+# Create two databases
+createdb handled_primary_dev
+createdb handled_data_dev
+
+# Configure .env with SPLIT_DB_MODE=true
+# See docs/DEVELOPER_SETUP.md for full instructions
+```
 
 ## Database Architecture
 
-### Schemas
+### Two Database System
 
-- **config** - Auth, integration runs, system configuration, migration tracking
-- **workspace** - Raw imported data (disposable, can be rebuilt from files)
-- **reference** - Transformed data (carriers, delivery_matrix, etc.)
+**PRIMARY Database** (Digital Ocean DBaaS - Managed PostgreSQL):
+- **config** schema: Users, roles, permissions, sessions, integration_runs
+- **customer** schema: Organizations, facilities, orders, shipments (future)
+- **Purpose**: Critical, irreplaceable data with automated backups
+- **Performance**: ~60ms latency (remote), cached auth checks ~5ms
+
+**DATA Database** (VPS Local PostgreSQL):
+- **workspace** schema: Raw imported data (us_zips, ups_zones, etc.)
+- **reference** schema: Transformed data (carriers, delivery_matrix, etc.)
+- **Purpose**: High-volume, rebuildable data for fast processing
+- **Performance**: <2ms latency (local)
+
+### Why Split?
+
+1. **Data Safety**: Customer data protected in managed database with backups
+2. **Performance**: Data processing stays fast on local VPS
+3. **Cost Effective**: Only pay for managed DB for critical data
+4. **Independent Scaling**: Scale each database based on workload
+
+### Prisma Clients
+
+```typescript
+// Use prismaPrimary for config/customer data
+import { prismaPrimary } from '../db/index.js';
+await prismaPrimary.user.findUnique({ ... });
+
+// Use prismaData for workspace/reference data
+import { prismaData } from '../db/index.js';
+await prismaData.carrier.findMany({ ... });
+```
 
 ### Migrations
 
-The database uses a robust migration system with tracking:
+The platform uses **two separate migration systems**:
 
-- **Location:** `database/migrations/*.sql`
-- **Naming:** `XXX_descriptive_name.sql` (e.g., `001_create_schemas.sql`)
-- **Tracking:** Automatically tracked in `config.schema_migrations`
+- **PRIMARY Migrations:** `database/migrations-primary/` (config + customer)
+- **DATA Migrations:** `database/migrations-data/` (workspace + reference)
 
 #### Migration Commands
 
 ```bash
-# Run all pending migrations
+# Run all migrations (both PRIMARY and DATA)
 pnpm db:migrate
 
-# Check migration status
-pnpm db:migrate:status
+# Run PRIMARY migrations only
+pnpm db:migrate:primary
 
-# View migration history
-psql -U handled_user -d handled -c "SELECT * FROM config.schema_migrations ORDER BY version;"
+# Run DATA migrations only
+pnpm db:migrate:data
+
+# Check migration status
+pnpm db:migrate:status:primary
+pnpm db:migrate:status:data
 ```
 
 #### Creating New Migrations
 
-1. Copy the template:
-   ```bash
-   cp database/MIGRATION_TEMPLATE.sql database/migrations/007_your_migration_name.sql
-   ```
+**For config/customer features:**
+```bash
+cd database/migrations-primary
+cp ../MIGRATION_TEMPLATE.sql 011_your_feature.sql
+# Edit file, then:
+pnpm db:migrate:primary
+pnpm --filter @handled/api db:generate:primary
+```
 
-2. Fill in the migration details:
-   - Update version number (007, 008, etc.)
-   - Add description and date
-   - Write your SQL changes
-   - Make it idempotent (use `IF NOT EXISTS`, `IF EXISTS`, etc.)
-
-3. Test locally:
-   ```bash
-   pnpm db:migrate
-   ```
-
-4. Update Prisma schema if needed:
-   - Edit `apps/backoffice/api/prisma/schema.prisma`
-   - Run `cd apps/backoffice/api && pnpm db:generate`
-
-5. Commit both files:
-   ```bash
-   git add database/migrations/007_*.sql apps/backoffice/api/prisma/schema.prisma
-   git commit -m "Add migration: your description"
-   ```
+**For workspace/reference features:**
+```bash
+cd database/migrations-data
+cp ../MIGRATION_TEMPLATE.sql 005_your_feature.sql
+# Edit file, then:
+pnpm db:migrate:data
+pnpm --filter @handled/api db:generate:data
+```
 
 #### Migration Best Practices
 
 - ✅ Always use `IF NOT EXISTS` / `IF EXISTS` for idempotency
-- ✅ Number migrations sequentially (001, 002, 003...)
+- ✅ Number migrations sequentially within each folder
 - ✅ One logical change per migration
 - ✅ Add comments explaining why
 - ✅ Test on fresh database before committing
-- ✅ Include rollback notes in comments
+- ✅ Put migration in correct folder (PRIMARY or DATA)
 - ❌ Never edit migrations that have been deployed
 - ❌ Never skip version numbers
+
+**See [database/README.md](database/README.md) for detailed migration guide.**
 

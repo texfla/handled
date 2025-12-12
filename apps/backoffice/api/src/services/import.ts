@@ -1,4 +1,4 @@
-import { prisma } from '../db/index.js';
+import { prismaPrimary, prismaData } from '../db/index.js';
 import type { Integration, ParsedRecord } from '../integrations/types.js';
 
 class ImportService {
@@ -8,8 +8,8 @@ class ImportService {
     filename: string,
     userId?: string
   ) {
-    // Create run record
-    const run = await prisma.integrationRun.create({
+    // Create run record in PRIMARY DB (config schema)
+    const run = await prismaPrimary.integrationRun.create({
       data: {
         integrationId: integration.id,
         filename,
@@ -27,7 +27,7 @@ class ImportService {
       const validation = integration.validate(records);
       
       if (!validation.valid) {
-        await prisma.integrationRun.update({
+        await prismaPrimary.integrationRun.update({
           where: { id: run.id },
           data: {
             status: 'failed',
@@ -43,11 +43,11 @@ class ImportService {
         };
       }
       
-      // Insert/upsert records
+      // Insert/upsert records into DATA DB (workspace schema)
       const result = await this.insertRecords(integration, records);
       
-      // Update run record
-      await prisma.integrationRun.update({
+      // Update run record in PRIMARY DB
+      await prismaPrimary.integrationRun.update({
         where: { id: run.id },
         data: {
           status: 'success',
@@ -66,7 +66,7 @@ class ImportService {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       
-      await prisma.integrationRun.update({
+      await prismaPrimary.integrationRun.update({
         where: { id: run.id },
         data: {
           status: 'failed',
@@ -90,9 +90,9 @@ class ImportService {
     // Build column list from integration definition
     const columns = integration.columns.map((c) => c.name);
     
-    // If replace mode, truncate table first
+    // If replace mode, truncate table first (use DATA DB)
     if (integration.importMode === 'replace') {
-      await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${tableName}`);
+      await prismaData.$executeRawUnsafe(`TRUNCATE TABLE ${tableName}`);
     }
     
     // Process in batches
@@ -134,7 +134,7 @@ class ImportService {
     );
 
     const sql = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES ${placeholders}`;
-    await prisma.$executeRawUnsafe(sql, ...values);
+    await prismaData.$executeRawUnsafe(sql, ...values);
   }
 
   private async upsertBatch(
@@ -165,7 +165,7 @@ class ImportService {
       DO UPDATE SET ${updateCols}
     `;
     
-    await prisma.$executeRawUnsafe(sql, ...values);
+    await prismaData.$executeRawUnsafe(sql, ...values);
   }
 }
 

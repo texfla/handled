@@ -2,7 +2,8 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { lucia } from '../auth/lucia.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
-import { prisma } from '../db/index.js';
+import { prismaPrimary } from '../db/index.js';
+import { sessionCache } from '../db/session-cache.js';
 import { generateId } from 'lucia';
 
 const loginSchema = z.object({
@@ -21,7 +22,7 @@ export async function authRoutes(fastify: FastifyInstance) {
   fastify.post('/login', async (request, reply) => {
     const body = loginSchema.parse(request.body);
 
-    const user = await prisma.user.findUnique({
+    const user = await prismaPrimary.user.findUnique({
       where: { email: body.email },
       include: {
         userRole: {
@@ -74,7 +75,7 @@ export async function authRoutes(fastify: FastifyInstance) {
   fastify.post('/register', async (request, reply) => {
     const body = registerSchema.parse(request.body);
 
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prismaPrimary.user.findUnique({
       where: { email: body.email },
     });
 
@@ -83,7 +84,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     }
 
     // Get admin role
-    const adminRole = await prisma.role.findUnique({
+    const adminRole = await prismaPrimary.role.findUnique({
       where: { code: 'admin' },
       include: {
         rolePermissions: {
@@ -102,7 +103,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     const hashedPassword = await hashPassword(body.password);
     const userId = generateId(15);
 
-    const user = await prisma.user.create({
+    const user = await prismaPrimary.user.create({
       data: {
         id: userId,
         email: body.email,
@@ -139,6 +140,8 @@ export async function authRoutes(fastify: FastifyInstance) {
     
     if (sessionId) {
       await lucia.invalidateSession(sessionId);
+      // Invalidate session cache
+      sessionCache.invalidate(sessionId);
     }
 
     const blankCookie = lucia.createBlankSessionCookie();
@@ -154,14 +157,18 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Not authenticated' });
     }
 
-    const { session, user: sessionUser } = await lucia.validateSession(sessionId);
+    // Use cache to reduce PRIMARY DB load
+    const { session, user: sessionUser } = await sessionCache.get(
+      sessionId,
+      () => lucia.validateSession(sessionId)
+    );
     
     if (!session) {
       return reply.status(401).send({ error: 'Invalid session' });
     }
 
     // Get full user with permissions
-    const user = await prisma.user.findUnique({
+    const user = await prismaPrimary.user.findUnique({
       where: { id: sessionUser.id },
       include: {
         userRole: {

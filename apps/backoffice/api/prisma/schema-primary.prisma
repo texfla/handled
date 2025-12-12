@@ -1,0 +1,143 @@
+// Prisma Schema for PRIMARY Database (DBaaS)
+// Contains: config schema (auth, users, roles, permissions, integration_runs)
+//           customer schema (future: organizations, facilities, orders, shipments)
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../node_modules/@prisma/client-primary"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PRIMARY_DATABASE_URL")
+  schemas  = ["config", "customer"]
+}
+
+// ============================================
+// CONFIG SCHEMA - Auth and runtime state
+// ============================================
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+  @@schema("config")
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  category    String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+  @@schema("config")
+}
+
+model RolePermission {
+  roleId       Int      @map("role_id")
+  permissionId Int      @map("permission_id")
+  granted      Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+  @@schema("config")
+}
+
+model User {
+  id             String    @id
+  email          String    @unique
+  hashedPassword String    @map("hashed_password")
+  name           String
+  role           String    @default("admin") // Deprecated - kept for migration compatibility
+  roleId         Int       @map("role_id")
+  disabled       Boolean   @default(false)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  userRole        Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  sessions        Session[]
+  integrationRuns IntegrationRun[]
+
+  @@map("users")
+  @@schema("config")
+}
+
+model Session {
+  id        String   @id
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+  @@schema("config")
+}
+
+model IntegrationRun {
+  id               Int       @id @default(autoincrement())
+  integrationId    String    @map("integration_id")
+  filename         String?
+  status           String    @default("pending")
+  recordsProcessed Int       @default(0) @map("records_processed")
+  recordsFailed    Int       @default(0) @map("records_failed")
+  errors           Json?
+  startedAt        DateTime? @map("started_at")
+  completedAt      DateTime? @map("completed_at")
+  runBy            String?   @map("run_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  user User? @relation(fields: [runBy], references: [id])
+
+  @@map("integration_runs")
+  @@schema("config")
+}
+
+// ============================================
+// CUSTOMER SCHEMA - Customer production data
+// ============================================
+
+model Organization {
+  id        String   @id
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  facilities Facility[]
+
+  @@map("organizations")
+  @@schema("customer")
+}
+
+model Facility {
+  id             String   @id
+  organizationId String   @map("organization_id")
+  name           String
+  address        Json?
+  zip            String?  @db.VarChar(5)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("facilities")
+  @@schema("customer")
+}

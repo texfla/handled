@@ -1,10 +1,10 @@
 import { Lucia } from 'lucia';
 import { PrismaAdapter } from '@lucia-auth/adapter-prisma';
-import { prisma } from '../db/index.js';
+import { prismaPrimary } from '../db/index.js';
 
 // Adapter for Prisma with multi-schema support
-// Uses the Session and User models from config schema
-const adapter = new PrismaAdapter(prisma.session, prisma.user);
+// Uses the Session and User models from config schema (PRIMARY DB)
+const adapter = new PrismaAdapter(prismaPrimary.session, prismaPrimary.user);
 
 export const lucia = new Lucia(adapter, {
   sessionCookie: {

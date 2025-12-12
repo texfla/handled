@@ -1,4 +1,6 @@
-import 'dotenv/config';
+// IMPORTANT: Load environment variables first, before any other imports
+import './env.js';
+
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';

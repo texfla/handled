@@ -4,7 +4,7 @@
  * Executes transformations that convert workspace data into reference data.
  */
 
-import { prisma } from '../db/index.js';
+import { prismaData } from '../db/index.js';
 import type { Transformation, TransformationResult } from '../transformations/types.js';
 
 export class TransformService {
@@ -13,6 +13,8 @@ export class TransformService {
    * - Truncates the target table
    * - Runs the transformation SQL
    * - Returns the result
+   * 
+   * All transformations work with workspace and reference schemas (DATA DB)
    */
   async runTransformation(transformation: Transformation): Promise<TransformationResult> {
     const startTime = Date.now();
@@ -21,9 +23,9 @@ export class TransformService {
       // Get the SQL
       const insertSql = transformation.getSql();
       
-      // Run in a transaction: truncate + insert
+      // Run in a transaction: truncate + insert (use DATA DB)
       // Extended timeout for large transformations (5 minutes)
-      await prisma.$transaction(async (tx) => {
+      await prismaData.$transaction(async (tx) => {
         // Truncate target table
         await tx.$executeRawUnsafe(`TRUNCATE TABLE ${transformation.targetTable}`);
         
@@ -39,7 +41,7 @@ export class TransformService {
       const duration = Date.now() - startTime;
       
       // Get actual row count
-      const countResult = await prisma.$queryRawUnsafe(
+      const countResult = await prismaData.$queryRawUnsafe(
         `SELECT COUNT(*) as count FROM ${transformation.targetTable}`
       ) as Array<{ count: bigint }>;
       const recordsAffected = Number(countResult[0]?.count ?? 0);

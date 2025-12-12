@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { prisma } from '../db/index.js';
+import { prismaPrimary } from '../db/index.js';
 import { requirePermission } from '../middleware/requirePermission.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { Argon2id } from 'oslo/password';
@@ -33,7 +33,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   // GET /api/admin/users - List all users
   fastify.get('/users', async (_request, reply) => {
-    const users = await prisma.user.findMany({
+    const users = await prismaPrimary.user.findMany({
       select: {
         id: true,
         email: true,
@@ -60,7 +60,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: UserParams }>('/users/:id', async (request, reply) => {
     const { id } = request.params;
     
-    const user = await prisma.user.findUnique({
+    const user = await prismaPrimary.user.findUnique({
       where: { id },
       select: {
         id: true,
@@ -98,7 +98,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
     }
 
     // Check if email already exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prismaPrimary.user.findUnique({
       where: { email },
     });
 
@@ -107,7 +107,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
     }
 
     // Verify role exists
-    const roleExists = await prisma.role.findUnique({
+    const roleExists = await prismaPrimary.role.findUnique({
       where: { id: roleId },
     });
 
@@ -120,7 +120,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
     const userId = generateId(15);
 
     // Create user - set both role (deprecated) and roleId for migration compatibility
-    const user = await prisma.user.create({
+    const user = await prismaPrimary.user.create({
       data: {
         id: userId,
         email,
@@ -157,7 +157,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
     const { email, name, roleId, disabled } = request.body;
 
     // Check user exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prismaPrimary.user.findUnique({
       where: { id },
     });
 
@@ -167,7 +167,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
     // If changing email, check it's not already in use
     if (email && email !== existingUser.email) {
-      const emailInUse = await prisma.user.findUnique({
+      const emailInUse = await prismaPrimary.user.findUnique({
         where: { email },
       });
       if (emailInUse) {
@@ -178,7 +178,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
     // If changing role, verify it exists and update both role and roleId
     let roleCode: string | undefined;
     if (roleId !== undefined) {
-      const newRole = await prisma.role.findUnique({
+      const newRole = await prismaPrimary.role.findUnique({
         where: { id: roleId },
       });
       if (!newRole) {
@@ -197,7 +197,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
     }
     if (disabled !== undefined) updateData.disabled = disabled;
 
-    const user = await prisma.user.update({
+    const user = await prismaPrimary.user.update({
       where: { id },
       data: updateData,
       select: {
@@ -232,7 +232,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
     }
 
     // Check user exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prismaPrimary.user.findUnique({
       where: { id },
     });
 
@@ -243,13 +243,13 @@ export async function adminRoutes(fastify: FastifyInstance) {
     // Hash new password
     const hashedPassword = await new Argon2id().hash(newPassword);
 
-    await prisma.user.update({
+    await prismaPrimary.user.update({
       where: { id },
       data: { hashedPassword },
     });
 
     // Optionally invalidate all sessions for this user
-    await prisma.session.deleteMany({
+    await prismaPrimary.session.deleteMany({
       where: { userId: id },
     });
 
@@ -265,7 +265,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'Cannot disable your own account' });
     }
 
-    const user = await prisma.user.update({
+    const user = await prismaPrimary.user.update({
       where: { id },
       data: { disabled: true },
       select: {
@@ -284,7 +284,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
     });
 
     // Invalidate all sessions for disabled user
-    await prisma.session.deleteMany({
+    await prismaPrimary.session.deleteMany({
       where: { userId: id },
     });
 
@@ -295,7 +295,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.post<{ Params: UserParams }>('/users/:id/enable', async (request, reply) => {
     const { id } = request.params;
 
-    const user = await prisma.user.update({
+    const user = await prismaPrimary.user.update({
       where: { id },
       data: { disabled: false },
       select: {
@@ -326,7 +326,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
     }
 
     // Check user exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prismaPrimary.user.findUnique({
       where: { id },
     });
 
@@ -335,7 +335,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
     }
 
     // Delete user (sessions will cascade delete due to FK constraint)
-    await prisma.user.delete({
+    await prismaPrimary.user.delete({
       where: { id },
     });
 
