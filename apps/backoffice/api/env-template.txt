@@ -51,3 +51,12 @@ AUTH_SECRET="your-production-secret-key-must-be-at-least-32-characters-long"
 # LOG_LEVEL=info
 # LOG_DB_QUERIES=false
 
+# Backup Script Configuration (for VPS DATA DB backups)
+# ======================================================
+# Used by database/backup-data-db.sh and database/restore-data-db.sh
+DATA_DB_HOST=localhost
+DATA_DB_PORT=5432
+DATA_DB_NAME=handled
+DATA_DB_USER=handled_user
+DATA_DB_PASSWORD=your_database_password
+

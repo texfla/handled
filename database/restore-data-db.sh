@@ -5,19 +5,21 @@
 
 set -e
 
-# Configuration
-BACKUP_DIR="/var/backups/handled/data"
-DB_NAME="handled"
-DB_USER="handled_user"
-DB_HOST="localhost"
-DB_PORT="5432"
-
-# Try to read password from .env file if available
+# Load environment variables from .env file
 ENV_FILE="/var/www/handled/apps/backoffice/api/.env"
 if [ -f "$ENV_FILE" ]; then
-    # Extract password from DATA_DATABASE_URL
-    export PGPASSWORD=$(grep DATA_DATABASE_URL "$ENV_FILE" | cut -d':' -f3 | cut -d'@' -f1)
+    export $(grep -v '^#' "$ENV_FILE" | xargs)
 fi
+
+# Configuration (use env vars if available, otherwise use defaults)
+BACKUP_DIR="/var/backups/handled/data"
+DB_NAME="${DATA_DB_NAME:-handled}"
+DB_USER="${DATA_DB_USER:-handled_user}"
+DB_HOST="${DATA_DB_HOST:-localhost}"
+DB_PORT="${DATA_DB_PORT:-5432}"
+
+# Set password for psql/pg_restore
+export PGPASSWORD="${DATA_DB_PASSWORD}"
 
 # Colors for output
 GREEN='\033[0;32m'

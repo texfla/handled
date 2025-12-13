@@ -5,22 +5,24 @@
 
 set -e
 
-# Configuration
+# Load environment variables from .env file
+ENV_FILE="/var/www/handled/apps/backoffice/api/.env"
+if [ -f "$ENV_FILE" ]; then
+    export $(grep -v '^#' "$ENV_FILE" | xargs)
+fi
+
+# Configuration (use env vars if available, otherwise use defaults)
 BACKUP_DIR="/var/backups/handled/data"
-DB_NAME="handled"
-DB_USER="handled_user"
-DB_HOST="localhost"
-DB_PORT="5432"
+DB_NAME="${DATA_DB_NAME:-handled}"
+DB_USER="${DATA_DB_USER:-handled_user}"
+DB_HOST="${DATA_DB_HOST:-localhost}"
+DB_PORT="${DATA_DB_PORT:-5432}"
 RETENTION_DAYS=14
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="handled_data_${DATE}.sql.gz"
 
-# Try to read password from .env file if available
-ENV_FILE="/var/www/handled/apps/backoffice/api/.env"
-if [ -f "$ENV_FILE" ]; then
-    # Extract password from DATA_DATABASE_URL
-    export PGPASSWORD=$(grep DATA_DATABASE_URL "$ENV_FILE" | cut -d':' -f3 | cut -d'@' -f1)
-fi
+# Set password for pg_dump
+export PGPASSWORD="${DATA_DB_PASSWORD}"
 
 # Colors for output
 GREEN='\033[0;32m'
