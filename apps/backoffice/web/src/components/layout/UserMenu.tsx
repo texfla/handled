@@ -11,17 +11,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
+import { useCallback } from 'react';
 
 export function UserMenu() {
   const { user, logout } = useAuth();
-  const { setOpenSectionId } = useSidebar();
+  const { setOpenSectionId, setIsMobileOpen } = useSidebar();
 
   if (!user) return null;
 
-  // Handler to close sidebar sections when navigating
-  const handleNavigation = () => {
+  // Handler to close sidebar sections and mobile menu when navigating
+  const handleNavigation = useCallback(() => {
     setOpenSectionId(null);
-  };
+    setIsMobileOpen(false);
+  }, [setOpenSectionId, setIsMobileOpen]);
 
   return (
     <DropdownMenu>

@@ -33,7 +33,7 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     setIsCollapsed(!isCollapsed);
   };
 
-  // Close mobile menu on route change
+  // Close mobile menu when window is resized to desktop size
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
@@ -42,7 +42,7 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [setIsMobileOpen]);
 
   return (
     <SidebarContext.Provider
