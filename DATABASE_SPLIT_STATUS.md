@@ -13,12 +13,14 @@ The database split implementation has been **successfully deployed to production
 - **DATA DB (VPS)**: Workspace and reference data on local VPS PostgreSQL
 - **Performance**: Session caching reduces PRIMARY DB queries by ~90%
 - **Reliability**: DBaaS provides automated backups and high availability
+- **Backup Strategy**: Comprehensive backup procedures documented and tested
 
 **Key Achievements:**
 - Zero data loss during migration
 - ~60 second deployment window
 - All users and permissions transferred successfully
 - Application fully operational with split architecture
+- Backup scripts created and tested for both databases
 
 ---
 
@@ -185,10 +187,13 @@ The database split implementation has been **successfully deployed to production
   - ✅ Application logs clean (no connection errors)
   - ✅ Query logging disabled for production
 
-- [ ] **Backup Strategy** ⚠️ RECOMMENDED NEXT STEP
-  - [ ] Verify Digital Ocean automated backups configured
-  - [ ] Document VPS local PostgreSQL backup procedures
-  - [ ] Test backup restoration process
+- [x] **Backup Strategy**
+  - ✅ Digital Ocean automated daily backups verified
+  - ✅ VPS backup scripts created (`backup-data-db.sh`, `restore-data-db.sh`)
+  - ✅ Comprehensive backup documentation (`docs/BACKUP_STRATEGY.md`)
+  - ✅ Backup scripts use simple env variables (no password prompts)
+  - ✅ 14-day retention with automatic cleanup
+  - ✅ Tested manually on VPS and local development
 
 ### Production Environment
 
@@ -198,6 +203,10 @@ The database split implementation has been **successfully deployed to production
 - `SPLIT_DB_MODE`: true
 - **Session Caching**: Enabled (reduces PRIMARY DB load by ~90%)
 - **Query Logging**: Disabled (prevents log flooding)
+
+**Backup Configuration:**
+- **PRIMARY DB**: Digital Ocean automated daily backups (7-day retention)
+- **DATA DB**: Manual backup scripts ready (`backup-data-db.sh`, 14-day retention)
 
 ---
 
@@ -269,12 +278,39 @@ pnpm build
 
 ---
 
+## Recommended Next Steps
+
+### Optional Enhancements
+
+1. **Schedule Automated VPS Backups**
+   - Set up cron job for `backup-data-db.sh` (currently runs manually)
+   - Recommended: Daily at 2 AM
+   - See `docs/BACKUP_STRATEGY.md` for instructions
+
+2. **Monitor Production Performance**
+   - Review Digital Ocean DBaaS dashboard weekly
+   - Check connection counts and query performance
+   - Monitor session cache hit rates
+
+3. **Test Backup Restoration**
+   - Monthly test restore to verify backup integrity
+   - Document restoration time for disaster recovery planning
+   - Use `restore-data-db.sh` script for testing
+
+4. **Optimize Connection Pooling**
+   - Review PgBouncer statistics after 1 month
+   - Adjust connection limits if needed
+   - Currently set to 15 connections
+
+---
+
 ## Notes
 
 - **Phase 1** focused on implementing the dual-database architecture in local development without requiring actual database infrastructure changes
 - **Query Logging**: Disabled by default to prevent log flooding during large transformations (11M+ rows). Enable with `LOG_DB_QUERIES=true` for debugging
 - **Session Caching**: Automatically reduces PRIMARY DB load by caching session validation for 30 seconds
 - **Migration Auto-Repair**: Use `--repair` flag if schema tracking gets out of sync with actual database state
+- **Backup Strategy**: Complete documentation available in `docs/BACKUP_STRATEGY.md`
 
 ---
 
