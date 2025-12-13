@@ -42,11 +42,19 @@ export function RolesPage() {
   const { data: rolesData, isLoading: rolesLoading } = useQuery({
     queryKey: ['roles'],
     queryFn: () => api.get<{ roles: Role[] }>('/api/roles'),
+    staleTime: 0, // Always fetch fresh data on admin pages
+    gcTime: 0, // Don't cache results (was cacheTime in v4)
+    refetchOnMount: true, // Refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when tab regains focus
   });
 
   const { data: permissionsData } = useQuery({
     queryKey: ['permissions'],
     queryFn: () => api.get<{ permissions: Permission[]; grouped: Record<string, Permission[]> }>('/api/roles/permissions'),
+    staleTime: 0, // Always fetch fresh data on admin pages
+    gcTime: 0, // Don't cache results
+    refetchOnMount: true, // Refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when tab regains focus
   });
 
   const updatePermissionsMutation = useMutation({
@@ -55,6 +63,8 @@ export function RolesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] }); // Refresh in case users page is open
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] }); // Refresh current user if their roles changed
       setEditingRole(null);
       setSelectedPermissions([]);
       setError('');

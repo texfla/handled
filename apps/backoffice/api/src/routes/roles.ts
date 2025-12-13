@@ -20,10 +20,11 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
     // Group by category
     const grouped = permissions.reduce((acc, permission) => {
-      if (!acc[permission.category]) {
-        acc[permission.category] = [];
+      const category = permission.category || 'other';
+      if (!acc[category]) {
+        acc[category] = [];
       }
-      acc[permission.category].push({
+      acc[category].push({
         id: permission.id,
         code: permission.code,
         name: permission.name,
@@ -39,112 +40,117 @@ export async function roleRoutes(fastify: FastifyInstance) {
     });
   });
 
-  // Apply permission check to role management routes
-  fastify.addHook('preHandler', requirePermission(PERMISSIONS.MANAGE_ROLES));
-
   // GET /api/roles - List all roles
-  fastify.get('/', async (_request, reply) => {
-    const roles = await prismaPrimary.role.findMany({
-      include: {
-        _count: {
-          select: { users: true },
-        },
-        rolePermissions: {
-          where: { granted: true },
-          include: {
-            permission: true,
+  // CHANGED: Check for view_roles (with implications) instead of manage_roles
+  fastify.get('/',
+    { preHandler: requirePermission(PERMISSIONS.VIEW_ROLES) },
+    async (_request, reply) => {
+      const roles = await prismaPrimary.role.findMany({
+        include: {
+          _count: {
+            select: { userRoles: true }
           },
+          rolePermissions: {
+            where: { granted: true },
+            include: {
+              permission: true
+            }
+          }
         },
-      },
-      orderBy: { name: 'asc' },
-    });
+        orderBy: { name: 'asc' }
+      });
 
-    const rolesWithMeta = roles.map(role => ({
-      id: role.id,
-      code: role.code,
-      name: role.name,
-      description: role.description,
-      isSystem: role.isSystem,
-      userCount: role._count.users,
-      permissions: role.rolePermissions.map(rp => rp.permission.code),
-      createdAt: role.createdAt,
-      updatedAt: role.updatedAt,
-    }));
-
-    return reply.send({ roles: rolesWithMeta });
-  });
+      return reply.send({
+        roles: roles.map(r => ({
+          id: r.id,
+          code: r.code,
+          name: r.name,
+          description: r.description,
+          isSystem: r.isSystem,
+          userCount: r._count.userRoles,
+          permissions: r.rolePermissions.map(rp => rp.permission.code)
+        }))
+      });
+    }
+  );
 
   // GET /api/roles/:id - Get single role
-  fastify.get<{ Params: RoleParams }>('/:id', async (request, reply) => {
-    const roleId = parseInt(request.params.id, 10);
-    
-    if (isNaN(roleId)) {
-      return reply.status(400).send({ error: 'Invalid role ID' });
-    }
+  fastify.get<{ Params: RoleParams }>('/:id',
+    { preHandler: requirePermission(PERMISSIONS.VIEW_ROLES) },
+    async (request, reply) => {
+      const roleId = parseInt(request.params.id, 10);
+      
+      if (isNaN(roleId)) {
+        return reply.status(400).send({ error: 'Invalid role ID' });
+      }
 
-    const role = await prismaPrimary.role.findUnique({
-      where: { id: roleId },
-      include: {
-        _count: {
-          select: { users: true },
-        },
-        rolePermissions: {
-          where: { granted: true },
-          include: {
-            permission: true,
+      const role = await prismaPrimary.role.findUnique({
+        where: { id: roleId },
+        include: {
+          _count: {
+            select: { userRoles: true }
           },
-        },
-      },
-    });
+          rolePermissions: {
+            where: { granted: true },
+            include: {
+              permission: true
+            }
+          }
+        }
+      });
 
-    if (!role) {
-      return reply.status(404).send({ error: 'Role not found' });
+      if (!role) {
+        return reply.status(404).send({ error: 'Role not found' });
+      }
+
+      return reply.send({
+        role: {
+          id: role.id,
+          code: role.code,
+          name: role.name,
+          description: role.description,
+          isSystem: role.isSystem,
+          userCount: role._count.userRoles,
+          permissions: role.rolePermissions.map(rp => ({
+            id: rp.permission.id,
+            code: rp.permission.code,
+            name: rp.permission.name,
+            description: rp.permission.description,
+            category: rp.permission.category
+          }))
+        }
+      });
     }
-
-    return reply.send({
-      role: {
-        id: role.id,
-        code: role.code,
-        name: role.name,
-        description: role.description,
-        isSystem: role.isSystem,
-        userCount: role._count.users,
-        permissions: role.rolePermissions.map(rp => ({
-          id: rp.permission.id,
-          code: rp.permission.code,
-          name: rp.permission.name,
-          description: rp.permission.description,
-          category: rp.permission.category,
-        })),
-        createdAt: role.createdAt,
-        updatedAt: role.updatedAt,
-      },
-    });
-  });
+  );
 
   // GET /api/roles/:id/permissions - Get role permissions
-  fastify.get<{ Params: RoleParams }>('/:id/permissions', async (request, reply) => {
-    const roleId = parseInt(request.params.id, 10);
-    
-    if (isNaN(roleId)) {
-      return reply.status(400).send({ error: 'Invalid role ID' });
+  fastify.get<{ Params: RoleParams }>('/:id/permissions',
+    { preHandler: requirePermission(PERMISSIONS.VIEW_ROLES) },
+    async (request, reply) => {
+      const roleId = parseInt(request.params.id, 10);
+      
+      if (isNaN(roleId)) {
+        return reply.status(400).send({ error: 'Invalid role ID' });
+      }
+
+      const rolePermissions = await prismaPrimary.rolePermission.findMany({
+        where: { roleId, granted: true },
+        include: {
+          permission: true,
+        },
+      });
+
+      return reply.send({
+        permissions: rolePermissions.map(rp => rp.permission.code),
+      });
     }
-
-    const rolePermissions = await prismaPrimary.rolePermission.findMany({
-      where: { roleId, granted: true },
-      include: {
-        permission: true,
-      },
-    });
-
-    return reply.send({
-      permissions: rolePermissions.map(rp => rp.permission.code),
-    });
-  });
+  );
 
   // PUT /api/roles/:id/permissions - Update role permissions (bulk)
+  // Requires manage_roles (not view_roles)
   fastify.put<{ Params: RoleParams; Body: UpdatePermissionsBody }>(
     '/:id/permissions',
+    { preHandler: requirePermission(PERMISSIONS.MANAGE_ROLES) },
     async (request, reply) => {
       const roleId = parseInt(request.params.id, 10);
       const { permissions } = request.body;

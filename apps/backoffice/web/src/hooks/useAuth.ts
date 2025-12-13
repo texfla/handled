@@ -2,15 +2,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
 
-interface User {
+export interface User {
   id: string;
   email: string;
   name: string;
-  role: string;
-  roleId: number;
-  roleName: string;
-  roleCode: string;
+  // CHANGED: Single role becomes array
+  roles: Array<{
+    id: number;
+    code: string;
+    name: string;
+  }>;
   permissions: string[];
+  isAdmin: boolean;
 }
 
 export function useAuth() {

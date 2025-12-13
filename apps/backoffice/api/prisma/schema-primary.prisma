@@ -27,7 +27,7 @@ model Role {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  users           User[]
+  userRoles       UserRole[]
   rolePermissions RolePermission[]
 
   @@map("roles")
@@ -39,12 +39,25 @@ model Permission {
   code        String   @unique
   name        String
   description String?
-  category    String
+  category    String?
   createdAt   DateTime @default(now()) @map("created_at")
 
   rolePermissions RolePermission[]
 
   @@map("permissions")
+  @@schema("config")
+}
+
+model UserRole {
+  userId    String   @map("user_id")
+  roleId    Int      @map("role_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
   @@schema("config")
 }
 
@@ -67,13 +80,11 @@ model User {
   email          String    @unique
   hashedPassword String    @map("hashed_password")
   name           String
-  role           String    @default("admin") // Deprecated - kept for migration compatibility
-  roleId         Int       @map("role_id")
   disabled       Boolean   @default(false)
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  userRole        Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  userRoles       UserRole[]
   sessions        Session[]
   integrationRuns IntegrationRun[]
 

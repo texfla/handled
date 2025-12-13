@@ -15,7 +15,7 @@ interface SidebarItemProps {
 export function SidebarItem({ section }: SidebarItemProps) {
   const location = useLocation();
   const { isCollapsed, setIsMobileOpen, openSectionId, setOpenSectionId } = useSidebar();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasAnyPermission } = usePermissions();
   
   // Check if section is active (current route is in this section)
   const isActive = section.href === '/' 
@@ -32,13 +32,43 @@ export function SidebarItem({ section }: SidebarItemProps) {
     }
   }, [isActive, section.id, section.children, setOpenSectionId]);
 
-  // Check if user has permission to view this section
-  if (section.permission && !hasPermission(section.permission)) {
-    return null; // Hide section if user lacks permission
+  // Check if user can see this section
+  const canViewSection = (() => {
+    if (section.requiredPermission) {
+      return hasPermission(section.requiredPermission);
+    }
+    if (section.requiredAnyPermission) {
+      return hasAnyPermission(...section.requiredAnyPermission);
+    }
+    // Legacy: Check old permission property
+    if (section.permission && !hasPermission(section.permission)) {
+      return false;
+    }
+    return true; // No permission required
+  })();
+
+  if (!canViewSection) {
+    return null; // Hide section completely
+  }
+
+  // Filter children based on permissions
+  const visibleChildren = section.children?.filter(child => {
+    if (child.requiredPermission) {
+      return hasPermission(child.requiredPermission);
+    }
+    if (child.requiredAnyPermission) {
+      return hasAnyPermission(...child.requiredAnyPermission);
+    }
+    return true;
+  });
+
+  // Hide section if it has children but none are visible
+  if (section.children && (!visibleChildren || visibleChildren.length === 0)) {
+    return null;
   }
 
   const Icon = section.icon;
-  const hasChildren = section.children && section.children.length > 0;
+  const hasChildren = visibleChildren && visibleChildren.length > 0;
   const isImplemented = section.implemented !== false;
   
   // Toggle handler for accordion behavior
@@ -95,7 +125,7 @@ export function SidebarItem({ section }: SidebarItemProps) {
       <Tooltip delayDuration={0}>
         <TooltipTrigger asChild>
           <Link
-            to={isImplemented ? (section.href || section.children?.[0]?.href || '/') : '#'}
+            to={isImplemented ? (section.href || visibleChildren?.[0]?.href || '/') : '#'}
             onClick={isImplemented ? handleClick : (e) => e.preventDefault()}
             className={cn(
               'flex items-center justify-center rounded-lg px-2 py-2.5 text-sm font-medium transition-all duration-250',
@@ -111,7 +141,7 @@ export function SidebarItem({ section }: SidebarItemProps) {
         <TooltipContent side="right" className="p-0">
           <div className="py-1">
             <div className="px-3 py-1.5 text-sm font-medium">{section.label}</div>
-            {section.children?.map((child) => (
+            {visibleChildren?.map((child) => (
               <Link
                 key={child.id}
                 to={child.implemented !== false ? child.href : '#'}
@@ -161,7 +191,7 @@ export function SidebarItem({ section }: SidebarItemProps) {
       </CollapsibleTrigger>
       <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
         <div className="ml-4 mt-1 space-y-1 border-l border-slate-700 pl-4">
-          {section.children?.map((child) => (
+          {visibleChildren?.map((child) => (
             <SidebarChildItem key={child.id} item={child} onNavigate={handleClick} />
           ))}
         </div>

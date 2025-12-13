@@ -19,6 +19,9 @@ export interface NavItem {
   label: string;
   href: string;
   implemented?: boolean;
+  // NEW: Permission requirements
+  requiredPermission?: string;
+  requiredAnyPermission?: string[];
 }
 
 export interface NavSection {
@@ -28,7 +31,9 @@ export interface NavSection {
   href?: string;
   implemented?: boolean;
   pinBottom?: boolean;
-  permission?: string; // Permission required to view this section
+  // NEW: Permission requirements
+  requiredPermission?: string;
+  requiredAnyPermission?: string[];
   children?: NavItem[];
 }
 
@@ -180,13 +185,12 @@ export const navigation: NavSection[] = [
     icon: Plug,
     href: '/integrations',
     implemented: true,
-    // No permission required for now - backward compatibility
-    // Will require 'view_integrations' after database migration
+    requiredAnyPermission: ['view_integrations', 'import_data', 'export_data', 'run_transformations'],
     children: [
-      { id: 'integrations-overview', label: 'Overview', href: '/integrations', implemented: true },
-      { id: 'imports', label: 'Import Files', href: '/integrations/imports', implemented: true },
-      { id: 'transformations', label: 'Transformations', href: '/integrations/transformations', implemented: true },
-      { id: 'exports', label: 'Exports', href: '/integrations/exports', implemented: true },
+      { id: 'integrations-overview', label: 'Overview', href: '/integrations', implemented: true, requiredPermission: 'view_integrations' },
+      { id: 'imports', label: 'Import Files', href: '/integrations/imports', implemented: true, requiredPermission: 'import_data' },
+      { id: 'transformations', label: 'Transformations', href: '/integrations/transformations', implemented: true, requiredPermission: 'run_transformations' },
+      { id: 'exports', label: 'Exports', href: '/integrations/exports', implemented: true, requiredPermission: 'export_data' },
       { id: 'channels', label: 'Channels', href: '/integrations/channels', implemented: false },
       { id: 'carriers', label: 'Carriers', href: '/integrations/carriers', implemented: false },
       { id: 'edi', label: 'EDI Status', href: '/integrations/edi', implemented: false },
@@ -200,11 +204,11 @@ export const navigation: NavSection[] = [
     href: '/settings',
     implemented: true,
     pinBottom: true,
-    // No permission required for now - backward compatibility
-    // Will require 'view_settings' after database migration
+    // Show if user can access ANY settings page
+    requiredAnyPermission: ['view_users', 'manage_users', 'view_roles', 'manage_roles'],
     children: [
-      { id: 'users', label: 'Users & Roles', href: '/settings/users', implemented: true },
-      { id: 'roles', label: 'Role Permissions', href: '/settings/roles', implemented: true },
+      { id: 'users', label: 'Users & Roles', href: '/settings/users', implemented: true, requiredAnyPermission: ['view_users', 'manage_users'] },
+      { id: 'roles', label: 'Role Permissions', href: '/settings/roles', implemented: true, requiredAnyPermission: ['view_roles', 'manage_roles'] },
       { id: 'company', label: 'Company Settings', href: '/settings/company', implemented: false },
       { id: 'warehouse', label: 'Warehouse Setup', href: '/settings/warehouse', implemented: false },
       { id: 'billing-rules', label: 'Billing Rules', href: '/settings/billing-rules', implemented: false },

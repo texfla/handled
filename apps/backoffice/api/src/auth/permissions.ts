@@ -9,6 +9,8 @@ export const PERMISSIONS = {
   // Admin permissions
   MANAGE_USERS: 'manage_users',
   MANAGE_ROLES: 'manage_roles',
+  VIEW_USERS: 'view_users',
+  VIEW_ROLES: 'view_roles',
   
   // Data management permissions (legacy - now under integrations)
   VIEW_DATA: 'view_data',
@@ -73,6 +75,16 @@ export const PERMISSION_INFO: Record<Permission, {
   [PERMISSIONS.MANAGE_ROLES]: {
     name: 'Manage Roles',
     description: 'Configure role permissions',
+    category: PERMISSION_CATEGORIES.ADMIN,
+  },
+  [PERMISSIONS.VIEW_USERS]: {
+    name: 'View Users',
+    description: 'View user list and details',
+    category: PERMISSION_CATEGORIES.ADMIN,
+  },
+  [PERMISSIONS.VIEW_ROLES]: {
+    name: 'View Roles',
+    description: 'View role structure and permissions',
     category: PERMISSION_CATEGORIES.ADMIN,
   },
 

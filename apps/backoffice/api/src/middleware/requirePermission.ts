@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { lucia } from '../auth/lucia.js';
 import { prismaPrimary } from '../db/index.js';
 import { sessionCache } from '../db/session-cache.js';
+import { hasEffectivePermission } from './permissions.js';
 import type { Permission } from '../auth/permissions.js';
 
 declare module 'fastify' {
@@ -10,16 +11,14 @@ declare module 'fastify' {
       id: string;
       email: string;
       name: string;
-      roleId: number;
-      roleName: string;
-      roleCode: string;
       permissions: string[];
+      isAdmin: boolean;
     };
   }
 }
 
 /**
- * Load user with role and permissions into request
+ * Load user with roles and permissions into request
  */
 async function loadUserWithPermissions(request: FastifyRequest, reply: FastifyReply) {
   // Read session from cookie
@@ -35,52 +34,58 @@ async function loadUserWithPermissions(request: FastifyRequest, reply: FastifyRe
     () => lucia.validateSession(sessionId)
   );
   
-  if (!session) {
+  if (!session || !sessionUser) {
     return reply.status(401).send({ error: 'Invalid session' });
   }
 
-  // Get full user with role and permissions from PRIMARY DB
+  // Fetch user with roles and permissions
   const user = await prismaPrimary.user.findUnique({
     where: { id: sessionUser.id },
     include: {
-      userRole: {
+      userRoles: {
         include: {
-          rolePermissions: {
-            where: { granted: true },
+          role: {
             include: {
-              permission: true,
-            },
-          },
-        },
-      },
-    },
+              rolePermissions: {
+                where: { granted: true },
+                include: { permission: true }
+              }
+            }
+          }
+        }
+      }
+    }
   });
 
   if (!user) {
-    return reply.status(401).send({ error: 'User not found' });
+    return reply.status(404).send({ error: 'User not found' });
   }
 
   if (user.disabled) {
     return reply.status(403).send({ error: 'Account is disabled' });
   }
 
-  // Extract permissions
-  const permissions = user.userRole.rolePermissions.map(rp => rp.permission.code);
+  // Flatten permissions from all roles
+  const permissionsSet = new Set<string>();
+  for (const userRole of user.userRoles) {
+    for (const rolePerm of userRole.role.rolePermissions) {
+      permissionsSet.add(rolePerm.permission.code);
+    }
+  }
+  const permissions = Array.from(permissionsSet);
 
-  // Attach enriched user to request
+  // Attach user to request
   request.user = {
     id: user.id,
     email: user.email,
     name: user.name,
-    roleId: user.userRole.id,
-    roleName: user.userRole.name,
-    roleCode: user.userRole.code,
     permissions,
+    isAdmin: user.userRoles.some(ur => ur.role.code === 'admin')
   };
 }
 
 /**
- * Middleware: Require specific permission
+ * Middleware: Require specific permission (with implications)
  */
 export function requirePermission(permission: Permission | string) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
@@ -90,18 +95,20 @@ export function requirePermission(permission: Permission | string) {
       if (reply.sent) return; // Error response already sent
     }
 
-    // Check permission
-    if (!request.user!.permissions.includes(permission)) {
+    // Check permission with implications
+    const hasAccess = hasEffectivePermission(request.user!.permissions, permission);
+
+    if (!hasAccess) {
       return reply.status(403).send({ 
-        error: 'Permission denied',
-        required: permission,
+        error: 'Forbidden',
+        message: `This action requires the '${permission}' permission`
       });
     }
   };
 }
 
 /**
- * Middleware: Require ANY of the specified permissions (OR logic)
+ * Middleware: Require ANY of the specified permissions (OR logic with implications)
  */
 export function requireAnyPermission(...permissions: (Permission | string)[]) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
@@ -111,8 +118,8 @@ export function requireAnyPermission(...permissions: (Permission | string)[]) {
       if (reply.sent) return;
     }
 
-    // Check if user has at least one permission
-    const hasAny = permissions.some(p => request.user!.permissions.includes(p));
+    // Check if user has at least one permission (with implications)
+    const hasAny = permissions.some(p => hasEffectivePermission(request.user!.permissions, p));
     
     if (!hasAny) {
       return reply.status(403).send({ 
@@ -124,7 +131,7 @@ export function requireAnyPermission(...permissions: (Permission | string)[]) {
 }
 
 /**
- * Middleware: Require ALL specified permissions (AND logic)
+ * Middleware: Require ALL specified permissions (AND logic with implications)
  */
 export function requireAllPermissions(...permissions: (Permission | string)[]) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
@@ -134,9 +141,9 @@ export function requireAllPermissions(...permissions: (Permission | string)[]) {
       if (reply.sent) return;
     }
 
-    // Check if user has all permissions
+    // Check if user has all permissions (with implications)
     const missingPermissions = permissions.filter(
-      p => !request.user!.permissions.includes(p)
+      p => !hasEffectivePermission(request.user!.permissions, p)
     );
     
     if (missingPermissions.length > 0) {
@@ -149,7 +156,7 @@ export function requireAllPermissions(...permissions: (Permission | string)[]) {
 }
 
 /**
- * Middleware: Require admin role (backward compatible)
+ * Middleware: Require admin role (checks if ANY role is admin)
  * Admin role should have all permissions, but this provides a shortcut
  */
 export async function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
@@ -160,7 +167,7 @@ export async function requireAdmin(request: FastifyRequest, reply: FastifyReply)
   }
 
   // Check if user has admin role
-  if (request.user!.roleCode !== 'admin') {
+  if (!request.user!.isAdmin) {
     return reply.status(403).send({ error: 'Admin access required' });
   }
 }

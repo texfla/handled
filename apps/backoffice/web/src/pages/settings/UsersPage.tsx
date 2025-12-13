@@ -45,12 +45,10 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: string;
-  roleId: number;
+  roles: Role[];  // CHANGED: Array of roles
   disabled: boolean;
   createdAt: string;
   updatedAt?: string;
-  userRole: Role;
 }
 
 export function UsersPage() {
@@ -66,45 +64,55 @@ export function UsersPage() {
     email: '',
     password: '',
     name: '',
-    roleId: 0,
+    roleIds: [] as number[],  // CHANGED: Array of role IDs
   });
   const [newPassword, setNewPassword] = useState('');
 
   const { data: rolesData, isLoading: rolesLoading } = useQuery({
     queryKey: ['roles'],
     queryFn: () => api.get<{ roles: Role[] }>('/api/roles'),
+    staleTime: 0, // Always fetch fresh data on admin pages
+    gcTime: 0, // Don't cache results (was cacheTime in v4)
+    refetchOnMount: true, // Refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when tab regains focus
   });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-users'],
     queryFn: () => api.get<{ users: User[] }>('/api/admin/users'),
+    staleTime: 0, // Always fetch fresh data on admin pages
+    gcTime: 0, // Don't cache results (was cacheTime in v4)
+    refetchOnMount: true, // Refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when tab regains focus
   });
 
-  // Initialize roleId with default role when roles data loads
+  // Initialize roleIds with default admin role when roles data loads
   useEffect(() => {
-    if (rolesData?.roles && formData.roleId === 0) {
+    if (rolesData?.roles && formData.roleIds.length === 0) {
       const defaultRole = rolesData.roles.find(r => r.code === 'admin') || rolesData.roles[0];
       if (defaultRole) {
-        setFormData(prev => ({ ...prev, roleId: defaultRole.id }));
+        setFormData(prev => ({ ...prev, roleIds: [defaultRole.id] }));
       }
     }
-  }, [rolesData, formData.roleId]);
+  }, [rolesData, formData.roleIds]);
 
   const createMutation = useMutation({
-    mutationFn: (data: { email: string; password: string; name: string; roleId: number }) =>
+    mutationFn: (data: { email: string; password: string; name: string; roleIds: number[] }) =>
       api.post('/api/admin/users', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['roles'] }); // Refresh role user counts
       setIsCreateDialogOpen(false);
       resetForm();
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...data }: { id: string; email?: string; name?: string; roleId?: number }) =>
+    mutationFn: ({ id, ...data }: { id: string; email?: string; name?: string; roleIds?: number[] }) =>
       api.put(`/api/admin/users/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['roles'] }); // Refresh role user counts
       setEditingUser(null);
       resetForm();
     },
@@ -125,6 +133,7 @@ export function UsersPage() {
       api.post(`/api/admin/users/${id}/${disabled ? 'disable' : 'enable'}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['roles'] }); // Refresh role user counts
     },
   });
 
@@ -132,13 +141,14 @@ export function UsersPage() {
     mutationFn: (id: string) => api.delete(`/api/admin/users/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['roles'] }); // Refresh role user counts
       setDeleteUser(null);
     },
   });
 
   const resetForm = () => {
     const defaultRole = rolesData?.roles.find(r => r.code === 'admin') || rolesData?.roles[0];
-    setFormData({ email: '', password: '', name: '', roleId: defaultRole?.id || 0 });
+    setFormData({ email: '', password: '', name: '', roleIds: defaultRole ? [defaultRole.id] : [] });
   };
 
   const handleCreate = (e: React.FormEvent) => {
@@ -153,7 +163,7 @@ export function UsersPage() {
       id: editingUser.id,
       email: formData.email,
       name: formData.name,
-      roleId: formData.roleId,
+      roleIds: formData.roleIds,
     });
   };
 
@@ -171,7 +181,7 @@ export function UsersPage() {
       email: user.email,
       password: '',
       name: user.name,
-      roleId: user.roleId,
+      roleIds: user.roles.map(r => r.id),
     });
     setEditingUser(user);
   };
@@ -253,30 +263,33 @@ export function UsersPage() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select
-                    value={formData.roleId.toString()}
-                    onValueChange={(value) => setFormData({ ...formData, roleId: parseInt(value) })}
-                    disabled={rolesLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={rolesLoading ? "Loading roles..." : "Select role"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map(role => (
-                        <SelectItem key={role.id} value={role.id.toString()}>
-                          {role.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Roles</Label>
+                  <div className="space-y-2 border rounded-md p-3 max-h-48 overflow-y-auto">
+                    {roles.map(role => (
+                      <label key={role.id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.roleIds.includes(role.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({ ...formData, roleIds: [...formData.roleIds, role.id] });
+                            } else {
+                              setFormData({ ...formData, roleIds: formData.roleIds.filter(id => id !== role.id) });
+                            }
+                          }}
+                          className="h-4 w-4"
+                        />
+                        <span className="text-sm">{role.name}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={createMutation.isPending || formData.roleId === 0}>
+                <Button type="submit" disabled={createMutation.isPending || formData.roleIds.length === 0}>
                   {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Create User
                 </Button>
@@ -349,12 +362,19 @@ export function UsersPage() {
                     key={user.id}
                     className={user.disabled ? 'bg-muted/50 opacity-75' : ''}
                   >
-                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap">{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      <Badge variant={user.userRole.code === 'admin' ? 'default' : 'secondary'}>
-                        {user.userRole.name}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        {user.roles.map(role => (
+                          <Badge 
+                            key={role.id}
+                            variant={role.code === 'admin' ? 'default' : 'secondary'}
+                          >
+                            {role.name}
+                          </Badge>
+                        ))}
+                      </div>
                     </TableCell>
                     <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>
@@ -441,30 +461,33 @@ export function UsersPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit-role">Role</Label>
-                <Select
-                  value={formData.roleId.toString()}
-                  onValueChange={(value) => setFormData({ ...formData, roleId: parseInt(value) })}
-                  disabled={rolesLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={rolesLoading ? "Loading roles..." : "Select role"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roles.map(role => (
-                      <SelectItem key={role.id} value={role.id.toString()}>
-                        {role.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Roles</Label>
+                <div className="space-y-2 border rounded-md p-3 max-h-48 overflow-y-auto">
+                  {roles.map(role => (
+                    <label key={role.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.roleIds.includes(role.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData({ ...formData, roleIds: [...formData.roleIds, role.id] });
+                          } else {
+                            setFormData({ ...formData, roleIds: formData.roleIds.filter(id => id !== role.id) });
+                          }
+                        }}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-sm">{role.name}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditingUser(null)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={updateMutation.isPending || formData.roleId === 0}>
+              <Button type="submit" disabled={updateMutation.isPending || formData.roleIds.length === 0}>
                 {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Save Changes
               </Button>

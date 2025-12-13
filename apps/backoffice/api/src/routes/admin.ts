@@ -10,14 +10,18 @@ interface CreateUserBody {
   email: string;
   password: string;
   name: string;
-  roleId: number;
+  roleIds: number[];  // CHANGED: Array of role IDs
 }
 
 interface UpdateUserBody {
   email?: string;
   name?: string;
-  roleId?: number;
+  roleIds?: number[];  // CHANGED: Array of role IDs
   disabled?: boolean;
+}
+
+interface AssignRolesBody {
+  roleIds: number[];
 }
 
 interface ResetPasswordBody {
@@ -35,26 +39,32 @@ export async function adminRoutes(fastify: FastifyInstance) {
   // GET /api/admin/users - List all users
   fastify.get('/users', async (_request, reply) => {
     const users = await prismaPrimary.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        roleId: true,
-        disabled: true,
-        createdAt: true,
-        updatedAt: true,
-        userRole: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
+      include: {
+        userRoles: {
+          include: {
+            role: true
+          }
+        }
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: 'desc' }
     });
-    return reply.send({ users });
+
+    return reply.send({
+      users: users.map(u => ({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        disabled: u.disabled,
+        // CHANGED: Array of roles
+        roles: u.userRoles.map(ur => ({
+          id: ur.role.id,
+          code: ur.role.code,
+          name: ur.role.name
+        })),
+        createdAt: u.createdAt,
+        updatedAt: u.updatedAt
+      }))
+    });
   });
 
   // GET /api/admin/users/:id - Get single user
@@ -63,39 +73,43 @@ export async function adminRoutes(fastify: FastifyInstance) {
     
     const user = await prismaPrimary.user.findUnique({
       where: { id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        roleId: true,
-        disabled: true,
-        createdAt: true,
-        updatedAt: true,
-        userRole: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-      },
+      include: {
+        userRoles: {
+          include: {
+            role: true
+          }
+        }
+      }
     });
 
     if (!user) {
       return reply.status(404).send({ error: 'User not found' });
     }
 
-    return reply.send({ user });
+    return reply.send({ 
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        disabled: user.disabled,
+        roles: user.userRoles.map(ur => ({
+          id: ur.role.id,
+          code: ur.role.code,
+          name: ur.role.name
+        })),
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      }
+    });
   });
 
   // POST /api/admin/users - Create new user
   fastify.post<{ Body: CreateUserBody }>('/users', async (request, reply) => {
-    const { email, password, name, roleId } = request.body;
+    const { email, password, name, roleIds } = request.body;
 
-    // Validate required fields
-    if (!email || !password || !name || !roleId) {
-      return reply.status(400).send({ error: 'Email, password, name, and roleId are required' });
+    // Validate roleIds
+    if (!roleIds || roleIds.length === 0) {
+      return reply.status(400).send({ error: 'At least one role is required' });
     }
 
     // Check if email already exists
@@ -107,120 +121,94 @@ export async function adminRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'Email already in use' });
     }
 
-    // Verify role exists
-    const roleExists = await prismaPrimary.role.findUnique({
-      where: { id: roleId },
-    });
-
-    if (!roleExists) {
-      return reply.status(400).send({ error: 'Invalid role' });
-    }
-
     // Hash password
     const hashedPassword = await new Argon2id().hash(password);
     const userId = generateId(15);
 
-    // Create user - set both role (deprecated) and roleId for migration compatibility
+    // Create user
     const user = await prismaPrimary.user.create({
       data: {
         id: userId,
         email,
         hashedPassword,
         name,
-        role: roleExists.code,
-        roleId,
-        disabled: false,
+        // Create role assignments
+        userRoles: {
+          create: roleIds.map(roleId => ({
+            roleId
+          }))
+        }
       },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        roleId: true,
-        disabled: true,
-        createdAt: true,
-        userRole: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-      },
+      include: {
+        userRoles: {
+          include: { role: true }
+        }
+      }
     });
 
-    return reply.status(201).send({ user });
+    return reply.status(201).send({
+      message: 'User created successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        roles: user.userRoles.map(ur => ({
+          id: ur.role.id,
+          code: ur.role.code,
+          name: ur.role.name
+        }))
+      }
+    });
   });
 
   // PUT /api/admin/users/:id - Update user
   fastify.put<{ Params: UserParams; Body: UpdateUserBody }>('/users/:id', async (request, reply) => {
     const { id } = request.params;
-    const { email, name, roleId, disabled } = request.body;
+    const { email, name, roleIds, disabled } = request.body;
 
-    // Check user exists
-    const existingUser = await prismaPrimary.user.findUnique({
-      where: { id },
-    });
-
-    if (!existingUser) {
-      return reply.status(404).send({ error: 'User not found' });
-    }
-
-    // If changing email, check it's not already in use
-    if (email && email !== existingUser.email) {
-      const emailInUse = await prismaPrimary.user.findUnique({
-        where: { email },
-      });
-      if (emailInUse) {
-        return reply.status(400).send({ error: 'Email already in use' });
-      }
-    }
-
-    // If changing role, verify it exists and update both role and roleId
-    let roleCode: string | undefined;
-    if (roleId !== undefined) {
-      const newRole = await prismaPrimary.role.findUnique({
-        where: { id: roleId },
-      });
-      if (!newRole) {
-        return reply.status(400).send({ error: 'Invalid role' });
-      }
-      roleCode = newRole.code;
-    }
-
-    // Build update data
     const updateData: any = {};
-    if (email !== undefined) updateData.email = email;
-    if (name !== undefined) updateData.name = name;
-    if (roleId !== undefined) {
-      updateData.roleId = roleId;
-      updateData.role = roleCode; // Keep deprecated field in sync
-    }
+    if (email) updateData.email = email;
+    if (name) updateData.name = name;
     if (disabled !== undefined) updateData.disabled = disabled;
+
+    // If roleIds provided, update role assignments
+    if (roleIds !== undefined) {
+      // Delete existing assignments
+      await prismaPrimary.userRole.deleteMany({
+        where: { userId: id }
+      });
+
+      // Create new assignments
+      updateData.userRoles = {
+        create: roleIds.map(roleId => ({
+          roleId
+        }))
+      };
+    }
 
     const user = await prismaPrimary.user.update({
       where: { id },
       data: updateData,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        roleId: true,
-        disabled: true,
-        createdAt: true,
-        updatedAt: true,
-        userRole: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-      },
+      include: {
+        userRoles: {
+          include: { role: true }
+        }
+      }
     });
 
-    return reply.send({ user });
+    return reply.send({
+      message: 'User updated successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        roles: user.userRoles.map(ur => ({
+          id: ur.role.id,
+          code: ur.role.code,
+          name: ur.role.name
+        }))
+      }
+    });
   });
 
   // POST /api/admin/users/:id/reset-password - Reset user password
@@ -280,19 +268,13 @@ export async function adminRoutes(fastify: FastifyInstance) {
     const user = await prismaPrimary.user.update({
       where: { id },
       data: { disabled: true },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        roleId: true,
-        disabled: true,
-        userRole: {
-          select: {
-            name: true,
-          },
-        },
-      },
+      include: {
+        userRoles: {
+          include: {
+            role: true
+          }
+        }
+      }
     });
 
     // Get all session IDs for this user before deleting them
@@ -311,7 +293,20 @@ export async function adminRoutes(fastify: FastifyInstance) {
       sessionCache.invalidate(session.id);
     });
 
-    return reply.send({ user, message: 'User disabled successfully' });
+    return reply.send({ 
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        disabled: user.disabled,
+        roles: user.userRoles.map(ur => ({
+          id: ur.role.id,
+          code: ur.role.code,
+          name: ur.role.name
+        }))
+      },
+      message: 'User disabled successfully' 
+    });
   });
 
   // POST /api/admin/users/:id/enable - Enable user
@@ -321,22 +316,29 @@ export async function adminRoutes(fastify: FastifyInstance) {
     const user = await prismaPrimary.user.update({
       where: { id },
       data: { disabled: false },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        roleId: true,
-        disabled: true,
-        userRole: {
-          select: {
-            name: true,
-          },
-        },
-      },
+      include: {
+        userRoles: {
+          include: {
+            role: true
+          }
+        }
+      }
     });
 
-    return reply.send({ user, message: 'User enabled successfully' });
+    return reply.send({ 
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        disabled: user.disabled,
+        roles: user.userRoles.map(ur => ({
+          id: ur.role.id,
+          code: ur.role.code,
+          name: ur.role.name
+        }))
+      },
+      message: 'User enabled successfully' 
+    });
   });
 
   // DELETE /api/admin/users/:id - Delete user
@@ -374,6 +376,65 @@ export async function adminRoutes(fastify: FastifyInstance) {
     });
 
     return reply.send({ message: 'User deleted successfully' });
+  });
+
+  // NEW: POST /api/admin/users/:id/roles - Assign roles (dedicated endpoint)
+  fastify.post<{
+    Params: UserParams;
+    Body: AssignRolesBody;
+  }>('/users/:id/roles', async (request, reply) => {
+    const { id } = request.params;
+    const { roleIds } = request.body;
+
+    if (!roleIds || roleIds.length === 0) {
+      return reply.status(400).send({ error: 'At least one role is required' });
+    }
+
+    // Verify user exists
+    const user = await prismaPrimary.user.findUnique({
+      where: { id }
+    });
+
+    if (!user) {
+      return reply.status(404).send({ error: 'User not found' });
+    }
+
+    // Delete existing role assignments
+    await prismaPrimary.userRole.deleteMany({
+      where: { userId: id }
+    });
+
+    // Create new role assignments
+    await prismaPrimary.userRole.createMany({
+      data: roleIds.map(roleId => ({
+        userId: id,
+        roleId
+      }))
+    });
+
+    // Fetch updated user with roles
+    const updatedUser = await prismaPrimary.user.findUnique({
+      where: { id },
+      include: {
+        userRoles: {
+          include: { role: true }
+        }
+      }
+    });
+
+    return reply.send({
+      message: 'Roles updated successfully',
+      user: {
+        id: updatedUser!.id,
+        email: updatedUser!.email,
+        name: updatedUser!.name,
+        roles: updatedUser!.userRoles.map(ur => ({
+          id: ur.role.id,
+          code: ur.role.code,
+          name: ur.role.name
+        }))
+      }
+    });
   });
 }
 
