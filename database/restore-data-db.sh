@@ -9,6 +9,15 @@ set -e
 BACKUP_DIR="/var/backups/handled/data"
 DB_NAME="handled"
 DB_USER="handled_user"
+DB_HOST="localhost"
+DB_PORT="5432"
+
+# Try to read password from .env file if available
+ENV_FILE="/var/www/handled/apps/backoffice/api/.env"
+if [ -f "$ENV_FILE" ]; then
+    # Extract password from DATA_DATABASE_URL
+    export PGPASSWORD=$(grep DATA_DATABASE_URL "$ENV_FILE" | cut -d':' -f3 | cut -d'@' -f1)
+fi
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -57,7 +66,7 @@ fi
 
 # Drop and recreate schemas
 echo -e "\n${BLUE}→${NC} Dropping existing schemas..."
-psql -U "$DB_USER" -d "$DB_NAME" <<EOF
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" <<EOF
 DROP SCHEMA IF EXISTS workspace CASCADE;
 DROP SCHEMA IF EXISTS reference CASCADE;
 CREATE SCHEMA workspace;
@@ -73,7 +82,7 @@ fi
 
 # Restore from backup
 echo -e "${BLUE}→${NC} Restoring data from backup..."
-gunzip -c "$BACKUP_FILE" | psql -U "$DB_USER" -d "$DB_NAME"
+gunzip -c "$BACKUP_FILE" | psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME"
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓${NC} Data restored successfully"
@@ -84,8 +93,8 @@ fi
 
 # Verify restoration
 echo -e "${BLUE}→${NC} Verifying restoration..."
-WORKSPACE_TABLES=$(psql -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='workspace';")
-REFERENCE_TABLES=$(psql -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='reference';")
+WORKSPACE_TABLES=$(psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='workspace';")
+REFERENCE_TABLES=$(psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='reference';")
 
 echo -e "${GREEN}✓${NC} Workspace schema: ${WORKSPACE_TABLES} tables"
 echo -e "${GREEN}✓${NC} Reference schema: ${REFERENCE_TABLES} tables"

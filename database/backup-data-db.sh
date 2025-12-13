@@ -9,9 +9,18 @@ set -e
 BACKUP_DIR="/var/backups/handled/data"
 DB_NAME="handled"
 DB_USER="handled_user"
+DB_HOST="localhost"
+DB_PORT="5432"
 RETENTION_DAYS=14
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="handled_data_${DATE}.sql.gz"
+
+# Try to read password from .env file if available
+ENV_FILE="/var/www/handled/apps/backoffice/api/.env"
+if [ -f "$ENV_FILE" ]; then
+    # Extract password from DATA_DATABASE_URL
+    export PGPASSWORD=$(grep DATA_DATABASE_URL "$ENV_FILE" | cut -d':' -f3 | cut -d'@' -f1)
+fi
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -28,7 +37,7 @@ mkdir -p "$BACKUP_DIR"
 
 # Backup workspace and reference schemas
 echo -e "${BLUE}→${NC} Backing up workspace and reference schemas..."
-pg_dump -U "$DB_USER" -d "$DB_NAME" \
+pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
   --schema=workspace \
   --schema=reference \
   --format=plain \
