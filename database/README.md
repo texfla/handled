@@ -12,6 +12,88 @@ pnpm db:migrate
 pnpm db:migrate:status
 ```
 
+## Developer Setup (First Time)
+
+### One-Command Setup
+
+```bash
+# Run this once per machine (takes ~30 seconds)
+bash database/setup-dev-db.sh
+```
+
+This creates:
+- PostgreSQL user: `handled_user` (superuser, no password)
+- Database: `handled_dev`
+- Runs all migrations
+
+### Configure Environment
+
+```bash
+# Copy template (already configured for handled_user)
+cp apps/backoffice/api/env-template.txt apps/backoffice/api/.env
+
+# No changes needed! Template uses handled_user by default
+```
+
+### Start Developing
+
+```bash
+pnpm install
+pnpm dev
+```
+
+## Daily Workflow
+
+**Query the database:**
+```bash
+psql -U handled_user handled_dev
+
+# Or set PGUSER in your shell (~/.zshrc or ~/.bashrc):
+export PGUSER=handled_user
+# Then just use:
+psql handled_dev
+```
+
+**Run migrations:**
+```bash
+pnpm db:migrate  # Uses handled_user automatically
+```
+
+**Why handled_user?**
+- ✅ Consistent with production (same username)
+- ✅ Consistent object ownership
+- ✅ Simple onboarding (one user, one way)
+- ✅ No password needed for local dev
+
+## Local vs Production Database Users
+
+**Important:** The `handled_user` behaves differently in local vs production:
+
+### Local Development
+- `handled_user` is a **superuser** (created with `-s` flag)
+- Can create databases, run migrations without restrictions
+- No password required (PostgreSQL trust authentication)
+- More convenient for development workflow
+- Can run `pg_dump`, create test databases, etc.
+
+### Production
+- `handled_user` is a **regular user** with specific granted permissions
+- Cannot create databases or modify other users
+- Requires password authentication
+- More secure, reflects real-world constraints
+- Relies on explicit GRANT statements from migrations
+
+**Why the difference?**
+- Local dev prioritizes convenience (no permission roadblocks)
+- Catchall migrations ensure production has correct grants
+- You're not testing security boundaries in local dev
+- Production security is enforced by the migration system
+
+**What this means:**
+- If a migration works locally but fails in production with permission errors, you forgot a GRANT statement
+- The catchall migrations (012, 005) fix any missing grants
+- New migrations should always include explicit GRANTs (see MIGRATION_TEMPLATE.sql)
+
 ## Directory Structure
 
 ```

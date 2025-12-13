@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -16,6 +16,8 @@ export function SidebarItem({ section }: SidebarItemProps) {
   const location = useLocation();
   const { isCollapsed, setIsMobileOpen, openSectionId, setOpenSectionId } = useSidebar();
   const { hasPermission, hasAnyPermission } = usePermissions();
+  const previousPathname = useRef(location.pathname);
+  const previousIsActive = useRef(false);
   
   // Check if section is active (current route is in this section)
   const isActive = section.href === '/' 
@@ -25,13 +27,6 @@ export function SidebarItem({ section }: SidebarItemProps) {
   // Accordion behavior: only one section open at a time
   const isOpen = openSectionId === section.id;
   
-  // Auto-expand when route changes to match this section
-  useEffect(() => {
-    if (isActive && section.children && section.children.length > 0) {
-      setOpenSectionId(section.id);
-    }
-  }, [isActive, section.id, section.children, setOpenSectionId]);
-
   // Check if user can see this section
   const canViewSection = (() => {
     if (section.requiredPermission) {
@@ -40,40 +35,56 @@ export function SidebarItem({ section }: SidebarItemProps) {
     if (section.requiredAnyPermission) {
       return hasAnyPermission(...section.requiredAnyPermission);
     }
-    // Legacy: Check old permission property
-    if (section.permission && !hasPermission(section.permission)) {
-      return false;
-    }
     return true; // No permission required
   })();
+
+  // Filter children based on permissions (memoized for stable reference)
+  const visibleChildren = useMemo(() => {
+    return section.children?.filter(child => {
+      if (child.requiredPermission) {
+        return hasPermission(child.requiredPermission);
+      }
+      if (child.requiredAnyPermission) {
+        return hasAnyPermission(...child.requiredAnyPermission);
+      }
+      return true;
+    });
+  }, [section.children, hasPermission, hasAnyPermission]);
+
+  const hasChildren = visibleChildren && visibleChildren.length > 0;
+
+  // Auto-expand when route changes to match this section
+  // Only runs when section becomes active (wasn't active before, now is)
+  useEffect(() => {
+    const pathnameChanged = previousPathname.current !== location.pathname;
+    const becameActive = !previousIsActive.current && isActive;
+    
+    previousPathname.current = location.pathname;
+    previousIsActive.current = isActive;
+    
+    // Only auto-open if we navigated to this section AND it has visible children
+    if (pathnameChanged && becameActive && hasChildren) {
+      setOpenSectionId(section.id);
+    }
+  }, [location.pathname, isActive, section.id, hasChildren, setOpenSectionId]);
 
   if (!canViewSection) {
     return null; // Hide section completely
   }
 
-  // Filter children based on permissions
-  const visibleChildren = section.children?.filter(child => {
-    if (child.requiredPermission) {
-      return hasPermission(child.requiredPermission);
-    }
-    if (child.requiredAnyPermission) {
-      return hasAnyPermission(...child.requiredAnyPermission);
-    }
-    return true;
-  });
-
   // Hide section if it has children but none are visible
-  if (section.children && (!visibleChildren || visibleChildren.length === 0)) {
+  if (section.children && !hasChildren) {
     return null;
   }
 
   const Icon = section.icon;
-  const hasChildren = visibleChildren && visibleChildren.length > 0;
   const isImplemented = section.implemented !== false;
   
-  // Toggle handler for accordion behavior
-  const handleToggle = (open: boolean) => {
-    setOpenSectionId(open ? section.id : null);
+  // Manual toggle handler - takes full control instead of relying on Radix
+  const handleCollapsibleClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent Collapsible's default behavior
+    // Toggle: if this section is open, close it; otherwise open it (closing others)
+    setOpenSectionId(isOpen ? null : section.id);
   };
 
   const handleClick = () => {
@@ -165,9 +176,10 @@ export function SidebarItem({ section }: SidebarItemProps) {
   }
 
   return (
-    <Collapsible open={isOpen} onOpenChange={handleToggle}>
+    <Collapsible open={isOpen}>
       <CollapsibleTrigger asChild>
         <button
+          onClick={handleCollapsibleClick}
           className={cn(
             'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-250',
             // Active route gets primary border

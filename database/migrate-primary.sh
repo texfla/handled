@@ -1,5 +1,17 @@
 #!/bin/bash
-# Database Migration Runner for PRIMARY DB (DBaaS)
+#
+# PRIMARY Database Migration Runner
+# 
+# IMPORTANT: Migrations run as handled_user (from PRIMARY_DATABASE_URL)
+# This ensures consistent object ownership and permission grants
+#
+# Usage:
+#   ./migrate-primary.sh          # Run pending migrations
+#   ./migrate-primary.sh --force  # Force mode (skip some safety checks)
+#   ./migrate-primary.sh --repair # Repair mode (fix schema mismatches)
+#   ./migrate-primary.sh --verify # Verify permissions after migration
+#
+# Database: PRIMARY DB (DBaaS)
 # Contains: config schema + customer schema
 # Intelligently runs only new migrations and tracks execution
 # Enhanced with validation and data protection
@@ -9,6 +21,7 @@ set -e  # Exit on any error
 # Configuration
 MIGRATIONS_DIR="$(dirname "$0")/migrations-primary"
 FORCE_MODE=false
+VERIFY_MODE=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -21,9 +34,13 @@ while [[ $# -gt 0 ]]; do
             REPAIR_MODE=true
             shift
             ;;
+        --verify)
+            VERIFY_MODE=true
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--force] [--repair]"
+            echo "Usage: $0 [--force] [--repair] [--verify]"
             exit 1
             ;;
     esac
@@ -296,4 +313,92 @@ else
     print_info "This may indicate a permission or transaction issue."
     print_fix "Try running with --repair flag to investigate"
     exit 1
+fi
+
+# ============================================
+# OPTIONAL: Verify Permissions
+# ============================================
+if [ "$VERIFY_MODE" = true ]; then
+    echo ""
+    print_header "Verifying handled_user Permissions"
+    
+    print_info "Checking table permissions for handled_user in config and customer schemas..."
+    echo ""
+    
+    echo "TABLE PERMISSIONS:"
+    psql "$PRIMARY_DATABASE_URL" <<SQL
+SELECT 
+  schemaname, 
+  tablename,
+  has_table_privilege('handled_user', schemaname||'.'||tablename, 'SELECT') as read,
+  has_table_privilege('handled_user', schemaname||'.'||tablename, 'INSERT') as insert,
+  has_table_privilege('handled_user', schemaname||'.'||tablename, 'UPDATE') as update,
+  has_table_privilege('handled_user', schemaname||'.'||tablename, 'DELETE') as delete
+FROM pg_tables 
+WHERE schemaname IN ('config', 'customer')
+ORDER BY schemaname, tablename;
+SQL
+    
+    echo ""
+    print_info "Checking sequence permissions (needed for SERIAL columns)..."
+    echo ""
+    
+    echo "SEQUENCE PERMISSIONS:"
+    psql "$PRIMARY_DATABASE_URL" <<SQL
+SELECT 
+  schemaname, 
+  sequencename,
+  has_sequence_privilege('handled_user', schemaname||'.'||sequencename, 'USAGE') as usage,
+  has_sequence_privilege('handled_user', schemaname||'.'||sequencename, 'SELECT') as select
+FROM pg_sequences 
+WHERE schemaname IN ('config', 'customer')
+ORDER BY schemaname, sequencename;
+SQL
+    
+    echo ""
+    print_info "Analyzing results..."
+    
+    # Count tables with missing permissions
+    TABLE_ISSUES=$(psql "$PRIMARY_DATABASE_URL" -t -c "
+SELECT COUNT(*)
+FROM pg_tables 
+WHERE schemaname IN ('config', 'customer')
+  AND NOT (
+    has_table_privilege('handled_user', schemaname||'.'||tablename, 'SELECT') AND
+    has_table_privilege('handled_user', schemaname||'.'||tablename, 'INSERT') AND
+    has_table_privilege('handled_user', schemaname||'.'||tablename, 'UPDATE') AND
+    has_table_privilege('handled_user', schemaname||'.'||tablename, 'DELETE')
+  );
+" | tr -d ' ')
+    
+    # Count sequences with missing permissions
+    SEQ_ISSUES=$(psql "$PRIMARY_DATABASE_URL" -t -c "
+SELECT COUNT(*)
+FROM pg_sequences 
+WHERE schemaname IN ('config', 'customer')
+  AND NOT has_sequence_privilege('handled_user', schemaname||'.'||sequencename, 'USAGE');
+" | tr -d ' ')
+    
+    TOTAL_ISSUES=$((TABLE_ISSUES + SEQ_ISSUES))
+    
+    echo ""
+    if [ "$TOTAL_ISSUES" = "0" ]; then
+        print_success "✓ All objects accessible by handled_user"
+        print_success "✓ Tables: All permissions granted"
+        print_success "✓ Sequences: All permissions granted"
+    else
+        print_warning "⚠ Found permission issues:"
+        if [ "$TABLE_ISSUES" != "0" ]; then
+            print_error "  - $TABLE_ISSUES tables with missing permissions"
+        fi
+        if [ "$SEQ_ISSUES" != "0" ]; then
+            print_error "  - $SEQ_ISSUES sequences with missing permissions"
+        fi
+        echo ""
+        print_fix "To fix, run the catchall migration:"
+        print_fix "  psql \"\$PRIMARY_DATABASE_URL\" -f database/migrations-primary/012_ensure_db_permissions.sql"
+        echo ""
+        print_warning "Then verify again:"
+        print_fix "  bash database/migrate-primary.sh --verify"
+    fi
 fi

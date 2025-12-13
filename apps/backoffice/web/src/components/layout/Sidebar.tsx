@@ -82,12 +82,14 @@ export function Sidebar() {
           </nav>
         </ScrollArea>
 
-        {/* Bottom section */}
-        <div className="mt-auto border-t border-slate-800 px-3 py-4">
-          {bottomNavigation.map((section) => (
-            <SidebarItem key={section.id} section={section} />
-          ))}
-        </div>
+        {/* Bottom section - only render if not empty */}
+        {bottomNavigation.length > 0 && (
+          <div className="mt-auto border-t border-slate-800 px-3 py-4">
+            {bottomNavigation.map((section) => (
+              <SidebarItem key={section.id} section={section} />
+            ))}
+          </div>
+        )}
       </aside>
     </TooltipProvider>
   );

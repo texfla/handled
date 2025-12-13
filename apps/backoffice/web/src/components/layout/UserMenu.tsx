@@ -1,6 +1,7 @@
-import { User, LogOut, Settings } from 'lucide-react';
+import { User, LogOut, Settings, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useSidebar } from './SidebarContext';
 import { Button } from '../ui/button';
 import {
   DropdownMenu,
@@ -13,8 +14,14 @@ import {
 
 export function UserMenu() {
   const { user, logout } = useAuth();
+  const { setOpenSectionId } = useSidebar();
 
   if (!user) return null;
+
+  // Handler to close sidebar sections when navigating
+  const handleNavigation = () => {
+    setOpenSectionId(null);
+  };
 
   return (
     <DropdownMenu>
@@ -34,13 +41,32 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        
+        {/* Personal Settings */}
         <DropdownMenuItem asChild>
-          <Link to="/settings/users" className="cursor-pointer">
-            <Settings className="mr-2 h-4 w-4" />
-            Settings
+          <Link to="/profile" className="cursor-pointer" onClick={handleNavigation}>
+            <User className="mr-2 h-4 w-4" />
+            My Profile
           </Link>
         </DropdownMenuItem>
+
+        <DropdownMenuItem asChild>
+          <Link to="/profile/account" className="cursor-pointer" onClick={handleNavigation}>
+            <Settings className="mr-2 h-4 w-4" />
+            Account Settings
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem asChild>
+          <Link to="/profile/activity" className="cursor-pointer" onClick={handleNavigation}>
+            <Activity className="mr-2 h-4 w-4" />
+            Activity Log
+          </Link>
+        </DropdownMenuItem>
+
         <DropdownMenuSeparator />
+        
+        {/* Logout */}
         <DropdownMenuItem onClick={() => logout()} className="cursor-pointer text-destructive focus:text-destructive">
           <LogOut className="mr-2 h-4 w-4" />
           Log out

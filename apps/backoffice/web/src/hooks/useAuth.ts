@@ -27,8 +27,8 @@ export function useAuth() {
     queryKey: ['auth', 'me'],
     queryFn: async () => {
       try {
-        const response = await api.get<{ user: User }>('/api/auth/me');
-        return response.user;
+        const response = await api.get<User>('/api/auth/me');
+        return response;
       } catch (error: any) {
         // If 401 (not authenticated), return null instead of throwing
         // This prevents console errors after logout

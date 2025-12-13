@@ -2,23 +2,26 @@
 
 # Database Configuration
 # =====================
+# Database User: handled_user (for all connections)
+# Local dev: Uses handled_dev database on localhost
+# Production: Uses separate primary/data databases
 
 # ┌─────────────────────────────────────────────────────────────────┐
-# │  LOCAL DEVELOPMENT (Simple Setup)                               │
+# │  LOCAL DEVELOPMENT (Default)                                    │
 # ├─────────────────────────────────────────────────────────────────┤
-# │  1. Set SPLIT_DB_MODE=false                                     │
-# │  2. Include your system username in connection string           │
-# │  3. Both URLs point to same database (handled_dev)              │
+# │  1. Run: bash database/setup-dev-db.sh (one-time setup)         │
+# │  2. Copy this file to .env (no changes needed!)                 │
+# │  3. Both URLs use handled_user and point to handled_dev         │
 # └─────────────────────────────────────────────────────────────────┘
 
 SPLIT_DB_MODE=false
-PRIMARY_DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/handled_dev"
-DATA_DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/handled_dev"
+PRIMARY_DATABASE_URL="postgresql://handled_user@localhost:5432/handled_dev"
+DATA_DATABASE_URL="postgresql://handled_user@localhost:5432/handled_dev"
 
 # ┌─────────────────────────────────────────────────────────────────┐
 # │  PRODUCTION (Split Database Setup)                              │
 # ├─────────────────────────────────────────────────────────────────┤
-# │  Uncomment and configure these for production deployment:       │
+# │  Set SPLIT_DB_MODE=true and configure separate databases:       │
 # └─────────────────────────────────────────────────────────────────┘
 
 # SPLIT_DB_MODE=true

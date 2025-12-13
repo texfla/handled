@@ -10,9 +10,14 @@ import { ImportsPage } from './pages/integrations/ImportsPage';
 import { TransformationsPage } from './pages/integrations/TransformationsPage';
 import { ExportsPage } from './pages/integrations/ExportsPage';
 
-// Settings
-import { UsersPage } from './pages/settings/UsersPage';
-import { RolesPage } from './pages/settings/RolesPage';
+// Profile
+import { ProfilePage } from './pages/profile/ProfilePage';
+import { AccountSettingsPage } from './pages/profile/AccountSettingsPage';
+import { ActivityLogPage } from './pages/profile/ActivityLogPage';
+
+// Admin
+import { UsersPage } from './pages/admin/UsersPage';
+import { RolesPage } from './pages/admin/RolesPage';
 
 // Placeholders
 import { ComingSoonPage } from './pages/placeholders/ComingSoonPage';
@@ -89,9 +94,16 @@ export default function App() {
           <Route path="webhooks" element={<ComingSoonPage />} />
         </Route>
 
-        {/* Settings - Partially Implemented */}
-        <Route path="settings">
-          <Route index element={<Navigate to="/settings/users" replace />} />
+        {/* Personal Profile - Accessible to all users */}
+        <Route path="profile">
+          <Route index element={<ProfilePage />} />
+          <Route path="account" element={<AccountSettingsPage />} />
+          <Route path="activity" element={<ActivityLogPage />} />
+        </Route>
+
+        {/* Administration - Admin only */}
+        <Route path="admin">
+          <Route index element={<Navigate to="/admin/users" replace />} />
           <Route path="users" element={<UsersPage />} />
           <Route path="roles" element={<RolesPage />} />
           <Route path="company" element={<ComingSoonPage />} />
@@ -100,6 +112,9 @@ export default function App() {
           <Route path="notifications" element={<ComingSoonPage />} />
           <Route path="audit-log" element={<ComingSoonPage />} />
         </Route>
+
+        {/* Redirect old settings URLs to admin */}
+        <Route path="settings/*" element={<Navigate to="/admin" replace />} />
 
         {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />

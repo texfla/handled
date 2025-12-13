@@ -11,18 +11,24 @@ Our migration system supports both **split-database** (production) and **single-
 ### Local Development (First Time Setup)
 
 ```bash
-# 1. Create database
-createdb handled_dev
+# 1. Run one-command setup (creates user, database, runs migrations)
+bash database/setup-dev-db.sh
 
-# 2. Set environment variables
-export PRIMARY_DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/handled_dev"
-export DATA_DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/handled_dev"
+# 2. Copy environment template
+cp apps/backoffice/api/env-template.txt apps/backoffice/api/.env
 
-# 3. Run all migrations
-pnpm db:migrate
-# OR
-bash database/migrate-all.sh
+# 3. Start developing
+pnpm install
+pnpm dev
 ```
+
+**That's it!** The setup script handles everything:
+- Creates `handled_user` (superuser for local dev)
+- Creates `handled_dev` database
+- Runs all migrations
+- Tests connections
+
+For more details, see the [Developer Setup section in README.md](README.md#developer-setup-first-time)
 
 ### Production (Split Database)
 
@@ -114,6 +120,145 @@ This prevents accidental data loss. Migrations use `IF NOT EXISTS` and won't dro
 
 ---
 
+## Permission Grants in Migrations
+
+**CRITICAL:** Every migration that creates new database objects **MUST** include permission grants.
+
+### Why This Matters
+
+In production, migrations might be run by different PostgreSQL users:
+- `postgres` (superuser)
+- `doadmin` (Digital Ocean admin)
+- `handled_user` (application user)
+
+When an admin user creates a table, they **own** it. Without explicit `GRANT` statements, the application user (`handled_user`) cannot access the table, causing **"Operation not permitted"** errors.
+
+### Required Grants
+
+#### For New Tables
+
+```sql
+-- Create the table
+CREATE TABLE config.my_table (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+-- MUST include this grant
+GRANT ALL ON TABLE config.my_table TO handled_user;
+```
+
+#### For New Sequences
+
+```sql
+-- Create the sequence
+CREATE SEQUENCE config.my_seq;
+
+-- MUST include this grant
+GRANT ALL ON SEQUENCE config.my_seq TO handled_user;
+```
+
+#### For New Functions
+
+```sql
+-- Create the function
+CREATE FUNCTION config.my_function() RETURNS TEXT AS $$
+BEGIN
+    RETURN 'hello';
+END;
+$$ LANGUAGE plpgsql;
+
+-- MUST include this grant
+GRANT ALL ON FUNCTION config.my_function TO handled_user;
+```
+
+#### When Creating a New Schema
+
+```sql
+-- Create the schema
+CREATE SCHEMA my_schema;
+
+-- Grant usage permission
+GRANT USAGE ON SCHEMA my_schema TO handled_user;
+
+-- Set default privileges for future objects
+ALTER DEFAULT PRIVILEGES FOR ROLE handled_user IN SCHEMA my_schema
+  GRANT ALL ON TABLES TO handled_user;
+  
+ALTER DEFAULT PRIVILEGES FOR ROLE handled_user IN SCHEMA my_schema
+  GRANT ALL ON SEQUENCES TO handled_user;
+  
+ALTER DEFAULT PRIVILEGES FOR ROLE handled_user IN SCHEMA my_schema
+  GRANT ALL ON FUNCTIONS TO handled_user;
+```
+
+### Using the Template
+
+The `MIGRATION_TEMPLATE.sql` includes a **PERMISSIONS** section with all the necessary grant statements. Always copy this template when creating new migrations:
+
+```bash
+cp database/MIGRATION_TEMPLATE.sql database/migrations-primary/013_my_feature.sql
+```
+
+### Catchall Migrations
+
+We have catchall migrations that fix any missing permissions:
+- `012_ensure_db_permissions.sql` (PRIMARY DB - config & customer schemas)
+- `005_ensure_db_permissions.sql` (DATA DB - workspace & reference schemas)
+
+These migrations:
+- Grant permissions on all existing tables/sequences/functions
+- Set default privileges for future objects
+- Handle production admin users (postgres, doadmin)
+
+**Important:** These catchall migrations are a safety net, not a replacement for proper grants in your migrations!
+
+### Verification
+
+After writing a migration, verify permissions:
+
+```bash
+# Run migration with verification (recommended)
+bash database/migrate-primary.sh --verify
+
+# This checks both tables AND sequences automatically
+# Sequences are critical - without USAGE permission, INSERTs fail on SERIAL columns
+```
+
+The `--verify` flag checks:
+- Table permissions (SELECT, INSERT, UPDATE, DELETE)
+- Sequence permissions (USAGE, SELECT) - critical for auto-increment IDs
+- Provides summary and fix suggestions
+
+All permissions should show `t` (true). If any show `f` (false), you forgot a GRANT statement!
+
+### Common Mistakes
+
+❌ **WRONG:** Creating a table without grants
+```sql
+CREATE TABLE config.customers (...);
+-- App will fail with "permission denied" in production
+```
+
+✅ **CORRECT:** Always include grants
+```sql
+CREATE TABLE config.customers (...);
+GRANT ALL ON TABLE config.customers TO handled_user;
+```
+
+❌ **WRONG:** Assuming local dev behavior matches production
+```
+Works on my machine!  (local handled_user is superuser)
+Fails in production!  (production handled_user needs explicit grants)
+```
+
+✅ **CORRECT:** Test with --verify flag
+```bash
+bash database/migrate-primary.sh --verify
+```
+
+---
+
 ## Troubleshooting
 
 ### Problem: "Schema does not exist" Error
@@ -159,10 +304,10 @@ psql -d handled_dev -c "CREATE SCHEMA IF NOT EXISTS workspace; CREATE SCHEMA IF 
 **Fix 3 - Full Reset (Nuclear Option):**
 ```bash
 dropdb handled_dev
-createdb handled_dev
-export PRIMARY_DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/handled_dev"
-export DATA_DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/handled_dev"
-bash database/migrate-all.sh
+dropuser handled_user
+
+# Re-run setup script
+bash database/setup-dev-db.sh
 ```
 
 ---
@@ -174,12 +319,17 @@ bash database/migrate-all.sh
 ERROR: permission denied for database handled_dev
 ```
 
-**Cause:** Connection string missing username
+**Cause:** Connection string missing username or wrong user
 
-**Fix:** Add your username to connection strings in `.env`:
+**Fix:** Ensure you're using `handled_user` in connection strings:
 ```env
-PRIMARY_DATABASE_URL="postgresql://donkey@localhost:5432/handled_dev"
-DATA_DATABASE_URL="postgresql://donkey@localhost:5432/handled_dev"
+PRIMARY_DATABASE_URL="postgresql://handled_user@localhost:5432/handled_dev"
+DATA_DATABASE_URL="postgresql://handled_user@localhost:5432/handled_dev"
+```
+
+If `handled_user` doesn't exist, run the setup script:
+```bash
+bash database/setup-dev-db.sh
 ```
 
 ---
@@ -213,17 +363,22 @@ DATA_DATABASE_URL="postgresql://donkey@localhost:5432/handled_dev"
 
 ### Local Development
 
-1. **Always set both URLs** (even in single-DB mode):
+1. **Run the setup script first** (one time per machine):
    ```bash
-   export PRIMARY_DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/handled_dev"
-   export DATA_DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/handled_dev"
+   bash database/setup-dev-db.sh
    ```
 
-2. **Use migrate-all.sh** instead of individual scripts
-
-3. **Check schema status** if something seems off:
+2. **Use handled_user** for all database connections:
    ```bash
-   psql -d handled_dev -c "\dn"
+   export PRIMARY_DATABASE_URL="postgresql://handled_user@localhost:5432/handled_dev"
+   export DATA_DATABASE_URL="postgresql://handled_user@localhost:5432/handled_dev"
+   ```
+
+3. **Use migrate-all.sh** instead of individual scripts
+
+4. **Check schema status** if something seems off:
+   ```bash
+   psql -U handled_user -d handled_dev -c "\dn"
    ```
 
 ### Production
@@ -243,8 +398,8 @@ DATA_DATABASE_URL="postgresql://donkey@localhost:5432/handled_dev"
 ### Single-DB Mode (Local Dev)
 ```env
 SPLIT_DB_MODE=false
-PRIMARY_DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/handled_dev"
-DATA_DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/handled_dev"
+PRIMARY_DATABASE_URL="postgresql://handled_user@localhost:5432/handled_dev"
+DATA_DATABASE_URL="postgresql://handled_user@localhost:5432/handled_dev"
 ```
 
 ### Split-DB Mode (Production)
@@ -257,6 +412,54 @@ DATA_DATABASE_URL="postgresql://handled_user:PASSWORD@localhost:5432/handled_dat
 ---
 
 ## Migration Script Flags
+
+### `--verify`
+Verifies that `handled_user` has proper permissions on all tables and sequences after migration.
+
+**Use when:**
+- You've just written a new migration
+- You want to check permission grants
+- Debugging "permission denied" errors
+- Verifying after running catchall migrations
+
+**Example:**
+```bash
+bash database/migrate-primary.sh --verify
+bash database/migrate-data.sh --verify
+```
+
+**What it checks:**
+- **Table permissions:** SELECT, INSERT, UPDATE, DELETE on all tables
+- **Sequence permissions:** USAGE, SELECT on all sequences (critical for SERIAL columns)
+- **Summary:** Reports count of objects with missing permissions
+- **Fix suggestions:** Provides exact commands to resolve issues
+
+**Output example:**
+```
+TABLE PERMISSIONS:
+ schemaname | tablename | read | insert | update | delete
+ config     | users     | t    | t      | t      | t
+ config     | roles     | t    | t      | t      | t
+
+SEQUENCE PERMISSIONS:
+ schemaname | sequencename  | usage | select
+ config     | users_id_seq  | t     | t
+ config     | roles_id_seq  | t     | t
+
+✓ All objects accessible by handled_user
+✓ Tables: All permissions granted
+✓ Sequences: All permissions granted
+```
+
+**If issues found:**
+```
+⚠ Found permission issues:
+  - 2 tables with missing permissions
+  - 1 sequences with missing permissions
+
+To fix, run the catchall migration:
+  psql "$PRIMARY_DATABASE_URL" -f database/migrations-primary/012_ensure_db_permissions.sql
+```
 
 ### `--repair`
 Re-runs schema creation migrations if tracking is out of sync with reality.

@@ -250,5 +250,113 @@ export async function authRoutes(fastify: FastifyInstance) {
       isAdmin
     });
   });
+
+  // Update profile
+  fastify.put('/profile', async (request, reply) => {
+    const sessionId = lucia.readSessionCookie(request.headers.cookie ?? '');
+    
+    if (!sessionId) {
+      return reply.status(401).send({ error: 'Not authenticated' });
+    }
+
+    const { session, user: sessionUser } = await sessionCache.get(
+      sessionId,
+      () => lucia.validateSession(sessionId)
+    );
+
+    if (!session || !sessionUser) {
+      return reply.status(401).send({ error: 'Invalid session' });
+    }
+
+    const body = request.body as { name?: string };
+
+    if (!body.name || !body.name.trim()) {
+      return reply.status(400).send({ error: 'Name is required' });
+    }
+
+    // Update user
+    const updatedUser = await prismaPrimary.user.update({
+      where: { id: sessionUser.id },
+      data: { name: body.name.trim() },
+      include: {
+        userRoles: {
+          include: {
+            role: true
+          }
+        }
+      }
+    });
+
+    // Invalidate session cache to force refresh
+    sessionCache.invalidate(sessionId);
+
+    return reply.send({
+      message: 'Profile updated successfully',
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+      }
+    });
+  });
+
+  // Change password
+  fastify.post('/change-password', async (request, reply) => {
+    const sessionId = lucia.readSessionCookie(request.headers.cookie ?? '');
+    
+    if (!sessionId) {
+      return reply.status(401).send({ error: 'Not authenticated' });
+    }
+
+    const { session, user: sessionUser } = await sessionCache.get(
+      sessionId,
+      () => lucia.validateSession(sessionId)
+    );
+
+    if (!session || !sessionUser) {
+      return reply.status(401).send({ error: 'Invalid session' });
+    }
+
+    const body = request.body as { currentPassword?: string; newPassword?: string };
+
+    // Validate input
+    if (!body.currentPassword || !body.newPassword) {
+      return reply.status(400).send({ error: 'Current and new passwords are required' });
+    }
+
+    if (body.newPassword.length < 8) {
+      return reply.status(400).send({ error: 'New password must be at least 8 characters' });
+    }
+
+    // Get user with hashed password
+    const user = await prismaPrimary.user.findUnique({
+      where: { id: sessionUser.id }
+    });
+
+    if (!user) {
+      return reply.status(404).send({ error: 'User not found' });
+    }
+
+    // Verify current password
+    const validPassword = await verifyPassword(user.hashedPassword, body.currentPassword);
+    
+    if (!validPassword) {
+      return reply.status(400).send({ error: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(body.newPassword);
+
+    // Update password
+    await prismaPrimary.user.update({
+      where: { id: user.id },
+      data: { hashedPassword }
+    });
+
+    // Invalidate all user sessions (force re-login on other devices)
+    await lucia.invalidateUserSessions(user.id);
+
+    return reply.send({ message: 'Password changed successfully. Please login again.' });
+  });
 }
 

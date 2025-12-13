@@ -40,6 +40,30 @@
 --     ON DELETE CASCADE;
 
 -- ==================================================
+-- PERMISSIONS
+-- ==================================================
+-- IMPORTANT: Grant permissions on new objects to handled_user
+-- This ensures the application can access these objects in production
+
+-- For new tables:
+-- GRANT ALL ON TABLE schema_name.table_name TO handled_user;
+
+-- For new sequences:
+-- GRANT ALL ON SEQUENCE schema_name.sequence_name TO handled_user;
+
+-- For new functions:
+-- GRANT ALL ON FUNCTION schema_name.function_name TO handled_user;
+
+-- If creating a new schema:
+-- GRANT USAGE ON SCHEMA schema_name TO handled_user;
+-- ALTER DEFAULT PRIVILEGES FOR ROLE handled_user IN SCHEMA schema_name
+--   GRANT ALL ON TABLES TO handled_user;
+-- ALTER DEFAULT PRIVILEGES FOR ROLE handled_user IN SCHEMA schema_name
+--   GRANT ALL ON SEQUENCES TO handled_user;
+-- ALTER DEFAULT PRIVILEGES FOR ROLE handled_user IN SCHEMA schema_name
+--   GRANT ALL ON FUNCTIONS TO handled_user;
+
+-- ==================================================
 -- DATA MIGRATION (if needed)
 -- ==================================================
 

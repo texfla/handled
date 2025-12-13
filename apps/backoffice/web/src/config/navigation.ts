@@ -10,7 +10,7 @@ import {
   Warehouse,
   BarChart3,
   Plug,
-  Settings,
+  Shield,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -198,29 +198,28 @@ export const navigation: NavSection[] = [
     ],
   },
   {
-    id: 'settings',
-    label: 'Settings',
-    icon: Settings,
-    href: '/settings',
+    id: 'administration',
+    label: 'Administration',
+    icon: Shield,
+    href: '/admin',
     implemented: true,
-    pinBottom: true,
-    // Show if user can access ANY settings page
+    // Show if user can access ANY admin page
     requiredAnyPermission: ['view_users', 'manage_users', 'view_roles', 'manage_roles'],
     children: [
-      { id: 'users', label: 'Users & Roles', href: '/settings/users', implemented: true, requiredAnyPermission: ['view_users', 'manage_users'] },
-      { id: 'roles', label: 'Role Permissions', href: '/settings/roles', implemented: true, requiredAnyPermission: ['view_roles', 'manage_roles'] },
-      { id: 'company', label: 'Company Settings', href: '/settings/company', implemented: false },
-      { id: 'warehouse', label: 'Warehouse Setup', href: '/settings/warehouse', implemented: false },
-      { id: 'billing-rules', label: 'Billing Rules', href: '/settings/billing-rules', implemented: false },
-      { id: 'notifications', label: 'Notifications', href: '/settings/notifications', implemented: false },
-      { id: 'audit-log', label: 'Audit Log', href: '/settings/audit-log', implemented: false },
+      { id: 'users', label: 'Users & Roles', href: '/admin/users', implemented: true, requiredAnyPermission: ['view_users', 'manage_users'] },
+      { id: 'roles', label: 'Role Permissions', href: '/admin/roles', implemented: true, requiredAnyPermission: ['view_roles', 'manage_roles'] },
+      { id: 'company', label: 'Company Settings', href: '/admin/company', implemented: false },
+      { id: 'warehouse', label: 'Warehouse Setup', href: '/admin/warehouse', implemented: false },
+      { id: 'billing-rules', label: 'Billing Rules', href: '/admin/billing-rules', implemented: false },
+      { id: 'notifications', label: 'Notifications', href: '/admin/notifications', implemented: false },
+      { id: 'audit-log', label: 'Audit Log', href: '/admin/audit-log', implemented: false },
     ],
   },
 ];
 
-// Get main navigation (excluding pinned bottom items)
-export const mainNavigation = navigation.filter((item) => !item.pinBottom);
+// Get main navigation (all items now - no pinned bottom)
+export const mainNavigation = navigation;
 
-// Get pinned bottom navigation
-export const bottomNavigation = navigation.filter((item) => item.pinBottom);
+// Get pinned bottom navigation (empty now - kept for compatibility)
+export const bottomNavigation: NavSection[] = [];
 
