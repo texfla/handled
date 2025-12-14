@@ -36,6 +36,9 @@ if [ -f "$ENV_FILE" ]; then
     set +a
 fi
 
+# Set migrations directory (must be absolute path for reliability)
+MIGRATIONS_DIR="$(cd "$SCRIPT_DIR" && pwd)/migrations-primary"
+
 # Extract database connection info from PRIMARY_DATABASE_URL
 if [ -z "$PRIMARY_DATABASE_URL" ]; then
     echo "Error: PRIMARY_DATABASE_URL environment variable is not set"
