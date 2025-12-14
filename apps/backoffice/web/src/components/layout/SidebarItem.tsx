@@ -18,6 +18,7 @@ export function SidebarItem({ section }: SidebarItemProps) {
   const { hasPermission, hasAnyPermission } = usePermissions();
   const previousPathname = useRef(location.pathname);
   const previousIsActive = useRef(false);
+  const hasMounted = useRef(false);
   
   // Check if section is active (current route is in this section)
   const isActive = section.href === '/' 
@@ -53,17 +54,20 @@ export function SidebarItem({ section }: SidebarItemProps) {
 
   const hasChildren = visibleChildren && visibleChildren.length > 0;
 
-  // Auto-expand when route changes to match this section
-  // Only runs when section becomes active (wasn't active before, now is)
+  // Auto-expand when route changes to match this section OR on initial mount if active
   useEffect(() => {
     const pathnameChanged = previousPathname.current !== location.pathname;
     const becameActive = !previousIsActive.current && isActive;
+    const isInitialMount = !hasMounted.current;
     
     previousPathname.current = location.pathname;
     previousIsActive.current = isActive;
+    hasMounted.current = true;
     
-    // Only auto-open if we navigated to this section AND it has visible children
-    if (pathnameChanged && becameActive && hasChildren) {
+    // Auto-open if:
+    // 1. We navigated to this section (pathname changed AND became active), OR
+    // 2. This is initial mount and section is already active
+    if (hasChildren && ((pathnameChanged && becameActive) || (isInitialMount && isActive))) {
       setOpenSectionId(section.id);
     }
   }, [location.pathname, isActive, section.id, hasChildren, setOpenSectionId]);

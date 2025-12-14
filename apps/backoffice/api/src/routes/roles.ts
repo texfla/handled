@@ -11,6 +11,18 @@ interface UpdatePermissionsBody {
   permissions: string[];
 }
 
+interface CreateRoleBody {
+  name: string;
+  description?: string;
+  icon?: string;
+  permissions: string[];
+}
+
+interface UpdateRoleMetadataBody {
+  description?: string;
+  icon?: string;
+}
+
 export async function roleRoutes(fastify: FastifyInstance) {
   // GET /api/permissions - List all available permissions (no auth required for dropdown)
   fastify.get('/permissions', async (_request, reply) => {
@@ -66,11 +78,41 @@ export async function roleRoutes(fastify: FastifyInstance) {
           code: r.code,
           name: r.name,
           description: r.description,
+          icon: r.icon,
           isSystem: r.isSystem,
           userCount: r._count.userRoles,
           permissions: r.rolePermissions.map(rp => rp.permission.code)
         }))
       });
+    }
+  );
+
+  // GET /api/roles/:id/users - Get users with this role
+  // IMPORTANT: Define BEFORE generic GET /:id to avoid route conflicts
+  fastify.get<{ Params: RoleParams }>('/:id/users',
+    { preHandler: requirePermission(PERMISSIONS.VIEW_ROLES) },
+    async (request, reply) => {
+      const roleId = parseInt(request.params.id, 10);
+
+      if (isNaN(roleId)) {
+        return reply.status(400).send({ error: 'Invalid role ID' });
+      }
+
+      const users = await prismaPrimary.user.findMany({
+        where: {
+          userRoles: {
+            some: { roleId }
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true
+        },
+        orderBy: { name: 'asc' }
+      });
+
+      return reply.send({ users, count: users.length });
     }
   );
 
@@ -109,6 +151,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
           code: role.code,
           name: role.name,
           description: role.description,
+          icon: role.icon,
           isSystem: role.isSystem,
           userCount: role._count.userRoles,
           permissions: role.rolePermissions.map(rp => ({
@@ -212,6 +255,155 @@ export async function roleRoutes(fastify: FastifyInstance) {
         message: 'Permissions updated successfully',
         permissions,
       });
+    }
+  );
+
+  // POST /api/roles - Create new role
+  fastify.post<{ Body: CreateRoleBody }>('/',
+    { preHandler: requirePermission(PERMISSIONS.MANAGE_ROLES) },
+    async (request, reply) => {
+      const { name, description, icon, permissions } = request.body;
+
+      if (!name?.trim()) {
+        return reply.status(400).send({ error: 'Role name is required' });
+      }
+
+      if (!permissions?.length) {
+        return reply.status(400).send({ error: 'At least one permission is required' });
+      }
+
+      // Generate code (immutable after creation)
+      const code = name.toLowerCase().trim()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, ''); // trim underscores
+
+      if (code.length < 2) {
+        return reply.status(400).send({ error: 'Role name too short' });
+      }
+
+      const existingRole = await prismaPrimary.role.findUnique({ where: { code } });
+      if (existingRole) {
+        return reply.status(400).send({ 
+          error: 'A role with this name already exists',
+          suggestion: 'Try adding a distinguishing word'
+        });
+      }
+
+      const role = await prismaPrimary.$transaction(async (tx) => {
+        const newRole = await tx.role.create({
+          data: {
+            code,
+            name: name.trim(),
+            description: description?.trim(),
+            icon: icon || 'shield',
+            isSystem: false
+          }
+        });
+
+        const permRecords = await tx.permission.findMany({
+          where: { code: { in: permissions }}
+        });
+
+        if (permRecords.length !== permissions.length) {
+          throw new Error('Invalid permissions provided');
+        }
+
+        await tx.rolePermission.createMany({
+          data: permRecords.map(p => ({
+            roleId: newRole.id,
+            permissionId: p.id,
+            granted: true
+          }))
+        });
+
+        return newRole;
+      });
+
+      return reply.status(201).send({
+        message: 'Role created successfully',
+        role: {
+          id: role.id,
+          code: role.code,
+          name: role.name,
+          description: role.description,
+          icon: role.icon,
+          isSystem: role.isSystem
+        }
+      });
+    }
+  );
+
+  // PUT /api/roles/:id/metadata - Update role metadata (description/icon only)
+  fastify.put<{ Params: RoleParams; Body: UpdateRoleMetadataBody }>(
+    '/:id/metadata',
+    { preHandler: requirePermission(PERMISSIONS.MANAGE_ROLES) },
+    async (request, reply) => {
+      const roleId = parseInt(request.params.id, 10);
+      const { description, icon } = request.body;
+
+      if (isNaN(roleId)) {
+        return reply.status(400).send({ error: 'Invalid role ID' });
+      }
+
+      const role = await prismaPrimary.role.findUnique({ where: { id: roleId } });
+
+      if (!role) {
+        return reply.status(404).send({ error: 'Role not found' });
+      }
+
+      if (role.isSystem) {
+        return reply.status(400).send({ error: 'Cannot modify system role' });
+      }
+
+      const updatedRole = await prismaPrimary.role.update({
+        where: { id: roleId },
+        data: {
+          ...(description !== undefined && { description: description?.trim() || null }),
+          ...(icon && { icon })
+        }
+      });
+
+      return reply.send({
+        message: 'Role updated successfully',
+        role: updatedRole
+      });
+    }
+  );
+
+  // DELETE /api/roles/:id - Delete role
+  fastify.delete<{ Params: RoleParams }>('/:id',
+    { preHandler: requirePermission(PERMISSIONS.MANAGE_ROLES) },
+    async (request, reply) => {
+      const roleId = parseInt(request.params.id, 10);
+
+      if (isNaN(roleId)) {
+        return reply.status(400).send({ error: 'Invalid role ID' });
+      }
+
+      const role = await prismaPrimary.role.findUnique({
+        where: { id: roleId },
+        include: { _count: { select: { userRoles: true }}}
+      });
+
+      if (!role) {
+        return reply.status(404).send({ error: 'Role not found' });
+      }
+
+      if (role.isSystem) {
+        return reply.status(400).send({ error: 'Cannot delete system role' });
+      }
+
+      if (role._count.userRoles > 0) {
+        return reply.status(400).send({
+          error: 'Cannot delete role assigned to users',
+          userCount: role._count.userRoles,
+          message: `Remove role from ${role._count.userRoles} users first`
+        });
+      }
+
+      await prismaPrimary.role.delete({ where: { id: roleId } });
+
+      return reply.send({ message: 'Role deleted successfully' });
     }
   );
 }
