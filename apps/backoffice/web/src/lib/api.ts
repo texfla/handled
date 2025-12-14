@@ -1,3 +1,18 @@
+import type { ApiErrorResponse } from '../types/errors';
+
+class ApiError extends Error {
+  response?: {
+    data?: ApiErrorResponse;
+    status?: number;
+  };
+
+  constructor(message: string, response?: { data?: ApiErrorResponse; status?: number }) {
+    super(message);
+    this.name = 'ApiError';
+    this.response = response;
+  }
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -20,8 +35,11 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(error.error || `HTTP ${response.status}`);
+      const errorData = await response.json().catch(() => ({ error: 'Request failed' })) as ApiErrorResponse;
+      throw new ApiError(
+        errorData.error || `HTTP ${response.status}`,
+        { data: errorData, status: response.status }
+      );
     }
 
     return response.json();
@@ -60,8 +78,11 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Upload failed' }));
-      throw new Error(error.error || `HTTP ${response.status}`);
+      const errorData = await response.json().catch(() => ({ error: 'Upload failed' })) as ApiErrorResponse;
+      throw new ApiError(
+        errorData.error || `HTTP ${response.status}`,
+        { data: errorData, status: response.status }
+      );
     }
 
     return response.json();

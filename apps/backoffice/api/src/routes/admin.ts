@@ -166,7 +166,15 @@ export async function adminRoutes(fastify: FastifyInstance) {
     const { id } = request.params;
     const { email, name, roleIds, disabled } = request.body;
 
-    const updateData: any = {};
+    // Build update data
+    const updateData: {
+      email?: string;
+      name?: string;
+      disabled?: boolean;
+      userRoles?: {
+        create: Array<{ roleId: number }>;
+      };
+    } = {};
     if (email) updateData.email = email;
     if (name) updateData.name = name;
     if (disabled !== undefined) updateData.disabled = disabled;

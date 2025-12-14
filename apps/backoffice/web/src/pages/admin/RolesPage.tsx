@@ -29,6 +29,7 @@ import { api } from '../../lib/api';
 import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions';
 import { cn } from '../../lib/utils';
 import { getIconByValue } from '../../lib/role-icons';
+import { getErrorTitle } from '../../types/errors';
 
 interface Permission {
   id: number;
@@ -116,8 +117,8 @@ export function RolesPage() {
       setSelectedPermissions([]);
       setError('');
     },
-    onError: (error: any) => {
-      setError(error.response?.data?.error || error.message || 'Failed to update permissions');
+    onError: (error: unknown) => {
+      setError(getErrorTitle(error, 'Failed to update permissions'));
     },
   });
 
@@ -137,8 +138,8 @@ export function RolesPage() {
       setNewRolePermissions([]);
       setError('');
     },
-    onError: (error: any) => {
-      setError(error.response?.data?.error || error.message || 'Failed to create role');
+    onError: (error: unknown) => {
+      setError(getErrorTitle(error, 'Failed to create role'));
     },
   });
 
@@ -152,8 +153,8 @@ export function RolesPage() {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       setEditingMetadataRole(null);
     },
-    onError: (error: any) => {
-      setError(error.response?.data?.error || error.message || 'Failed to update role');
+    onError: (error: unknown) => {
+      setError(getErrorTitle(error, 'Failed to update role'));
     },
   });
 
@@ -165,8 +166,8 @@ export function RolesPage() {
       setEditingMetadataRole(null);
       setDeleteConfirmed(false);
     },
-    onError: (error: any) => {
-      setError(error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to delete role');
+    onError: (error: unknown) => {
+      setError(getErrorTitle(error, 'Failed to delete role'));
     },
   });
 
@@ -697,7 +698,7 @@ export function RolesPage() {
 
             <DialogFooter className={cn(
               "flex items-center",
-              canEdit && !editingMetadataRole?.isSystem ? "justify-between" : "justify-end"
+              canEdit && !editingMetadataRole?.isSystem ? "!justify-between" : "justify-end"
             )}>
               {/* Delete button on left - only render if should be visible */}
               {canEdit && !editingMetadataRole?.isSystem && (

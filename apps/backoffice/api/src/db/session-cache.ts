@@ -10,15 +10,20 @@
  * - Negligible memory footprint (~100 KB for 1000 active sessions)
  */
 
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
 export class SessionCache {
-  private cache = new Map<string, { data: any; expiresAt: number }>();
+  private cache = new Map<string, CacheEntry<unknown>>();
   private readonly TTL = 30000; // 30 seconds
   private cleanupInterval: NodeJS.Timeout | null = null;
 
-  async get(sessionId: string, fetchFn: () => Promise<any>) {
+  async get<T>(sessionId: string, fetchFn: () => Promise<T>): Promise<T | null> {
     const cached = this.cache.get(sessionId);
     if (cached && cached.expiresAt > Date.now()) {
-      return cached.data;
+      return cached.data as T;
     }
 
     const data = await fetchFn();
@@ -60,7 +65,8 @@ export class SessionCache {
         }
       }
 
-      if (cleaned > 0) {
+      // Only log in development (respects NODE_ENV)
+      if (cleaned > 0 && process.env.NODE_ENV !== 'production') {
         console.log(`[SessionCache] Cleaned up ${cleaned} expired entries`);
       }
     }, intervalMs);

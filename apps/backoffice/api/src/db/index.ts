@@ -1,5 +1,6 @@
 import { PrismaClient as PrimaryClient } from '@prisma/client-primary';
 import { PrismaClient as DataClient } from '@prisma/client-data';
+import { debug } from '../lib/logger.js';
 
 // Lazy initialization to ensure env vars are loaded first
 let _prismaPrimary: PrimaryClient | null = null;
@@ -12,7 +13,7 @@ const LOG_LEVEL: Array<'query' | 'error' | 'warn'> = LOG_QUERIES ? ['query', 'er
 function getPrismaPrimary(): PrimaryClient {
   if (!_prismaPrimary) {
     const url = process.env.PRIMARY_DATABASE_URL;
-    console.log('DEBUG: Initializing PRIMARY client with URL:', url || '(empty)');
+    debug('Initializing PRIMARY client with URL:', url || '(empty)');
     
     if (!url) {
       throw new Error('PRIMARY_DATABASE_URL environment variable is not set');

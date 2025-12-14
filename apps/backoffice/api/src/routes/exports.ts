@@ -54,8 +54,9 @@ export async function exportRoutes(fastify: FastifyInstance) {
 
   // Generate and download zip3-reference.json
   fastify.get('/zip3-reference', async (_, reply) => {
+    const { info, logTiming } = await import('../lib/logger.js');
     try {
-      console.log('Generating zip3-reference.json...');
+      info('Generating zip3-reference.json...');
       const startTime = Date.now();
       
       const data = await exportService.generateZip3Reference();
@@ -63,8 +64,8 @@ export async function exportRoutes(fastify: FastifyInstance) {
       const duration = Date.now() - startTime;
       const json = JSON.stringify(data, null, 0); // Compact JSON
       const sizeKB = (json.length / 1024).toFixed(1);
-      
-      console.log(`Generated zip3-reference.json: ${Object.keys(data).length} entries, ${sizeKB} KB, ${duration}ms`);
+
+      logTiming(`Generated zip3-reference.json: ${Object.keys(data).length} entries, ${sizeKB} KB`, startTime);
       
       reply
         .header('Content-Type', 'application/json')
@@ -79,8 +80,9 @@ export async function exportRoutes(fastify: FastifyInstance) {
 
   // Generate and download zone-matrix.json
   fastify.get('/zone-matrix', async (_, reply) => {
+    const { info, logTiming } = await import('../lib/logger.js');
     try {
-      console.log('Generating zone-matrix.json...');
+      info('Generating zone-matrix.json...');
       const startTime = Date.now();
       
       const data = await exportService.generateZoneMatrix();
@@ -88,8 +90,8 @@ export async function exportRoutes(fastify: FastifyInstance) {
       const duration = Date.now() - startTime;
       const json = JSON.stringify(data, null, 0); // Compact JSON
       const sizeMB = (json.length / 1024 / 1024).toFixed(1);
-      
-      console.log(`Generated zone-matrix.json: ${data.origins.length}x${data.destinations.length} matrix, ${sizeMB} MB, ${duration}ms`);
+
+      logTiming(`Generated zone-matrix.json: ${data.origins.length}x${data.destinations.length} matrix, ${sizeMB} MB`, startTime);
       
       reply
         .header('Content-Type', 'application/json')
@@ -104,8 +106,9 @@ export async function exportRoutes(fastify: FastifyInstance) {
 
   // Generate and download zone-matrix-ups.json (UPS only)
   fastify.get('/zone-matrix-ups', async (_, reply) => {
+    const { info, logTiming } = await import('../lib/logger.js');
     try {
-      console.log('Generating zone-matrix-ups.json...');
+      info('Generating zone-matrix-ups.json...');
       const startTime = Date.now();
       
       const data = await exportService.generateZoneMatrixByCarrier('UPS');
@@ -113,8 +116,8 @@ export async function exportRoutes(fastify: FastifyInstance) {
       const duration = Date.now() - startTime;
       const json = JSON.stringify(data, null, 0);
       const sizeMB = (json.length / 1024 / 1024).toFixed(1);
-      
-      console.log(`Generated zone-matrix-ups.json: ${data.origins.length}x${data.destinations.length} matrix, ${sizeMB} MB, ${duration}ms`);
+
+      logTiming(`Generated zone-matrix-ups.json: ${data.origins.length}x${data.destinations.length} matrix, ${sizeMB} MB`, startTime);
       
       reply
         .header('Content-Type', 'application/json')
@@ -129,8 +132,9 @@ export async function exportRoutes(fastify: FastifyInstance) {
 
   // Generate and download zone-matrix-usps.json (USPS only)
   fastify.get('/zone-matrix-usps', async (_, reply) => {
+    const { info, logTiming } = await import('../lib/logger.js');
     try {
-      console.log('Generating zone-matrix-usps.json...');
+      info('Generating zone-matrix-usps.json...');
       const startTime = Date.now();
       
       const data = await exportService.generateZoneMatrixByCarrier('USPS');
@@ -138,8 +142,8 @@ export async function exportRoutes(fastify: FastifyInstance) {
       const duration = Date.now() - startTime;
       const json = JSON.stringify(data, null, 0);
       const sizeMB = (json.length / 1024 / 1024).toFixed(1);
-      
-      console.log(`Generated zone-matrix-usps.json: ${data.origins.length}x${data.destinations.length} matrix, ${sizeMB} MB, ${duration}ms`);
+
+      logTiming(`Generated zone-matrix-usps.json: ${data.origins.length}x${data.destinations.length} matrix, ${sizeMB} MB`, startTime);
       
       reply
         .header('Content-Type', 'application/json')

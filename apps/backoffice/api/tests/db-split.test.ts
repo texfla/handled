@@ -5,7 +5,8 @@
  * Validates session caching, customer schema, and data isolation
  */
 
-import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, test, after } from 'node:test';
+import assert from 'node:assert';
 import { prismaPrimary, prismaData } from '../src/db/index.js';
 import { sessionCache } from '../src/db/session-cache.js';
 import { generateId } from 'lucia';
@@ -18,13 +19,11 @@ describe('Database Split - PRIMARY DB', () => {
         id: userId,
         email: 'test-auth@example.com',
         hashedPassword: 'hashed_password_placeholder',
-        name: 'Test User',
-        role: 'admin',
-        roleId: 1
+        name: 'Test User'
       }
     });
-    expect(user).toBeDefined();
-    expect(user.email).toBe('test-auth@example.com');
+    assert.ok(user);
+    assert.strictEqual(user.email, 'test-auth@example.com');
     
     // Cleanup
     await prismaPrimary.user.delete({ where: { id: userId }});
@@ -38,8 +37,8 @@ describe('Database Split - PRIMARY DB', () => {
         filename: 'test.csv'
       }
     });
-    expect(run).toBeDefined();
-    expect(run.integrationId).toBe('test-integration');
+    assert.ok(run);
+    assert.strictEqual(run.integrationId, 'test-integration');
     
     // Cleanup
     await prismaPrimary.integrationRun.delete({ where: { id: run.id }});
@@ -47,10 +46,10 @@ describe('Database Split - PRIMARY DB', () => {
   
   test('Role and permission queries work', async () => {
     const roles = await prismaPrimary.role.findMany();
-    expect(roles.length).toBeGreaterThan(0);
+    assert.ok(roles.length > 0);
     
     const permissions = await prismaPrimary.permission.findMany();
-    expect(permissions.length).toBeGreaterThan(0);
+    assert.ok(permissions.length > 0);
   });
   
   test('Session caching works', async () => {
@@ -64,46 +63,46 @@ describe('Database Split - PRIMARY DB', () => {
     
     // First call should fetch
     const result1 = await sessionCache.get(sessionId, fetchFn);
-    expect(fetchCount).toBe(1);
-    expect(result1.id).toBe(sessionId);
+    assert.strictEqual(fetchCount, 1);
+    assert.strictEqual(result1.id, sessionId);
     
     // Second call should use cache
     const result2 = await sessionCache.get(sessionId, fetchFn);
-    expect(fetchCount).toBe(1); // Still 1, not 2
-    expect(result2.id).toBe(sessionId);
+    assert.strictEqual(fetchCount, 1); // Still 1, not 2
+    assert.strictEqual(result2.id, sessionId);
     
     // Invalidate and fetch again
     sessionCache.invalidate(sessionId);
     const result3 = await sessionCache.get(sessionId, fetchFn);
-    expect(fetchCount).toBe(2); // Now 2
-    expect(result3.id).toBe(sessionId);
+    assert.strictEqual(fetchCount, 2); // Now 2
+    assert.strictEqual(result3.id, sessionId);
   });
 
   test('Session cache statistics work', () => {
     const stats = sessionCache.getStats();
-    expect(stats).toHaveProperty('size');
-    expect(stats).toHaveProperty('ttl');
-    expect(stats.ttl).toBe(30000);
+    assert.ok('size' in stats);
+    assert.ok('ttl' in stats);
+    assert.strictEqual(stats.ttl, 30000);
   });
 });
 
 describe('Database Split - DATA DB', () => {
   test('Carrier operations work', async () => {
     const carriers = await prismaData.carrier.findMany();
-    expect(carriers).toBeDefined();
+    assert.ok(carriers);
     // Carriers are seeded in migrations, should have UPS and USPS
-    expect(carriers.length).toBeGreaterThanOrEqual(2);
+    assert.ok(carriers.length >= 2);
   });
   
   test('Service operations work', async () => {
     const services = await prismaData.service.findMany();
-    expect(services).toBeDefined();
-    expect(services.length).toBeGreaterThan(0);
+    assert.ok(services);
+    assert.ok(services.length > 0);
   });
   
   test('Delivery matrix queries work', async () => {
     const matrixCount = await prismaData.deliveryMatrix.count();
-    expect(matrixCount).toBeGreaterThanOrEqual(0);
+    assert.ok(matrixCount >= 0);
   });
   
   test('Workspace table access works', async () => {
@@ -111,7 +110,7 @@ describe('Database Split - DATA DB', () => {
     const usZipCount = await prismaData.$queryRaw`
       SELECT COUNT(*) as count FROM workspace.us_zips
     `;
-    expect(usZipCount).toBeDefined();
+    assert.ok(usZipCount);
   });
 });
 
@@ -127,22 +126,22 @@ describe('Database Split - Customer Schema', () => {
         slug: 'test-3pl-' + Date.now()
       }
     });
-    expect(org).toBeDefined();
-    expect(org.name).toBe('Test 3PL Company');
+    assert.ok(org);
+    assert.strictEqual(org.name, 'Test 3PL Company');
     
     // Read
     const found = await prismaPrimary.organization.findUnique({
       where: { id: orgId }
     });
-    expect(found).toBeDefined();
-    expect(found?.id).toBe(orgId);
+    assert.ok(found);
+    assert.strictEqual(found?.id, orgId);
     
     // Update
     const updated = await prismaPrimary.organization.update({
       where: { id: orgId },
       data: { name: 'Updated 3PL Company' }
     });
-    expect(updated.name).toBe('Updated 3PL Company');
+    assert.strictEqual(updated.name, 'Updated 3PL Company');
     
     // Delete
     await prismaPrimary.organization.delete({
@@ -153,7 +152,7 @@ describe('Database Split - Customer Schema', () => {
     const deleted = await prismaPrimary.organization.findUnique({
       where: { id: orgId }
     });
-    expect(deleted).toBeNull();
+    assert.strictEqual(deleted, null);
   });
   
   test('Facility CRUD works with organization relation', async () => {
@@ -179,18 +178,18 @@ describe('Database Split - Customer Schema', () => {
         zip: '10001'
       }
     });
-    expect(facility).toBeDefined();
-    expect(facility.zip).toBe('10001');
-    expect(facility.organizationId).toBe(org.id);
+    assert.ok(facility);
+    assert.strictEqual(facility.zip, '10001');
+    assert.strictEqual(facility.organizationId, org.id);
     
     // Query with relation
     const orgWithFacilities = await prismaPrimary.organization.findUnique({
       where: { id: org.id },
       include: { facilities: true }
     });
-    expect(orgWithFacilities).toBeDefined();
-    expect(orgWithFacilities?.facilities).toHaveLength(1);
-    expect(orgWithFacilities?.facilities[0].name).toBe('NYC Warehouse');
+    assert.ok(orgWithFacilities);
+    assert.strictEqual(orgWithFacilities?.facilities.length, 1);
+    assert.strictEqual(orgWithFacilities?.facilities[0].name, 'NYC Warehouse');
     
     // Cleanup
     await prismaPrimary.facility.delete({ where: { id: facilityId }});
@@ -211,11 +210,11 @@ describe('Database Split - Customer Schema', () => {
     
     // This should work (same DB)
     const user = await prismaPrimary.user.findFirst();
-    expect(user).toBeDefined();
+    assert.ok(user);
     
     // Customer and config are both in PRIMARY - can query together
-    expect(org).toBeDefined();
-    expect(user).toBeDefined();
+    assert.ok(org);
+    assert.ok(user);
     
     // Cleanup
     await prismaPrimary.organization.delete({ where: { id: orgId }});
@@ -250,7 +249,7 @@ describe('Database Split - Customer Schema', () => {
     const facility = await prismaPrimary.facility.findUnique({
       where: { id: facilityId }
     });
-    expect(facility).toBeNull();
+    assert.strictEqual(facility, null);
   });
 });
 
@@ -260,28 +259,28 @@ describe('Database Split - Data Isolation', () => {
     const userCount = await prismaPrimary.user.count();
     const carrierCount = await prismaData.carrier.count();
     
-    expect(userCount).toBeGreaterThanOrEqual(0);
-    expect(carrierCount).toBeGreaterThanOrEqual(0);
+    assert.ok(userCount >= 0);
+    assert.ok(carrierCount >= 0);
   });
 
   test('No accidental cross-database queries', async () => {
     // This test ensures data models are correctly separated
     
     // PRIMARY DB models: user, role, permission, integrationRun, organization, facility
-    expect(prismaPrimary.user).toBeDefined();
-    expect(prismaPrimary.role).toBeDefined();
-    expect(prismaPrimary.organization).toBeDefined();
+    assert.ok(prismaPrimary.user);
+    assert.ok(prismaPrimary.role);
+    assert.ok(prismaPrimary.organization);
     
     // DATA DB models: carrier, service, deliveryMatrix, etc.
-    expect(prismaData.carrier).toBeDefined();
-    expect(prismaData.service).toBeDefined();
-    expect(prismaData.deliveryMatrix).toBeDefined();
+    assert.ok(prismaData.carrier);
+    assert.ok(prismaData.service);
+    assert.ok(prismaData.deliveryMatrix);
     
     // Verify PRIMARY doesn't have data models
-    expect((prismaPrimary as any).carrier).toBeUndefined();
+    assert.strictEqual((prismaPrimary as any).carrier, undefined);
     
     // Verify DATA doesn't have config models
-    expect((prismaData as any).user).toBeUndefined();
+    assert.strictEqual((prismaData as any).user, undefined);
   });
 });
 
@@ -293,15 +292,15 @@ describe('Database Split - Backward Compatibility', () => {
     const userCount = await prismaPrimary.user.count();
     const carrierCount = await prismaData.carrier.count();
     
-    expect(userCount).toBeGreaterThanOrEqual(0);
-    expect(carrierCount).toBeGreaterThanOrEqual(0);
+    assert.ok(userCount >= 0);
+    assert.ok(carrierCount >= 0);
     
     // Both should work without errors in single-DB mode
   });
 });
 
 // Cleanup after all tests
-afterAll(async () => {
+after(async () => {
   // Stop session cache cleanup interval
   sessionCache.stopCleanup();
   

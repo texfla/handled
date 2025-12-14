@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
+import { isApiError } from '../types/errors';
 
 export interface User {
   id: string;
@@ -29,10 +30,13 @@ export function useAuth() {
       try {
         const response = await api.get<User>('/api/auth/me');
         return response;
-      } catch (error: any) {
+      } catch (error: unknown) {
         // If 401 (not authenticated), return null instead of throwing
         // This prevents console errors after logout
-        if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+        if (isApiError(error) && error.response?.status === 401) {
+          return null;
+        }
+        if (error instanceof Error && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
           return null;
         }
         throw error;

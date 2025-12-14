@@ -2,6 +2,19 @@ import { FastifyInstance } from 'fastify';
 import { prismaPrimary } from '../db/index.js';
 import { requirePermission } from '../middleware/requirePermission.js';
 import { PERMISSIONS } from '../auth/permissions.js';
+import { 
+  getErrorMessage, 
+  isPrismaUniqueConstraintError,
+  createErrorResponse 
+} from '../types/errors.js';
+import {
+  isValidIcon,
+  generateRoleCode,
+  validateRoleName,
+  validateDescription,
+  validatePermissions,
+} from '../lib/validation.js';
+import { error as logError } from '../lib/logger.js';
 
 interface RoleParams {
   id: string;
@@ -197,13 +210,18 @@ export async function roleRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const roleId = parseInt(request.params.id, 10);
       const { permissions } = request.body;
-      
+
       if (isNaN(roleId)) {
         return reply.status(400).send({ error: 'Invalid role ID' });
       }
 
-      if (!Array.isArray(permissions)) {
-        return reply.status(400).send({ error: 'Permissions must be an array' });
+      // Validate permissions
+      const permsValidation = validatePermissions(permissions);
+      if (!permsValidation.valid) {
+        return reply.status(400).send(createErrorResponse(
+          'Invalid permissions',
+          permsValidation.error
+        ));
       }
 
       // Check if role exists
@@ -227,34 +245,44 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
       if (invalidPermissions.length > 0) {
         return reply.status(400).send({
-          error: 'Invalid permissions',
-          invalid: invalidPermissions,
+          error: 'Invalid permissions provided',
+          details: `Unknown permissions: ${invalidPermissions.join(', ')}`
         });
       }
 
       // Update permissions in a transaction
-      await prismaPrimary.$transaction(async (tx) => {
-        // Delete existing permissions for this role
-        await tx.rolePermission.deleteMany({
-          where: { roleId },
+      try {
+        await prismaPrimary.$transaction(async (tx) => {
+          // Delete existing permissions for this role
+          await tx.rolePermission.deleteMany({
+            where: { roleId },
+          });
+
+          // Insert new permissions
+          if (permissionRecords.length > 0) {
+            await tx.rolePermission.createMany({
+              data: permissionRecords.map(p => ({
+                roleId,
+                permissionId: p.id,
+                granted: true,
+              })),
+            });
+          }
         });
 
-        // Insert new permissions
-        if (permissionRecords.length > 0) {
-          await tx.rolePermission.createMany({
-            data: permissionRecords.map(p => ({
-              roleId,
-              permissionId: p.id,
-              granted: true,
-            })),
-          });
-        }
-      });
-
-      return reply.send({
-        message: 'Permissions updated successfully',
-        permissions,
-      });
+        return reply.send({
+          message: 'Permissions updated successfully',
+          permissions,
+        });
+      } catch (error) {
+        logError('Failed to update role permissions:', error);
+        return reply.status(500).send(
+          createErrorResponse(
+            'Failed to update role permissions',
+            getErrorMessage(error, 'Unknown error')
+          )
+        );
+      }
     }
   );
 
@@ -264,72 +292,132 @@ export async function roleRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { name, description, icon, permissions } = request.body;
 
-      if (!name?.trim()) {
-        return reply.status(400).send({ error: 'Role name is required' });
+      // Validate name
+      const nameValidation = validateRoleName(name);
+      if (!nameValidation.valid) {
+        return reply.status(400).send(createErrorResponse(
+          'Invalid role name',
+          nameValidation.error
+        ));
       }
 
-      if (!permissions?.length) {
-        return reply.status(400).send({ error: 'At least one permission is required' });
+      // Validate description
+      const descValidation = validateDescription(description);
+      if (!descValidation.valid) {
+        return reply.status(400).send(createErrorResponse(
+          'Invalid description',
+          descValidation.error
+        ));
+      }
+
+      // Validate icon
+      const iconValue = icon || 'shield';
+      if (!isValidIcon(iconValue)) {
+        return reply.status(400).send(createErrorResponse(
+          'Invalid icon',
+          `Icon must be one of the predefined values. Received: '${iconValue}'`
+        ));
+      }
+
+      // Validate permissions
+      const permsValidation = validatePermissions(permissions);
+      if (!permsValidation.valid) {
+        return reply.status(400).send(createErrorResponse(
+          'Invalid permissions',
+          permsValidation.error
+        ));
       }
 
       // Generate code (immutable after creation)
-      const code = name.toLowerCase().trim()
-        .replace(/[^a-z0-9]+/g, '_')
-        .replace(/^_+|_+$/g, ''); // trim underscores
-
-      if (code.length < 2) {
-        return reply.status(400).send({ error: 'Role name too short' });
+      let code: string;
+      try {
+        code = generateRoleCode(name);
+      } catch (error) {
+        return reply.status(400).send(createErrorResponse(
+          'Invalid role name',
+          getErrorMessage(error, 'Unable to generate valid role code')
+        ));
       }
 
+      // Check for existing role
       const existingRole = await prismaPrimary.role.findUnique({ where: { code } });
       if (existingRole) {
-        return reply.status(400).send({ 
-          error: 'A role with this name already exists',
-          suggestion: 'Try adding a distinguishing word'
-        });
+        return reply.status(400).send(createErrorResponse(
+          'Role already exists',
+          `A role with the code '${code}' already exists. Try adding a distinguishing word to the name.`
+        ));
       }
 
-      const role = await prismaPrimary.$transaction(async (tx) => {
-        const newRole = await tx.role.create({
-          data: {
-            code,
-            name: name.trim(),
-            description: description?.trim(),
-            icon: icon || 'shield',
-            isSystem: false
-          }
-        });
-
-        const permRecords = await tx.permission.findMany({
-          where: { code: { in: permissions }}
+      try {
+        // Pre-validate permissions exist (avoid race condition in transaction)
+        const permRecords = await prismaPrimary.permission.findMany({
+          where: { code: { in: permissions as string[] }},
+          select: { id: true, code: true }
         });
 
         if (permRecords.length !== permissions.length) {
-          throw new Error('Invalid permissions provided');
+          const foundCodes = permRecords.map(p => p.code);
+          const invalidPerms = (permissions as string[]).filter(p => !foundCodes.includes(p));
+          return reply.status(400).send(createErrorResponse(
+            'Invalid permissions',
+            `Unknown permissions: ${invalidPerms.join(', ')}`
+          ));
         }
 
-        await tx.rolePermission.createMany({
-          data: permRecords.map(p => ({
-            roleId: newRole.id,
-            permissionId: p.id,
-            granted: true
-          }))
+        const role = await prismaPrimary.$transaction(async (tx) => {
+          const newRole = await tx.role.create({
+            data: {
+              code,
+              name: name.trim(),
+              description: description?.trim() || null,
+              icon: iconValue,
+              isSystem: false
+            }
+          });
+
+          // Create role-permission associations
+          await tx.rolePermission.createMany({
+            data: permRecords.map(p => ({
+              roleId: newRole.id,
+              permissionId: p.id,
+              granted: true
+            }))
+          });
+
+          return newRole;
         });
 
-        return newRole;
-      });
-
-      return reply.status(201).send({
-        message: 'Role created successfully',
-        role: {
-          id: role.id,
-          code: role.code,
-          name: role.name,
-          description: role.description,
-          icon: role.icon,
-          isSystem: role.isSystem
+        return reply.status(201).send({
+          message: 'Role created successfully',
+          role: {
+            id: role.id,
+            code: role.code,
+            name: role.name,
+            description: role.description,
+            icon: role.icon,
+            isSystem: role.isSystem
+          }
+        });
+      } catch (error) {
+        logError('Failed to create role:', error);
+        
+        // Check for unique constraint violation
+        if (isPrismaUniqueConstraintError(error)) {
+          return reply.status(400).send(
+            createErrorResponse(
+              'Role code already exists',
+              'This role name generates a code that already exists'
+            )
+          );
         }
-      });
+        
+        return reply.status(500).send(
+          createErrorResponse(
+            'Failed to create role',
+            getErrorMessage(error, 'Unknown error')
+          )
+        );
+      }
     }
   );
 
@@ -345,6 +433,25 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Invalid role ID' });
       }
 
+      // Validate description if provided
+      if (description !== undefined) {
+        const descValidation = validateDescription(description);
+        if (!descValidation.valid) {
+          return reply.status(400).send(createErrorResponse(
+            'Invalid description',
+            descValidation.error
+          ));
+        }
+      }
+
+      // Validate icon if provided
+      if (icon && !isValidIcon(icon)) {
+        return reply.status(400).send(createErrorResponse(
+          'Invalid icon',
+          `Icon must be one of the predefined values. Received: '${icon}'`
+        ));
+      }
+
       const role = await prismaPrimary.role.findUnique({ where: { id: roleId } });
 
       if (!role) {
@@ -355,12 +462,17 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Cannot modify system role' });
       }
 
+      const updateData: { description?: string | null; icon?: string } = {};
+      if (description !== undefined) {
+        updateData.description = description?.trim() || null;
+      }
+      if (icon) {
+        updateData.icon = icon;
+      }
+
       const updatedRole = await prismaPrimary.role.update({
         where: { id: roleId },
-        data: {
-          ...(description !== undefined && { description: description?.trim() || null }),
-          ...(icon && { icon })
-        }
+        data: updateData
       });
 
       return reply.send({
@@ -395,9 +507,9 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
       if (role._count.userRoles > 0) {
         return reply.status(400).send({
-          error: 'Cannot delete role assigned to users',
-          userCount: role._count.userRoles,
-          message: `Remove role from ${role._count.userRoles} users first`
+          error: 'Cannot delete role with assigned users',
+          details: `This role is assigned to ${role._count.userRoles} user${role._count.userRoles === 1 ? '' : 's'}. Remove the role from all users first.`,
+          userCount: role._count.userRoles
         });
       }
 

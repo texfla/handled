@@ -5,6 +5,7 @@
  */
 
 import { prismaData } from '../db/index.js';
+import { safeTableName } from '../db/sql-utils.js';
 import type { Transformation, TransformationResult } from '../transformations/types.js';
 
 export class TransformService {
@@ -20,14 +21,17 @@ export class TransformService {
     const startTime = Date.now();
     
     try {
+      // Validate and safely quote the target table name
+      const safeTarget = safeTableName(transformation.targetTable, 'reference');
+      
       // Get the SQL
       const insertSql = transformation.getSql();
       
       // Run in a transaction: truncate + insert (use DATA DB)
       // Extended timeout for large transformations (5 minutes)
       await prismaData.$transaction(async (tx) => {
-        // Truncate target table
-        await tx.$executeRawUnsafe(`TRUNCATE TABLE ${transformation.targetTable}`);
+        // Truncate target table (using safe identifier)
+        await tx.$executeRawUnsafe(`TRUNCATE TABLE ${safeTarget}`);
         
         // Run the transformation
         const affected = await tx.$executeRawUnsafe(insertSql);
@@ -40,13 +44,14 @@ export class TransformService {
       
       const duration = Date.now() - startTime;
       
-      // Get actual row count
+      // Get actual row count (using safe identifier)
       const countResult = await prismaData.$queryRawUnsafe(
-        `SELECT COUNT(*) as count FROM ${transformation.targetTable}`
+        `SELECT COUNT(*) as count FROM ${safeTarget}`
       ) as Array<{ count: bigint }>;
       const recordsAffected = Number(countResult[0]?.count ?? 0);
-      
-      console.log(`Transformation ${transformation.id} completed: ${recordsAffected} records in ${duration}ms`);
+
+      const { info } = await import('../lib/logger.js');
+      info(`Transformation ${transformation.id} completed: ${recordsAffected} records in ${duration}ms`);
       
       return {
         success: true,
