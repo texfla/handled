@@ -18,39 +18,34 @@
 
 set -e  # Exit on any error
 
-# Configuration
-MIGRATIONS_DIR="$(dirname "$0")/migrations-primary"
-FORCE_MODE=false
-VERIFY_MODE=false
+# Load environment variables from .env file
+# Try multiple possible locations relative to script
+SCRIPT_DIR="$(dirname "$0")"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENV_FILE="${PROJECT_ROOT}/apps/backoffice/api/.env"
 
-# Parse command line arguments
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --force)
-            FORCE_MODE=true
-            shift
-            ;;
-        --repair)
-            REPAIR_MODE=true
-            shift
-            ;;
-        --verify)
-            VERIFY_MODE=true
-            shift
-            ;;
-        *)
-            echo "Unknown option: $1"
-            echo "Usage: $0 [--force] [--repair] [--verify]"
-            exit 1
-            ;;
-    esac
-done
+# Also try common production paths
+if [ ! -f "$ENV_FILE" ]; then
+    ENV_FILE="/var/www/handled/apps/backoffice/api/.env"
+fi
+
+if [ -f "$ENV_FILE" ]; then
+    # Source the .env file, handling quoted values properly
+    set -a  # Automatically export all variables
+    source <(grep -v '^#' "$ENV_FILE" | grep -v '^$' | sed 's/^/export /')
+    set +a
+fi
 
 # Extract database connection info from PRIMARY_DATABASE_URL
 if [ -z "$PRIMARY_DATABASE_URL" ]; then
     echo "Error: PRIMARY_DATABASE_URL environment variable is not set"
+    echo "       Make sure it's set in your .env file or environment"
     exit 1
 fi
+
+# Remove pgbouncer and connection_limit parameters for direct psql connections
+# These are valid for application connections but not for psql
+DB_URL=$(echo "$PRIMARY_DATABASE_URL" | sed -E 's/[?&]pgbouncer=[^&]*//g' | sed -E 's/[?&]connection_limit=[^&]*//g' | sed -E 's/\?$//' | sed -E 's/&$//')
 
 # Colors for output
 RED='\033[0;31m'
@@ -101,14 +96,14 @@ print_info "Migrations: $MIGRATIONS_DIR"
 # Function to validate schema exists
 validate_schema() {
     local schema_name=$1
-    psql "$PRIMARY_DATABASE_URL" -tAc \
+    psql "$DB_URL" -tAc \
         "SELECT EXISTS (SELECT FROM information_schema.schemata WHERE schema_name = '$schema_name');"
 }
 
 # Function to check if schema has data
 check_schema_has_data() {
     local schema_name=$1
-    local table_count=$(psql "$PRIMARY_DATABASE_URL" -tAc \
+    local table_count=$(psql "$DB_URL" -tAc \
         "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '$schema_name';")
     echo "$table_count"
 }
@@ -119,7 +114,7 @@ check_schema_has_data() {
 print_info "Validating database schema integrity...\n"
 
 # Check if migration tracking table exists
-TRACKING_EXISTS=$(psql "$PRIMARY_DATABASE_URL" -tAc \
+TRACKING_EXISTS=$(psql "$DB_URL" -tAc \
     "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'config' AND table_name = 'schema_migrations');")
 
 if [ "$TRACKING_EXISTS" = "f" ]; then
@@ -128,7 +123,7 @@ if [ "$TRACKING_EXISTS" = "f" ]; then
     # Run the tracking migration first if it exists
     if [ -f "$MIGRATIONS_DIR/000_migration_tracking.sql" ]; then
         print_info "Creating migration tracking system..."
-        psql "$PRIMARY_DATABASE_URL" -f "$MIGRATIONS_DIR/000_migration_tracking.sql" -q
+        psql "$DB_URL" -f "$MIGRATIONS_DIR/000_migration_tracking.sql" -q
         print_success "Migration tracking initialized"
     else
         print_error "Migration tracking file (000_migration_tracking.sql) not found!"
@@ -161,7 +156,7 @@ if [ "$VALIDATION_FAILED" = true ]; then
     echo ""
     
     # Check if migrations are marked as applied
-    APPLIED_COUNT=$(psql "$PRIMARY_DATABASE_URL" -tAc \
+    APPLIED_COUNT=$(psql "$DB_URL" -tAc \
         "SELECT COUNT(*) FROM config.schema_migrations WHERE version >= '001';" 2>/dev/null || echo "0")
     
     if [ "$APPLIED_COUNT" -gt 0 ]; then
@@ -176,7 +171,7 @@ if [ "$VALIDATION_FAILED" = true ]; then
             print_info "REPAIR MODE: Re-running schema creation migrations..."
             echo ""
             # We'll let the normal migration loop handle this by clearing those specific version entries
-            psql "$PRIMARY_DATABASE_URL" -tAc \
+            psql "$DB_URL" -tAc \
                 "DELETE FROM config.schema_migrations WHERE version IN ('001');" > /dev/null
             print_success "Cleared tracking for schema creation migrations - will re-run"
             echo ""
@@ -197,7 +192,7 @@ if [ "$FORCE_MODE" = false ]; then
             TABLE_COUNT=$(check_schema_has_data "$SCHEMA")
             if [ "$TABLE_COUNT" -gt 0 ]; then
                 # Check if any table has data
-                DATA_EXISTS=$(psql "$PRIMARY_DATABASE_URL" -tAc \
+                DATA_EXISTS=$(psql "$DB_URL" -tAc \
                     "SELECT EXISTS (
                         SELECT 1 FROM information_schema.tables t
                         WHERE t.table_schema = '$SCHEMA'
@@ -220,7 +215,7 @@ if [ "$FORCE_MODE" = false ]; then
 fi
 
 # Get list of already applied migrations
-APPLIED_MIGRATIONS=$(psql "$PRIMARY_DATABASE_URL" -tAc \
+APPLIED_MIGRATIONS=$(psql "$DB_URL" -tAc \
     "SELECT version FROM config.schema_migrations ORDER BY version;")
 
 print_info "Finding pending migrations...\n"
@@ -251,12 +246,12 @@ for MIGRATION_FILE in "$MIGRATIONS_DIR"/*.sql; do
     
     START_TIME=$(date +%s%N)
     
-    if psql "$PRIMARY_DATABASE_URL" -f "$MIGRATION_FILE" -q; then
+    if psql "$DB_URL" -f "$MIGRATION_FILE" -q; then
         END_TIME=$(date +%s%N)
         EXECUTION_TIME=$(( (END_TIME - START_TIME) / 1000000 ))  # Convert to milliseconds
         
         # Record migration in tracking table
-        psql "$PRIMARY_DATABASE_URL" -tAc \
+        psql "$DB_URL" -tAc \
             "INSERT INTO config.schema_migrations (version, description, applied_by, execution_time_ms) 
              VALUES ('$VERSION', '$DESCRIPTION', CURRENT_USER, $EXECUTION_TIME) 
              ON CONFLICT (version) DO NOTHING;" > /dev/null
@@ -283,7 +278,7 @@ else
 fi
 
 # Show current schema version
-LATEST_VERSION=$(psql "$PRIMARY_DATABASE_URL" -tAc \
+LATEST_VERSION=$(psql "$DB_URL" -tAc \
     "SELECT version FROM config.schema_migrations ORDER BY version DESC LIMIT 1;")
 
 echo -e "\n${BLUE}Current schema version:${NC} $LATEST_VERSION"
@@ -326,7 +321,7 @@ if [ "$VERIFY_MODE" = true ]; then
     echo ""
     
     echo "TABLE PERMISSIONS:"
-    psql "$PRIMARY_DATABASE_URL" <<SQL
+    psql "$DB_URL" <<SQL
 SELECT 
   schemaname, 
   tablename,
@@ -344,7 +339,7 @@ SQL
     echo ""
     
     echo "SEQUENCE PERMISSIONS:"
-    psql "$PRIMARY_DATABASE_URL" <<SQL
+    psql "$DB_URL" <<SQL
 SELECT 
   schemaname, 
   sequencename,
@@ -359,7 +354,7 @@ SQL
     print_info "Analyzing results..."
     
     # Count tables with missing permissions
-    TABLE_ISSUES=$(psql "$PRIMARY_DATABASE_URL" -t -c "
+    TABLE_ISSUES=$(psql "$DB_URL" -t -c "
 SELECT COUNT(*)
 FROM pg_tables 
 WHERE schemaname IN ('config', 'customer')
@@ -372,7 +367,7 @@ WHERE schemaname IN ('config', 'customer')
 " | tr -d ' ')
     
     # Count sequences with missing permissions
-    SEQ_ISSUES=$(psql "$PRIMARY_DATABASE_URL" -t -c "
+    SEQ_ISSUES=$(psql "$DB_URL" -t -c "
 SELECT COUNT(*)
 FROM pg_sequences 
 WHERE schemaname IN ('config', 'customer')
@@ -396,7 +391,7 @@ WHERE schemaname IN ('config', 'customer')
         fi
         echo ""
         print_fix "To fix, run the catchall migration:"
-        print_fix "  psql \"\$PRIMARY_DATABASE_URL\" -f database/migrations-primary/012_ensure_db_permissions.sql"
+        print_fix "  psql \"\$DB_URL\" -f database/migrations-primary/012_ensure_db_permissions.sql"
         echo ""
         print_warning "Then verify again:"
         print_fix "  bash database/migrate-primary.sh --verify"
