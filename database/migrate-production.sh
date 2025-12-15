@@ -95,27 +95,43 @@ echo -e "${BLUE}Starting Production Migration: $DB_NAME${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-# Step 1: Update tracking schema
-echo -e "${YELLOW}Step 1: Update tracking table schema...${NC}"
-if psql "$DB_URL" -f "$SCRIPT_DIR/update-tracking-schema.sql"; then
-    echo -e "${GREEN}✓ Tracking schema updated${NC}"
+# For DATA database, tracking is in PRIMARY's config schema
+if [ "$TARGET" = "DATA" ]; then
+    # Get PRIMARY connection string for tracking
+    TRACKING_URL=$(echo "$PRIMARY_DATABASE_URL" | sed -E 's/[?&]pgbouncer=[^&]*//g' | sed -E 's/[?&]connection_limit=[^&]*//g' | sed -E 's/\?$//' | sed -E 's/&$//')
+    
+    echo -e "${YELLOW}Note: DATA migrations are tracked in PRIMARY's config.schema_migrations table${NC}"
+    echo ""
+    
+    # Skip Step 1 and 2 (already done when PRIMARY was migrated)
+    echo -e "${GREEN}✓ Tracking schema already updated (in PRIMARY migration)${NC}"
+    echo -e "${GREEN}✓ Legacy entries already cleared (in PRIMARY migration)${NC}"
+    echo ""
 else
-    echo -e "${RED}✗ Failed to update tracking schema${NC}"
-    exit 1
-fi
-echo ""
+    # Step 1: Update tracking schema
+    echo -e "${YELLOW}Step 1: Update tracking table schema...${NC}"
+    if psql "$DB_URL" -f "$SCRIPT_DIR/update-tracking-schema.sql"; then
+        echo -e "${GREEN}✓ Tracking schema updated${NC}"
+    else
+        echo -e "${RED}✗ Failed to update tracking schema${NC}"
+        exit 1
+    fi
+    echo ""
 
-# Step 2: Clear legacy entries
-echo -e "${YELLOW}Step 2: Clear old migration tracking entries...${NC}"
-DELETED=$(psql "$DB_URL" -tAc "WITH deleted AS (DELETE FROM config.schema_migrations WHERE schema_name = 'legacy' RETURNING *) SELECT COUNT(*) FROM deleted;")
-echo -e "${GREEN}✓ Cleared $DELETED legacy entries${NC}"
-echo ""
+    # Step 2: Clear legacy entries
+    echo -e "${YELLOW}Step 2: Clear old migration tracking entries...${NC}"
+    DELETED=$(psql "$DB_URL" -tAc "WITH deleted AS (DELETE FROM config.schema_migrations WHERE schema_name = 'legacy' RETURNING *) SELECT COUNT(*) FROM deleted;")
+    echo -e "${GREEN}✓ Cleared $DELETED legacy entries${NC}"
+    echo ""
+    
+    TRACKING_URL="$DB_URL"
+fi
 
 # Step 3: Mark baseline migrations as applied (DON'T re-run them!)
 echo -e "${YELLOW}Step 3: Mark baseline migrations as already applied...${NC}"
 
 if [ "$TARGET" = "PRIMARY" ]; then
-    psql "$DB_URL" <<SQL
+    psql "$TRACKING_URL" <<SQL
     INSERT INTO config.schema_migrations (version, schema_name, description, applied_by, applied_at)
     VALUES 
       ('001', 'config', 'structure 2024-12-14', 'baseline_marker', NOW()),
@@ -126,7 +142,7 @@ if [ "$TARGET" = "PRIMARY" ]; then
     ON CONFLICT DO NOTHING;
 SQL
 else
-    psql "$DB_URL" <<SQL
+    psql "$TRACKING_URL" <<SQL
     INSERT INTO config.schema_migrations (version, schema_name, description, applied_by, applied_at)
     VALUES 
       ('001', 'workspace', 'structure 2024-12-14', 'baseline_marker', NOW()),
@@ -144,7 +160,7 @@ echo ""
 # Step 4: Verify
 echo -e "${YELLOW}Step 4: Verify migration status...${NC}"
 echo ""
-psql "$DB_URL" -c "SELECT version, schema_name, description, applied_at FROM config.schema_migrations WHERE schema_name != 'legacy' ORDER BY schema_name, version;"
+psql "$TRACKING_URL" -c "SELECT version, schema_name, description, applied_at FROM config.schema_migrations WHERE schema_name != 'legacy' ORDER BY schema_name, version;"
 echo ""
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
