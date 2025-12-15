@@ -499,7 +499,7 @@ describe('RBAC - Permission Implications', () => {
 
 describe('RBAC - Edge Cases', () => {
   test('Disabled user cannot be queried for permissions', async () => {
-    let role, user;
+    let user;
     
     try {
       // Create user with admin role

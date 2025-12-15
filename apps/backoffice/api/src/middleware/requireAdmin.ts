@@ -13,14 +13,16 @@ export async function requireAdmin(
     return reply.status(401).send({ error: 'Not authenticated' });
   }
 
-  const { session, user: sessionUser } = await sessionCache.get(
+  const sessionData = await sessionCache.get(
     sessionId,
     () => lucia.validateSession(sessionId)
   );
 
-  if (!session || !sessionUser) {
+  if (!sessionData || !sessionData.session || !sessionData.user) {
     return reply.status(401).send({ error: 'Invalid session' });
   }
+
+  const { session, user: sessionUser } = sessionData;
 
   const user = await prismaPrimary.user.findUnique({
     where: { id: sessionUser.id },

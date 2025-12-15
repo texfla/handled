@@ -29,14 +29,16 @@ async function loadUserWithPermissions(request: FastifyRequest, reply: FastifyRe
   }
 
   // Validate session with cache
-  const { session, user: sessionUser } = await sessionCache.get(
+  const sessionData = await sessionCache.get(
     sessionId,
     () => lucia.validateSession(sessionId)
   );
   
-  if (!session || !sessionUser) {
+  if (!sessionData || !sessionData.session || !sessionData.user) {
     return reply.status(401).send({ error: 'Invalid session' });
   }
+
+  const { session, user: sessionUser } = sessionData;
 
   // Fetch user with roles and permissions
   const user = await prismaPrimary.user.findUnique({

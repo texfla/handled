@@ -63,17 +63,20 @@ describe('Database Split - PRIMARY DB', () => {
     
     // First call should fetch
     const result1 = await sessionCache.get(sessionId, fetchFn);
+    assert.ok(result1);
     assert.strictEqual(fetchCount, 1);
     assert.strictEqual(result1.id, sessionId);
     
     // Second call should use cache
     const result2 = await sessionCache.get(sessionId, fetchFn);
+    assert.ok(result2);
     assert.strictEqual(fetchCount, 1); // Still 1, not 2
     assert.strictEqual(result2.id, sessionId);
     
     // Invalidate and fetch again
     sessionCache.invalidate(sessionId);
     const result3 = await sessionCache.get(sessionId, fetchFn);
+    assert.ok(result3);
     assert.strictEqual(fetchCount, 2); // Now 2
     assert.strictEqual(result3.id, sessionId);
   });

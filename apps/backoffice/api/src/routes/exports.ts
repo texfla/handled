@@ -61,7 +61,6 @@ export async function exportRoutes(fastify: FastifyInstance) {
       
       const data = await exportService.generateZip3Reference();
       
-      const duration = Date.now() - startTime;
       const json = JSON.stringify(data, null, 0); // Compact JSON
       const sizeKB = (json.length / 1024).toFixed(1);
 
@@ -87,7 +86,6 @@ export async function exportRoutes(fastify: FastifyInstance) {
       
       const data = await exportService.generateZoneMatrix();
       
-      const duration = Date.now() - startTime;
       const json = JSON.stringify(data, null, 0); // Compact JSON
       const sizeMB = (json.length / 1024 / 1024).toFixed(1);
 
@@ -112,8 +110,7 @@ export async function exportRoutes(fastify: FastifyInstance) {
       const startTime = Date.now();
       
       const data = await exportService.generateZoneMatrixByCarrier('UPS');
-      
-      const duration = Date.now() - startTime;
+
       const json = JSON.stringify(data, null, 0);
       const sizeMB = (json.length / 1024 / 1024).toFixed(1);
 
@@ -138,8 +135,7 @@ export async function exportRoutes(fastify: FastifyInstance) {
       const startTime = Date.now();
       
       const data = await exportService.generateZoneMatrixByCarrier('USPS');
-      
-      const duration = Date.now() - startTime;
+
       const json = JSON.stringify(data, null, 0);
       const sizeMB = (json.length / 1024 / 1024).toFixed(1);
 

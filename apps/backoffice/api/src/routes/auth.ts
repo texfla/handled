@@ -184,14 +184,16 @@ export async function authRoutes(fastify: FastifyInstance) {
     }
 
     // Use cache to reduce PRIMARY DB load
-    const { session, user: sessionUser } = await sessionCache.get(
+    const sessionData = await sessionCache.get(
       sessionId,
       () => lucia.validateSession(sessionId)
     );
     
-    if (!session || !sessionUser) {
+    if (!sessionData || !sessionData.session || !sessionData.user) {
       return reply.status(401).send({ error: 'Invalid session' });
     }
+
+    const { session, user: sessionUser } = sessionData;
 
     // Fetch user with ALL roles and permissions
     const user = await prismaPrimary.user.findUnique({
@@ -259,14 +261,16 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Not authenticated' });
     }
 
-    const { session, user: sessionUser } = await sessionCache.get(
+    const sessionData = await sessionCache.get(
       sessionId,
       () => lucia.validateSession(sessionId)
     );
 
-    if (!session || !sessionUser) {
+    if (!sessionData || !sessionData.session || !sessionData.user) {
       return reply.status(401).send({ error: 'Invalid session' });
     }
+
+    const { session, user: sessionUser } = sessionData;
 
     const body = request.body as { name?: string };
 
@@ -308,14 +312,16 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Not authenticated' });
     }
 
-    const { session, user: sessionUser } = await sessionCache.get(
+    const sessionData = await sessionCache.get(
       sessionId,
       () => lucia.validateSession(sessionId)
     );
 
-    if (!session || !sessionUser) {
+    if (!sessionData || !sessionData.session || !sessionData.user) {
       return reply.status(401).send({ error: 'Invalid session' });
     }
+
+    const { session, user: sessionUser } = sessionData;
 
     const body = request.body as { currentPassword?: string; newPassword?: string };
 
