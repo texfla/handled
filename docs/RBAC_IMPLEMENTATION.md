@@ -271,18 +271,127 @@ Following comprehensive code review, implemented 4 additional priorities:
 - Production-safe logger (respects `NODE_ENV` and `LOG_LEVEL`)
 - Replaced all debug `console.log` statements
 
+## Multi-Role Usage Patterns
+
+### Assigning Multiple Roles to Users
+
+Users can now have multiple roles simultaneously, with permissions combined via union (OR logic):
+
+**Example Scenarios:**
+- A user with both `3pl_ops` + `3pl_manager` roles gets all permissions from both roles
+- A user with `customer_service` + `3pl_viewer` can both help customers and view 3PL data
+- Admins typically only need the `admin` role (it has all permissions)
+
+### Permission Implications
+
+Some permissions automatically imply others for better UX:
+
+```typescript
+// From src/auth/permissions.ts
+export const PERMISSION_IMPLICATIONS: Record<string, string[]> = {
+  manage_users: ['view_roles'],        // User managers can view roles
+  manage_roles: ['view_roles'],        // Role managers can view roles
+  manage_3pl_settings: ['view_3pl'],   // 3PL managers can view 3PL data
+  // ... more implications
+};
+```
+
+**What this means:**
+- When checking permissions, implications are automatically included
+- UI elements show correctly without redundant permission grants
+- Keeps permission lists clean and minimal
+
+### Current Roles & Their Purpose
+
+| Role | Code | Typical Use Case |
+|------|------|------------------|
+| **Administrator** | `admin` | Full system access, manages all users and settings |
+| **Customer Service** | `customer_service` | Helps customers, views orders, manages customer data |
+| **3PL Operations** | `3pl_ops` | Daily warehouse operations, imports, transformations |
+| **3PL Manager** | `3pl_manager` | Oversees 3PL operations, full access to 3PL settings |
+| **3PL Viewer** | `3pl_viewer` | Read-only access to 3PL data for reporting |
+
+### Role Management Best Practices
+
+1. **Assign Minimal Roles**: Only assign roles a user actually needs
+2. **Use Single Role When Possible**: Most users should have one primary role
+3. **Multiple Roles for Special Cases**: Cross-functional users who need access to multiple areas
+4. **Regular Audits**: Periodically review user roles and remove unnecessary assignments
+5. **Role Changes**: Use the Users page to add/remove roles; changes take effect immediately
+
+### Frontend Permission Checking
+
+Navigation items automatically hide/show based on permissions:
+
+```typescript
+// From usePermissions hook
+const { hasPermission, hasAnyPermission, hasAllPermissions, isAdmin } = usePermissions();
+
+// Hide/show UI elements
+{hasPermission('manage_users') && <UsersButton />}
+{hasAnyPermission('view_3pl', 'manage_3pl_settings') && <ThreePLSection />}
+{isAdmin() && <DangerZone />}
+```
+
+### Backend Permission Enforcement
+
+Routes are protected with middleware:
+
+```typescript
+// Single permission required
+fastify.get('/data', { preHandler: requirePermission('view_data') }, handler);
+
+// Any of multiple permissions (OR)
+fastify.post('/import', { 
+  preHandler: requireAnyPermission('import_data', 'manage_3pl_settings') 
+}, handler);
+
+// All permissions required (AND)
+fastify.post('/critical', { 
+  preHandler: requireAllPermissions('manage_users', 'manage_roles') 
+}, handler);
+```
+
+## Production Deployment Status
+
+### ✅ Week 3: Production Deployment Complete
+
+**Deployment Date**: December 2024
+
+**Actions Taken:**
+1. ✅ Pulled latest code with multi-role updates
+2. ✅ Regenerated Prisma clients (schema-primary, schema-data)
+3. ✅ Resolved TypeScript compilation errors (session cache destructuring, unused variables)
+4. ✅ Rebuilt backend with `pnpm build`
+5. ✅ Restarted PM2 with fresh process (`pm2 kill` + `pm2 start`)
+6. ✅ Verified login and authentication working
+7. ✅ Manually reassigned all users to appropriate roles via Admin UI
+8. ✅ Tested permissions and navigation filtering
+
+**Production Environment:**
+- Server: VPS (ops.handledcommerce.com)
+- Database: Split architecture (Primary DB on DBaaS, Data DB on VPS)
+- Process Manager: PM2 with tsx interpreter
+- TypeScript: Direct execution via tsx (no pre-compilation for deployment)
+
+**Known Issues/Resolutions:**
+- **Module Caching**: Required `pm2 kill` instead of `pm2 restart` to clear tsx module cache
+- **Dual PM2 Instances**: Used `pm2 delete` to remove duplicate instances before fresh start
+- **Session Destructuring**: Fixed nullable return type handling for session cache
+
 ## System Status
 
-🟢 **All systems operational - Production Ready**
+🟢 **All systems operational - Production Deployed**
 
 - Database migrations: ✅ Complete (14 migrations)
-- Multi-role system: ✅ Fully functional
+- Multi-role system: ✅ Fully functional in production
 - Backend API: ✅ Running with validation
 - Frontend UI: ✅ Role CRUD + read-only modes
 - Permission checks: ✅ Active with implications
 - Integration tests: ✅ 67 tests passing
 - Code quality: ✅ Type-safe, validated, secure
 - Documentation: ✅ Comprehensive
+- **Production Deployment: ✅ Complete with role reassignment**
 
-The RBAC multi-role system is **production-ready** with comprehensive testing and security hardening!
+The RBAC multi-role system is **live in production** with comprehensive testing, security hardening, and successful user migration!
 
