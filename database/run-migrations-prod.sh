@@ -84,7 +84,7 @@ echo ""
 TOTAL_RUN=0
 
 for SCHEMA in config customer workspace reference; do
-    # Determine target database
+    # Determine target database for migrations
     if [[ " ${PRIMARY_SCHEMAS[@]} " =~ " ${SCHEMA} " ]]; then
         DB_URL="$PRIMARY_DB"
         DB_NAME="PRIMARY"
@@ -96,6 +96,9 @@ for SCHEMA in config customer workspace reference; do
         DB_NAME="PRIMARY"
     fi
     
+    # Tracking always happens in PRIMARY's config.schema_migrations
+    TRACKING_DB="$PRIMARY_DB"
+    
     echo -e "${BLUE}Processing schema: ${SCHEMA} (on ${DB_NAME} DB)${NC}"
     
     # Run migrations in order
@@ -106,8 +109,8 @@ for SCHEMA in config customer workspace reference; do
         FILENAME=$(basename "$MIGRATION_FILE")
         VERSION=$(echo "$FILENAME" | grep -oE '^[0-9]+')
         
-        # Check if already applied
-        APPLIED=$(psql "$DB_URL" -tAc \
+        # Check if already applied (always check PRIMARY's tracking table)
+        APPLIED=$(psql "$TRACKING_DB" -tAc \
             "SELECT COUNT(*) FROM config.schema_migrations WHERE version = '$VERSION' AND schema_name = '$SCHEMA';" 2>/dev/null || echo "0")
         
         if [ "$APPLIED" != "0" ]; then
@@ -124,9 +127,9 @@ for SCHEMA in config customer workspace reference; do
             END_TIME=$(date +%s%N)
             EXECUTION_TIME=$(( (END_TIME - START_TIME) / 1000000 ))
             
-            # Track it
+            # Track it (always in PRIMARY's config.schema_migrations)
             DESCRIPTION=$(echo "$FILENAME" | sed 's/^[0-9]*_//; s/\.sql$//' | tr '_' ' ')
-            psql "$DB_URL" -tAc \
+            psql "$TRACKING_DB" -tAc \
                 "INSERT INTO config.schema_migrations (version, schema_name, description, applied_by, execution_time_ms) 
                  VALUES ('$VERSION', '$SCHEMA', '$DESCRIPTION', CURRENT_USER, $EXECUTION_TIME);" > /dev/null
             
