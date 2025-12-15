@@ -1,345 +1,413 @@
-# Database Migrations
+# Database Migrations - Three-Concerns Pattern
 
-This directory contains all database migrations for the Handled platform.
+**Baseline established:** 2024-12-14
 
-## Quick Start
+This directory contains the consolidated database migration system using the **three-concerns pattern** with schema-based folders.
 
-```bash
-# Run all pending migrations
-pnpm db:migrate
+## Table of Contents
 
-# Check which migrations have been applied
-pnpm db:migrate:status
-```
-
-## Developer Setup (First Time)
-
-### One-Command Setup
-
-```bash
-# Run this once per machine (takes ~30 seconds)
-bash database/setup-dev-db.sh
-```
-
-This creates:
-- PostgreSQL user: `handled_user` (superuser, no password)
-- Database: `handled_dev`
-- Runs all migrations
-
-### Configure Environment
-
-```bash
-# Copy template (already configured for handled_user)
-cp apps/backoffice/api/env-template.txt apps/backoffice/api/.env
-
-# No changes needed! Template uses handled_user by default
-```
-
-### Start Developing
-
-```bash
-pnpm install
-pnpm dev
-```
-
-## Daily Workflow
-
-**Query the database:**
-```bash
-psql -U handled_user handled_dev
-
-# Or set PGUSER in your shell (~/.zshrc or ~/.bashrc):
-export PGUSER=handled_user
-# Then just use:
-psql handled_dev
-```
-
-**Run migrations:**
-```bash
-pnpm db:migrate  # Uses handled_user automatically
-```
-
-**Why handled_user?**
-- ✅ Consistent with production (same username)
-- ✅ Consistent object ownership
-- ✅ Simple onboarding (one user, one way)
-- ✅ No password needed for local dev
-
-## Local vs Production Database Users
-
-**Important:** The `handled_user` behaves differently in local vs production:
-
-### Local Development
-- `handled_user` is a **superuser** (created with `-s` flag)
-- Can create databases, run migrations without restrictions
-- No password required (PostgreSQL trust authentication)
-- More convenient for development workflow
-- Can run `pg_dump`, create test databases, etc.
-
-### Production
-- `handled_user` is a **regular user** with specific granted permissions
-- Cannot create databases or modify other users
-- Requires password authentication
-- More secure, reflects real-world constraints
-- Relies on explicit GRANT statements from migrations
-
-**Why the difference?**
-- Local dev prioritizes convenience (no permission roadblocks)
-- Catchall migrations ensure production has correct grants
-- You're not testing security boundaries in local dev
-- Production security is enforced by the migration system
-
-**What this means:**
-- If a migration works locally but fails in production with permission errors, you forgot a GRANT statement
-- The catchall migrations (012, 005) fix any missing grants
-- New migrations should always include explicit GRANTs (see MIGRATION_TEMPLATE.sql)
-
-## Directory Structure
-
-```
-database/
-├── README.md              # This file
-├── MIGRATION_TEMPLATE.sql # Template for new migrations
-├── migrate.sh             # Smart migration runner script
-└── migrations/            # All migration files
-    ├── 000_migration_tracking.sql
-    ├── 001_create_schemas.sql
-    ├── 002_auth_tables.sql
-    └── ...
-```
-
-## Migration Numbering System
-
-- **000-099:** Core schema and infrastructure
-- **100-199:** Initial data and seed migrations
-- **200-299:** Schema modifications (ALTER TABLE, etc.)
-- **300-399:** Data migrations and transformations
-- **400+:** Feature additions and extensions
-
-## Creating a New Migration
-
-### Step 1: Copy the Template
-
-```bash
-# Find the next available number
-ls -1 database/migrations/ | tail -1
-
-# Copy template with next number
-cp database/MIGRATION_TEMPLATE.sql database/migrations/007_add_feature_name.sql
-```
-
-### Step 2: Edit the Migration
-
-1. Update the header with migration number, description, and date
-2. Write your SQL changes
-3. **Make it idempotent** - use `IF NOT EXISTS`, `IF EXISTS`, etc.
-4. Add comments explaining the "why"
-5. Document rollback steps in comments
-
-### Step 3: Test Locally
-
-```bash
-# Run the migration
-pnpm db:migrate
-
-# Verify it worked
-pnpm db:migrate:status
-
-# Check the database
-psql -U handled_user -d handled
-```
-
-### Step 4: Update Prisma (if needed)
-
-```bash
-# Update the Prisma schema file
-vim apps/backoffice/api/prisma/schema.prisma
-
-# Regenerate Prisma client
-cd apps/backoffice/api
-pnpm db:generate
-```
-
-### Step 5: Commit
-
-```bash
-git add database/migrations/007_*.sql
-git add apps/backoffice/api/prisma/schema.prisma  # if changed
-git commit -m "feat: add feature_name migration"
-```
-
-## Migration Best Practices
-
-### ✅ DO
-
-- **Use sequential numbering** - No gaps, no duplicates
-- **Make migrations idempotent** - Safe to run multiple times
-- **One logical change per migration** - Easy to understand and rollback
-- **Add descriptive comments** - Explain why, not just what
-- **Test on fresh database** - Catch issues early
-- **Include rollback notes** - Document how to undo changes
-- **Use explicit schema names** - `config.users`, not just `users`
-
-### ❌ DON'T
-
-- **Never edit applied migrations** - Create a new migration instead
-- **Don't skip version numbers** - Keep sequence intact
-- **Don't mix concerns** - Schema + data changes = separate migrations
-- **Don't assume state** - Check for existence before creating/dropping
-- **Don't forget indexes** - Performance matters
-- **Don't ignore foreign keys** - Maintain referential integrity
-
-## Common Patterns
-
-### Adding a Column
-
-```sql
-ALTER TABLE config.users 
-    ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
-
-CREATE INDEX IF NOT EXISTS idx_users_phone 
-    ON config.users(phone);
-
-COMMENT ON COLUMN config.users.phone IS 'User contact phone number';
-```
-
-### Creating a Table
-
-```sql
-CREATE TABLE IF NOT EXISTS config.customers (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_customers_email 
-    ON config.customers(email);
-
-COMMENT ON TABLE config.customers IS 'Customer accounts and profiles';
-```
-
-### Adding a Foreign Key
-
-```sql
--- Add column first
-ALTER TABLE config.orders 
-    ADD COLUMN IF NOT EXISTS customer_id TEXT;
-
--- Then add constraint
-DO $$ 
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.table_constraints 
-        WHERE constraint_name = 'fk_orders_customer_id'
-    ) THEN
-        ALTER TABLE config.orders 
-            ADD CONSTRAINT fk_orders_customer_id 
-            FOREIGN KEY (customer_id) 
-            REFERENCES config.customers(id) 
-            ON DELETE CASCADE;
-    END IF;
-END $$;
-```
-
-### Renaming a Column (Carefully!)
-
-```sql
--- Step 1: Add new column
-ALTER TABLE config.users 
-    ADD COLUMN IF NOT EXISTS full_name TEXT;
-
--- Step 2: Copy data
-UPDATE config.users 
-    SET full_name = name 
-    WHERE full_name IS NULL;
-
--- Step 3: In a LATER migration, drop old column
--- ALTER TABLE config.users DROP COLUMN IF EXISTS name;
-```
-
-## Migration Script Features
-
-The `migrate.sh` script provides:
-
-- ✅ Automatic tracking of applied migrations
-- ✅ Smart detection of pending migrations
-- ✅ Colored output for easy reading
-- ✅ Execution time tracking
-- ✅ Error handling with rollback
-- ✅ Idempotent - safe to run multiple times
-
-## Troubleshooting
-
-### Migration Failed Mid-Execution
-
-```bash
-# Check what was applied
-pnpm db:migrate:status
-
-# Fix the issue in the migration file
-vim database/migrations/XXX_problematic.sql
-
-# Delete the tracking entry
-psql -U handled_user -d handled -c "DELETE FROM config.schema_migrations WHERE version = 'XXX';"
-
-# Run again
-pnpm db:migrate
-```
-
-### Need to Rollback a Migration
-
-```bash
-# Manually undo the changes (use rollback notes from migration file)
-psql -U handled_user -d handled -f rollback_script.sql
-
-# Remove from tracking
-psql -U handled_user -d handled -c "DELETE FROM config.schema_migrations WHERE version = 'XXX';"
-```
-
-### Migration Out of Order
-
-Never edit applied migrations. Instead:
-
-1. Create a new migration that fixes the issue
-2. Number it with the next available version
-3. Run it normally
-
-## Environment Variables
-
-The migration script supports these environment variables:
-
-```bash
-# Database configuration
-export DB_USER=handled_user     # Default: handled_user
-export DB_NAME=handled           # Default: handled
-export DB_HOST=localhost         # Default: localhost
-export DB_PORT=5432              # Default: 5432
-
-# Run migrations
-pnpm db:migrate
-```
-
-## Production Deployment
-
-For production deployments:
-
-1. **Always backup first**: `pg_dump handled > backup.sql`
-2. **Test migrations on staging** identical to production
-3. **Run during maintenance window** if schema changes are breaking
-4. **Monitor execution**: Migrations should complete in < 30 seconds
-5. **Have rollback ready**: Know how to undo changes
-6. **Coordinate with application deployment**: Deploy app after migrations
-
-## Getting Help
-
-- Check the template: `database/MIGRATION_TEMPLATE.sql`
-- Review existing migrations for patterns
-- Test on fresh database: `dropdb handled && createdb handled && pnpm db:migrate`
-- Ask the team in #engineering
+1. [The Three-Concerns Pattern](#the-three-concerns-pattern)
+2. [Schema Folder Organization](#schema-folder-organization)
+3. [Running Migrations](#running-migrations)
+4. [Baseline Markers](#baseline-markers)
+5. [Adding New Migrations](#adding-new-migrations)
+6. [Seed Data Strategy](#seed-data-strategy)
+7. [Future Consolidations](#future-consolidations)
+8. [Migration Path for Existing Databases](#migration-path-for-existing-databases)
 
 ---
 
-**Remember:** Migrations are permanent records. Take your time, test thoroughly, and document well!
+## The Three-Concerns Pattern
 
+Every schema has three distinct parts:
+
+### 1. STRUCTURE (DDL - Schema Definition)
+```sql
+-- CREATE TABLE, ALTER TABLE, CREATE INDEX, CREATE FUNCTION
+-- Defines WHAT exists
+```
+- **Safe everywhere:** Dev, Staging, Production
+- **Idempotent:** Uses `IF NOT EXISTS`, can re-run safely
+- **Files:** `*_structure_*.sql`
+
+### 2. PERMISSIONS (DCL - Access Control)
+```sql
+-- GRANT USAGE, GRANT ALL, ALTER DEFAULT PRIVILEGES
+-- Defines WHO can access
+```
+- **Safe everywhere:** Dev, Staging, Production
+- **Idempotent:** GRANT is safe to re-run
+- **Essential:** Without this, app can't access tables
+- **Files:** `*_permissions_*.sql`
+
+### 3. SEED DATA (DML - Reference/Initial Data)
+```sql
+-- INSERT reference data (roles, permissions, carriers)
+-- Defines INITIAL STATE
+```
+- **Production:** Only foundational data (roles, carriers)
+- **Development:** Includes sample data for testing
+- **Idempotent:** Uses `ON CONFLICT DO NOTHING` or `ON CONFLICT DO UPDATE`
+- **Files:** `*_seed_data_*.sql` or `*_seed_data_dev.sql`
+
+---
+
+## Schema Folder Organization
+
+```
+database/
+  config/              # User auth, roles, permissions
+  customer/            # Customer organizations, facilities
+  workspace/           # Import staging tables (disposable)
+  reference/           # Carriers, services, delivery_matrix
+  sample-data/         # Large CSV files for dev
+  archive-2024-12-14-pre-consolidation/  # Old migrations
+```
+
+### Config Schema (PRIMARY DB)
+- **Purpose:** User authentication, roles, permissions, integration tracking
+- **Database:** PRIMARY_DATABASE_URL (DBaaS in production)
+- **Critical:** Yes - contains user accounts and access control
+
+### Customer Schema (PRIMARY DB)
+- **Purpose:** Customer organizations and facilities
+- **Database:** PRIMARY_DATABASE_URL (DBaaS in production)
+- **Critical:** Yes - customer production data (IRREPLACEABLE)
+
+### Workspace Schema (DATA DB or PRIMARY in single mode)
+- **Purpose:** Raw imported data staging (us_zips, ups_zones, etc.)
+- **Database:** DATA_DATABASE_URL in split mode, PRIMARY in single mode
+- **Critical:** No - disposable, can be recreated from source files
+
+### Reference Schema (DATA DB or PRIMARY in single mode)
+- **Purpose:** Transformed data (carriers, services, delivery_matrix)
+- **Database:** DATA_DATABASE_URL in split mode, PRIMARY in single mode
+- **Critical:** Partially - carriers/services are foundational, matrix can be regenerated
+
+---
+
+## Running Migrations
+
+### Development (Single DB, includes dev seed data)
+
+```bash
+bash database/run-migrations-dev.sh
+```
+
+**What it does:**
+- Runs all `.sql` files in each schema folder
+- Includes dev-only seed data (`*_dev.sql` files)
+- Warns if `NODE_ENV=production`
+- Populates sample customer organizations
+
+### Production (Split DB, baseline only)
+
+```bash
+bash database/run-migrations-prod.sh
+```
+
+**What it does:**
+- ONLY runs dated baseline files (`*_YYYY-MM-DD.sql`)
+- CANNOT run dev seed data (code doesn't look for `_dev.sql`)
+- Fails if `NODE_ENV=development` or `NODE_ENV=test`
+- Production-safe by design
+
+### Import Large Data (Development)
+
+```bash
+# After running migrations, import CSV files
+bash database/setup-dev-data.sh
+```
+
+This imports ~40K+ rows of data via the API:
+- `us_zips.csv` (~40K rows)
+- `gaz_zcta_national.csv` (~33K rows)
+- `ups_zones.csv` (~1K rows)
+
+---
+
+## Baseline Markers
+
+### Dated Files (Major Consolidations)
+```
+001_structure_2024-12-14.sql
+```
+- Marks a **major consolidation milestone**
+- Combines multiple incremental migrations
+- Date shows when consolidation occurred
+
+### Undated Files (Incremental Changes)
+```
+015_add_user_avatar_column.sql
+```
+- Small, incremental schema changes
+- Can be **rolled up** into next baseline
+- Easier to review and audit
+
+### Example Evolution
+```
+Initial:
+  001_structure_2024-12-14.sql    (baseline)
+  002_permissions_2024-12-14.sql  (baseline)
+  003_seed_data_2024-12-14.sql    (baseline)
+
+After 20 incremental changes:
+  001_structure_2024-12-14.sql    (baseline)
+  002_permissions_2024-12-14.sql  (baseline)
+  003_seed_data_2024-12-14.sql    (baseline)
+  015_add_column_a.sql            (incremental)
+  016_add_column_b.sql            (incremental)
+  ...
+  035_add_column_z.sql            (incremental)
+
+Future consolidation:
+  001_structure_2025-06-01.sql    (new baseline, includes 015-035)
+  002_permissions_2025-06-01.sql
+  003_seed_data_2025-06-01.sql
+  (015-035 deleted, now part of baseline)
+```
+
+---
+
+## Adding New Migrations
+
+### Example: Add a column to `config.users`
+
+1. **Find next available number:**
+   ```bash
+   ls database/config/  # Shows 001, 002, 003
+   ```
+
+2. **Create migration file:**
+   ```bash
+   touch database/config/015_add_user_avatar_column.sql
+   ```
+
+3. **Write migration (idempotent):**
+   ```sql
+   -- Migration 015: Add avatar column to users
+   ALTER TABLE config.users 
+     ADD COLUMN IF NOT EXISTS avatar TEXT;
+   
+   COMMENT ON COLUMN config.users.avatar 
+     IS 'URL to user avatar image';
+   ```
+
+4. **Run it:**
+   ```bash
+   # Development
+   bash database/run-migrations-dev.sh
+   
+   # Production
+   bash database/run-migrations-prod.sh
+   ```
+
+### Example: Add dev-only seed data
+
+Create `database/customer/004_seed_data_dev.sql`:
+```sql
+-- Development only - more sample customers
+INSERT INTO customer.organizations (id, name, slug) VALUES
+  ('org_sample_test', 'Test Organization', 'test-org')
+ON CONFLICT (id) DO NOTHING;
+```
+
+**Important:** Dev files (`*_dev.sql`) are NEVER run by `run-migrations-prod.sh`.
+
+---
+
+## Seed Data Strategy
+
+| Schema | Seed Data Type | File Pattern | Size | Runs Where |
+|--------|----------------|--------------|------|------------|
+| config | Required roles/permissions | `*_2024-12-14.sql` | ~100 rows | Prod + Dev |
+| customer | Dev sample orgs | `*_dev.sql` | ~10 rows | Dev only |
+| workspace | None | Use CSV import | 40K+ rows | Via API |
+| reference | Carriers/services | `*_2024-12-14.sql` | ~18 rows | Prod + Dev |
+
+### Small Data → SQL Seed Files
+- Foundational data app needs to function
+- Roles, permissions, carriers, services
+- ~100 rows or less
+
+### Large Data → CSV Import
+- Workspace data (us_zips, ups_zones)
+- Use `setup-dev-data.sh` or web UI
+- 40K+ rows
+
+### Transformed Data → App Logic
+- reference.zip3_reference
+- reference.delivery_matrix
+- Created by running transformations in the app
+
+---
+
+## Future Consolidations
+
+### When to Consolidate
+
+Consolidate when you have:
+- 15-20+ incremental migrations cluttering a schema folder
+- Major version upgrade
+- Onboarding new developers (clean slate is easier to understand)
+
+### How to Consolidate
+
+1. **Combine incremental migrations into new baseline:**
+   ```bash
+   # Merge 015-035 into new structure baseline
+   cat config/001_structure_2024-12-14.sql \
+       config/015_add_column_a.sql \
+       config/016_add_column_b.sql \
+       ... \
+       > config/001_structure_2025-06-01.sql
+   ```
+
+2. **Archive old baseline:**
+   ```bash
+   mkdir database/archive-2025-06-01/
+   mv config/001_structure_2024-12-14.sql database/archive-2025-06-01/
+   ```
+
+3. **Delete consolidated incrementals:**
+   ```bash
+   rm config/015_*.sql config/016_*.sql ... config/035_*.sql
+   ```
+
+4. **Test on fresh database:**
+   ```bash
+   createdb test_consolidated
+   PRIMARY_DATABASE_URL="postgresql://localhost/test_consolidated" \
+     bash database/run-migrations-dev.sh
+   ```
+
+---
+
+## Migration Path for Existing Databases
+
+### For Production (Already Running)
+
+Production already has all baseline migrations applied (as separate old migrations). To transition to the new system:
+
+```bash
+# 1. Update tracking table (adds schema_name column, backfills legacy entries)
+psql "$PRIMARY_DATABASE_URL" <<SQL
+-- Add schema_name column
+ALTER TABLE config.schema_migrations 
+  ADD COLUMN IF NOT EXISTS schema_name VARCHAR(50);
+
+-- Backfill existing entries to 'legacy'
+UPDATE config.schema_migrations 
+SET schema_name = 'legacy' 
+WHERE schema_name IS NULL;
+
+-- Make NOT NULL
+ALTER TABLE config.schema_migrations 
+  ALTER COLUMN schema_name SET NOT NULL;
+
+-- Add composite primary key
+ALTER TABLE config.schema_migrations 
+  DROP CONSTRAINT IF EXISTS schema_migrations_pkey;
+  
+ALTER TABLE config.schema_migrations 
+  ADD PRIMARY KEY (version, schema_name);
+SQL
+
+# 2. Mark baseline migrations as applied (prevent re-running)
+psql "$PRIMARY_DATABASE_URL" <<SQL
+INSERT INTO config.schema_migrations (version, schema_name, description, applied_by, applied_at)
+VALUES 
+  ('001', 'config', 'structure 2024-12-14', 'baseline_marker', NOW()),
+  ('002', 'config', 'permissions 2024-12-14', 'baseline_marker', NOW()),
+  ('003', 'config', 'seed data 2024-12-14', 'baseline_marker', NOW()),
+  ('001', 'customer', 'structure 2024-12-14', 'baseline_marker', NOW()),
+  ('002', 'customer', 'permissions 2024-12-14', 'baseline_marker', NOW()),
+  ('001', 'workspace', 'structure 2024-12-14', 'baseline_marker', NOW()),
+  ('002', 'workspace', 'permissions 2024-12-14', 'baseline_marker', NOW()),
+  ('001', 'reference', 'structure 2024-12-14', 'baseline_marker', NOW()),
+  ('002', 'reference', 'permissions 2024-12-14', 'baseline_marker', NOW()),
+  ('003', 'reference', 'seed data 2024-12-14', 'baseline_marker', NOW())
+ON CONFLICT DO NOTHING;
+SQL
+
+# 3. Run any new migrations
+bash database/run-migrations-prod.sh
+```
+
+### For Development (handled_dev, handled_test)
+
+Since seed data is idempotent, you can safely clear and re-run:
+
+```bash
+# 1. Update tracking table
+psql "$PRIMARY_DATABASE_URL" <<SQL
+ALTER TABLE config.schema_migrations 
+  ADD COLUMN IF NOT EXISTS schema_name VARCHAR(50);
+  
+UPDATE config.schema_migrations 
+SET schema_name = 'legacy' 
+WHERE schema_name IS NULL;
+  
+ALTER TABLE config.schema_migrations 
+  ALTER COLUMN schema_name SET NOT NULL;
+  
+ALTER TABLE config.schema_migrations 
+  DROP CONSTRAINT IF EXISTS schema_migrations_pkey;
+  
+ALTER TABLE config.schema_migrations 
+  ADD PRIMARY KEY (version, schema_name);
+SQL
+
+# 2. Clear old tracking entries
+psql "$PRIMARY_DATABASE_URL" <<SQL
+DELETE FROM config.schema_migrations WHERE schema_name = 'legacy';
+SQL
+
+# 3. Re-run all baseline migrations (idempotent, safe)
+bash database/run-migrations-dev.sh
+```
+
+**Result:** Clean tracking, same data (roles/permissions/carriers not duplicated due to `ON CONFLICT DO NOTHING`).
+
+---
+
+## Archived Migrations
+
+Old migration files (000-014) are preserved in:
+```
+database/archive-2024-12-14-pre-consolidation/
+```
+
+These can be referenced for:
+- Understanding migration history
+- Debugging if something went wrong
+- Temporary restoration if needed
+
+**Do not delete the archive!** It's your safety net and historical record.
+
+---
+
+## Benefits of This System
+
+1. ✅ **Clear Mental Model:** Structure/Permissions/Data maps to DDL/DCL/DML
+2. ✅ **Schema Isolation:** Each schema evolves independently
+3. ✅ **Production Safety:** Separate prod/dev scripts, prod literally cannot run dev seed data
+4. ✅ **Future Consolidation:** Dated baselines enable periodic cleanup
+5. ✅ **Idempotent Operations:** Safe to re-run migrations
+6. ✅ **Audit Trail:** Baseline dates show when major consolidations occurred
+7. ✅ **Low Risk:** Existing databases migrate cleanly
+8. ✅ **Explicit Data Strategy:** Small seed data in SQL, large data via import tools
+
+---
+
+## Questions?
+
+- **How do I add a new table?** Create `###_add_table_name.sql` in the appropriate schema folder
+- **Can I modify baseline files?** Yes! That's the recommended approach for structural changes
+- **What about dropping a column?** Add an incremental migration with `ALTER TABLE ... DROP COLUMN IF EXISTS`
+- **Do I need to recompile after migration?** No - migrations run at the database level
+- **How do I rollback?** Manually create a reverse migration or restore from backup
+
+---
+
+**System Status:** ✅ Production-ready with comprehensive testing and documentation
