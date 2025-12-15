@@ -22,7 +22,7 @@ export async function requireAdmin(
     return reply.status(401).send({ error: 'Invalid session' });
   }
 
-  const { session, user: sessionUser } = sessionData;
+  const { user: sessionUser } = sessionData;
 
   const user = await prismaPrimary.user.findUnique({
     where: { id: sessionUser.id },

@@ -193,7 +193,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid session' });
     }
 
-    const { session, user: sessionUser } = sessionData;
+    const { user: sessionUser } = sessionData;
 
     // Fetch user with ALL roles and permissions
     const user = await prismaPrimary.user.findUnique({
@@ -270,7 +270,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid session' });
     }
 
-    const { session, user: sessionUser } = sessionData;
+    const { user: sessionUser } = sessionData;
 
     const body = request.body as { name?: string };
 
@@ -321,7 +321,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid session' });
     }
 
-    const { session, user: sessionUser } = sessionData;
+    const { user: sessionUser } = sessionData;
 
     const body = request.body as { currentPassword?: string; newPassword?: string };
 

@@ -38,7 +38,7 @@ async function loadUserWithPermissions(request: FastifyRequest, reply: FastifyRe
     return reply.status(401).send({ error: 'Invalid session' });
   }
 
-  const { session, user: sessionUser } = sessionData;
+  const { user: sessionUser } = sessionData;
 
   // Fetch user with roles and permissions
   const user = await prismaPrimary.user.findUnique({
