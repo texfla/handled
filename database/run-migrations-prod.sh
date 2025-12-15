@@ -103,7 +103,7 @@ for SCHEMA in config customer workspace reference; do
     
     # Run migrations in order
     # PRODUCTION: Only run dated baseline files (*_YYYY-MM-DD.sql)
-    for MIGRATION_FILE in "$SCRIPT_DIR/$SCHEMA"/*_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].sql; do
+    for MIGRATION_FILE in "$SCRIPT_DIR/schemas/$SCHEMA"/*_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].sql; do
         [ -f "$MIGRATION_FILE" ] || continue  # Skip if no files match
         
         FILENAME=$(basename "$MIGRATION_FILE")

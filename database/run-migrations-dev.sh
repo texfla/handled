@@ -100,7 +100,7 @@ for SCHEMA in config customer workspace reference; do
     echo -e "${BLUE}Processing schema: ${SCHEMA} (on ${DB_NAME} DB)${NC}"
     
     # Run ALL .sql files in order (baseline + dev seed data)
-    for MIGRATION_FILE in "$SCRIPT_DIR/$SCHEMA"/*.sql; do
+    for MIGRATION_FILE in "$SCRIPT_DIR/schemas/$SCHEMA"/*.sql; do
         [ -f "$MIGRATION_FILE" ] || continue
         
         FILENAME=$(basename "$MIGRATION_FILE")

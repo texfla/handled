@@ -7,11 +7,11 @@
 
 ## What Was Built
 
-### Schema Folders (4 total)
-✅ **config/** - 3 files (structure, permissions, seed_data)
-✅ **customer/** - 3 files (structure, permissions, seed_data_dev)
-✅ **workspace/** - 2 files (structure, permissions)
-✅ **reference/** - 3 files (structure, permissions, seed_data)
+### Schema Folders (4 total in schemas/ subdirectory)
+✅ **schemas/config/** - 3 files (structure, permissions, seed_data)
+✅ **schemas/customer/** - 3 files (structure, permissions, seed_data_dev)
+✅ **schemas/workspace/** - 2 files (structure, permissions)
+✅ **schemas/reference/** - 3 files (structure, permissions, seed_data)
 
 ### Migration Runners (2 scripts)
 ✅ **run-migrations-prod.sh** - Production (baseline only, NO dev data)
@@ -127,10 +127,10 @@ bash database/run-migrations-prod.sh
 ### Add a new migration
 ```bash
 # Create file in appropriate schema folder
-touch database/config/015_add_new_column.sql
+touch database/schemas/config/015_add_new_column.sql
 
 # Write idempotent SQL
-echo "ALTER TABLE config.users ADD COLUMN IF NOT EXISTS new_column TEXT;" > database/config/015_add_new_column.sql
+echo "ALTER TABLE config.users ADD COLUMN IF NOT EXISTS new_column TEXT;" > database/schemas/config/015_add_new_column.sql
 
 # Run it
 bash database/run-migrations-dev.sh

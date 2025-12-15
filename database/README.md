@@ -56,12 +56,15 @@ Every schema has three distinct parts:
 
 ```
 database/
-  config/              # User auth, roles, permissions
-  customer/            # Customer organizations, facilities
-  workspace/           # Import staging tables (disposable)
-  reference/           # Carriers, services, delivery_matrix
+  schemas/
+    config/            # User auth, roles, permissions
+    customer/          # Customer organizations, facilities
+    workspace/         # Import staging tables (disposable)
+    reference/         # Carriers, services, delivery_matrix
   sample-data/         # Large CSV files for dev
   archive-2024-12-14-pre-consolidation/  # Old migrations
+  run-migrations-prod.sh
+  run-migrations-dev.sh
 ```
 
 ### Config Schema (PRIMARY DB)
@@ -175,12 +178,12 @@ Future consolidation:
 
 1. **Find next available number:**
    ```bash
-   ls database/config/  # Shows 001, 002, 003
+   ls database/schemas/config/  # Shows 001, 002, 003
    ```
 
 2. **Create migration file:**
    ```bash
-   touch database/config/015_add_user_avatar_column.sql
+   touch database/schemas/config/015_add_user_avatar_column.sql
    ```
 
 3. **Write migration (idempotent):**
@@ -204,7 +207,7 @@ Future consolidation:
 
 ### Example: Add dev-only seed data
 
-Create `database/customer/004_seed_data_dev.sql`:
+Create `database/schemas/customer/004_seed_data_dev.sql`:
 ```sql
 -- Development only - more sample customers
 INSERT INTO customer.organizations (id, name, slug) VALUES
@@ -256,22 +259,22 @@ Consolidate when you have:
 1. **Combine incremental migrations into new baseline:**
    ```bash
    # Merge 015-035 into new structure baseline
-   cat config/001_structure_2024-12-14.sql \
-       config/015_add_column_a.sql \
-       config/016_add_column_b.sql \
+   cat schemas/config/001_structure_2024-12-14.sql \
+       schemas/config/015_add_column_a.sql \
+       schemas/config/016_add_column_b.sql \
        ... \
-       > config/001_structure_2025-06-01.sql
+       > schemas/config/001_structure_2025-06-01.sql
    ```
 
 2. **Archive old baseline:**
    ```bash
    mkdir database/archive-2025-06-01/
-   mv config/001_structure_2024-12-14.sql database/archive-2025-06-01/
+   mv schemas/config/001_structure_2024-12-14.sql database/archive-2025-06-01/
    ```
 
 3. **Delete consolidated incrementals:**
    ```bash
-   rm config/015_*.sql config/016_*.sql ... config/035_*.sql
+   rm schemas/config/015_*.sql schemas/config/016_*.sql ... schemas/config/035_*.sql
    ```
 
 4. **Test on fresh database:**
