@@ -55,7 +55,7 @@ SPLIT_DB_MODE="${SPLIT_DB_MODE:-false}"
 PRIMARY_DB=$(echo "$PRIMARY_DATABASE_URL" | sed -E 's/[?&]pgbouncer=[^&]*//g' | sed -E 's/[?&]connection_limit=[^&]*//g' | sed -E 's/\?$//' | sed -E 's/&$//')
 DATA_DB=$(echo "$DATA_DATABASE_URL" | sed -E 's/[?&]pgbouncer=[^&]*//g' | sed -E 's/[?&]connection_limit=[^&]*//g' | sed -E 's/\?$//' | sed -E 's/&$//')
 
-PRIMARY_SCHEMAS=("config" "customer")
+PRIMARY_SCHEMAS=("config" "company" "customer")
 DATA_SCHEMAS=("workspace" "reference")
 
 # Colors
