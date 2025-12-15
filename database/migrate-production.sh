@@ -51,17 +51,20 @@ fi
 
 # Select database
 if [ "$TARGET" = "PRIMARY" ]; then
-    DB_URL="$PRIMARY_DATABASE_URL"
+    RAW_URL="$PRIMARY_DATABASE_URL"
     DB_NAME="PRIMARY (config, customer)"
     SCHEMAS=("config" "customer")
 elif [ "$TARGET" = "DATA" ]; then
-    DB_URL="$DATA_DATABASE_URL"
+    RAW_URL="$DATA_DATABASE_URL"
     DB_NAME="DATA (workspace, reference)"
     SCHEMAS=("workspace" "reference")
 else
     echo -e "${RED}ERROR: Invalid target '$TARGET'. Must be PRIMARY or DATA${NC}"
     exit 1
 fi
+
+# Strip pgbouncer/connection_limit params for psql (it doesn't understand them)
+DB_URL=$(echo "$RAW_URL" | sed -E 's/[?&]pgbouncer=[^&]*//g' | sed -E 's/[?&]connection_limit=[^&]*//g' | sed -E 's/\?$//' | sed -E 's/&$//')
 
 # Verify connection string
 if [ -z "$DB_URL" ]; then
