@@ -25,13 +25,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select';
 import { api } from '../../lib/api';
 import { Plus, Pencil, Trash2, KeyRound, Ban, CheckCircle, Loader2 } from 'lucide-react';
 
@@ -68,7 +61,7 @@ export function UsersPage() {
   });
   const [newPassword, setNewPassword] = useState('');
 
-  const { data: rolesData, isLoading: rolesLoading } = useQuery({
+  const { data: rolesData } = useQuery({
     queryKey: ['roles'],
     queryFn: () => api.get<{ roles: Role[] }>('/api/roles'),
     staleTime: 0, // Always fetch fresh data on admin pages
