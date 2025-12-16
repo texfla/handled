@@ -25,9 +25,9 @@ ON CONFLICT (id) DO UPDATE SET
 -- SAMPLE WAREHOUSE ALLOCATIONS (space at YOUR warehouses)
 -- ============================================
 
--- Acme has allocations at both DFW and LAX
+-- Acme has allocations at both NJ and LAX
 INSERT INTO customer.warehouse_allocations (id, customer_id, company_warehouse_id, is_primary, space_allocated, zone_assignment, status, notes) VALUES
-  ('alloc_acme_dfw', 'cust_acme', 'wh_dfw_01', TRUE, jsonb_build_object('pallets', 500, 'sqft', 10000), 'A1-A25', 'active', 'Primary warehouse for Acme'),
+  ('alloc_acme_nj', 'cust_acme', 'wh_nj_01', TRUE, jsonb_build_object('pallets', 500, 'sqft', 10000), 'A1-A25', 'active', 'Primary warehouse for Acme'),
   ('alloc_acme_lax', 'cust_acme', 'wh_lax_02', FALSE, jsonb_build_object('pallets', 200, 'sqft', 5000), 'B1-B10', 'active', 'West Coast overflow')
 ON CONFLICT (customer_id, company_warehouse_id) DO UPDATE SET
   is_primary = EXCLUDED.is_primary,
@@ -37,9 +37,9 @@ ON CONFLICT (customer_id, company_warehouse_id) DO UPDATE SET
   notes = EXCLUDED.notes,
   updated_at = NOW();
 
--- Beta uses only DFW
+-- Beta uses only NJ
 INSERT INTO customer.warehouse_allocations (id, customer_id, company_warehouse_id, is_primary, space_allocated, zone_assignment, status, notes) VALUES
-  ('alloc_beta_dfw', 'cust_beta', 'wh_dfw_01', TRUE, jsonb_build_object('pallets', 300, 'sqft', 6000), 'C1-C15', 'active', 'Primary warehouse for Beta')
+  ('alloc_beta_nj', 'cust_beta', 'wh_nj_01', TRUE, jsonb_build_object('pallets', 300, 'sqft', 6000), 'C1-C15', 'active', 'Primary warehouse for Beta')
 ON CONFLICT (customer_id, company_warehouse_id) DO UPDATE SET
   is_primary = EXCLUDED.is_primary,
   space_allocated = EXCLUDED.space_allocated,

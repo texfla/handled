@@ -10,6 +10,10 @@ import { ImportsPage } from './pages/integrations/ImportsPage';
 import { TransformationsPage } from './pages/integrations/TransformationsPage';
 import { ExportsPage } from './pages/integrations/ExportsPage';
 
+// Warehouses
+import { WarehousesPage } from './pages/warehouses/WarehousesPage';
+import { WarehouseDetailPage } from './pages/warehouses/WarehouseDetailPage';
+
 // Profile
 import { ProfilePage } from './pages/profile/ProfilePage';
 import { AccountSettingsPage } from './pages/profile/AccountSettingsPage';
@@ -57,6 +61,12 @@ export default function App() {
 
         {/* Clients - Coming Soon */}
         <Route path="clients/*" element={<ComingSoonPage />} />
+
+        {/* Warehouses - Implemented */}
+        <Route path="warehouses">
+          <Route index element={<WarehousesPage />} />
+          <Route path=":id" element={<WarehouseDetailPage />} />
+        </Route>
 
         {/* Inventory - Coming Soon */}
         <Route path="inventory/*" element={<ComingSoonPage />} />

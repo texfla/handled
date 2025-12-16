@@ -1,14 +1,23 @@
 -- ============================================================================
--- Config Schema - Seed Data Baseline
--- Date: 2024-12-14
--- Purpose: Seed roles, permissions, and role-permission mappings
+-- Config Schema - Seed Data (USER DOMAIN)
 -- ============================================================================
--- All INSERT statements use ON CONFLICT DO NOTHING for idempotency
--- Safe to run multiple times without duplication
+-- Date: 2024-12-14
+-- Purpose: Initial roles and role-permission assignments for fresh installs
+-- 
+-- EXECUTION: Only runs on FIRST setup (when roles don't exist)
+-- CONFLICT HANDLING: ON CONFLICT DO NOTHING (never overwrite user data)
+-- 
+-- WHY THIS ONLY RUNS ONCE:
+-- - Roles are user-managed (admins create custom roles)
+-- - Permission assignments are user-configured
+-- - New permissions do NOT automatically get assigned to roles
+-- - System admins manually assign new permissions via UI
+--
+-- NOTE: Permissions are now loaded from 003_permissions_master_2024-12-16.sql
 -- ============================================================================
 
 -- ==================================================
--- SEED ROLES
+-- SEED ROLES (First setup only)
 -- ==================================================
 -- Current production roles: admin, customer_service, 3pl_ops, 3pl_manager, 3pl_viewer
 -- ==================================================
@@ -22,71 +31,14 @@ INSERT INTO config.roles (code, name, description, icon, is_system) VALUES
 ON CONFLICT (code) DO NOTHING;
 
 -- ==================================================
--- SEED PERMISSIONS
+-- ASSIGN PERMISSIONS TO ROLES (First setup only)
 -- ==================================================
--- All permissions from migrations 007, 009, 011
--- ==================================================
-
-INSERT INTO config.permissions (code, name, description, category) VALUES
-  -- Admin permissions
-  ('manage_users', 'Manage Users', 'Create, edit, and delete user accounts', 'admin'),
-  ('manage_roles', 'Manage Roles', 'Configure role permissions', 'admin'),
-  ('view_users', 'View Users', 'See user list and user details', 'admin'),
-  ('view_roles', 'View Roles', 'See role structure and permission assignments', 'admin'),
-  ('view_dashboard', 'View Dashboard', 'Access system dashboard and overview', 'admin'),
-  ('view_settings', 'View Settings', 'View system settings', 'admin'),
-  ('manage_settings', 'Manage Settings', 'Modify system configuration', 'admin'),
-  
-  -- Client/Customer permissions
-  ('view_clients', 'View Clients', 'View client information and contracts', 'clients'),
-  ('manage_clients', 'Manage Clients', 'Create and modify client records', 'clients'),
-  
-  -- Inventory permissions
-  ('view_inventory', 'View Inventory', 'View stock levels and locations', 'inventory'),
-  ('manage_inventory', 'Manage Inventory', 'Adjust inventory and manage locations', 'inventory'),
-  
-  -- Operations permissions
-  ('view_receiving', 'View Receiving', 'View inbound shipments and receipts', 'operations'),
-  ('manage_receiving', 'Manage Receiving', 'Process receipts and putaway tasks', 'operations'),
-  ('view_operations', 'View Operations', 'View labor and productivity metrics', 'operations'),
-  ('manage_operations', 'Manage Operations', 'Manage tasks and warehouse operations', 'operations'),
-  
-  -- Fulfillment permissions
-  ('view_orders', 'View Orders', 'View order details and status', 'fulfillment'),
-  ('manage_orders', 'Manage Orders', 'Process picks, packs, and shipments', 'fulfillment'),
-  ('view_shipping', 'View Shipping', 'View shipments and tracking', 'fulfillment'),
-  ('manage_shipping', 'Manage Shipping', 'Create shipments and print labels', 'fulfillment'),
-  ('view_returns', 'View Returns', 'View return requests and status', 'fulfillment'),
-  ('manage_returns', 'Manage Returns', 'Process returns and dispositions', 'fulfillment'),
-  
-  -- Billing permissions
-  ('view_billing', 'View Billing', 'View invoices and payments', 'billing'),
-  ('manage_billing', 'Manage Billing', 'Create invoices and process payments', 'billing'),
-  
-  -- Reports permissions
-  ('view_reports', 'View Reports', 'Access reports and analytics', 'reports'),
-  
-  -- Integrations permissions
-  ('view_integrations', 'View Integrations', 'View integration status and logs', 'integrations'),
-  ('manage_integrations', 'Manage Integrations', 'Configure and run integrations', 'integrations'),
-  
-  -- Data permissions (legacy from initial RBAC)
-  ('view_data', 'View Data', 'View data and reports', 'data'),
-  ('import_data', 'Import Data', 'Upload and import data files', 'data'),
-  ('export_data', 'Export Data', 'Download and export data', 'data'),
-  ('run_transformations', 'Run Transformations', 'Execute data transformations', 'data'),
-  
-  -- 3PL-specific permissions
-  ('view_3pl', 'View 3PL', 'View all 3PL operational data', '3pl'),
-  ('manage_3pl_settings', 'Manage 3PL Settings', 'Configure 3PL system settings', '3pl')
-ON CONFLICT (code) DO NOTHING;
-
--- ==================================================
--- ASSIGN PERMISSIONS TO ROLES
+-- NOTE: New permissions are NOT automatically assigned to roles
+-- System admins must manually assign new permissions via Role Management UI
 -- ==================================================
 
 -- ------------------------------------
--- ADMIN: All permissions
+-- ADMIN: All permissions (at time of first setup)
 -- ------------------------------------
 INSERT INTO config.role_permissions (role_id, permission_id, granted)
 SELECT r.id, p.id, true
@@ -229,14 +181,14 @@ BEGIN
   END IF;
 END $$;
 
--- Verify permissions were created
+-- Verify permissions exist (from 003_permissions_master)
 DO $$
 DECLARE
   perm_count INTEGER;
 BEGIN
   SELECT COUNT(*) INTO perm_count FROM config.permissions;
   IF perm_count >= 30 THEN
-    RAISE NOTICE '✓ Permissions seeded successfully: % permissions', perm_count;
+    RAISE NOTICE '✓ Permissions loaded: % permissions', perm_count;
   ELSE
     RAISE WARNING '⚠ Expected at least 30 permissions, found %', perm_count;
   END IF;
@@ -258,3 +210,4 @@ BEGIN
     RAISE WARNING '⚠ Admin role has no permissions assigned';
   END IF;
 END $$;
+

@@ -1,6 +1,8 @@
 import {
   LayoutDashboard,
   Users,
+  Building2,
+  UserPlus,
   Package,
   PackageCheck,
   ShoppingCart,
@@ -49,16 +51,22 @@ export const navigation: NavSection[] = [
   {
     id: 'clients',
     label: 'Clients',
-    icon: Users,
+    icon: Building2,
     href: '/clients',
-    implemented: false,
-    // permission: 'view_clients', // TODO: Enable after database migration
+    implemented: true,
+    requiredAnyPermission: ['view_clients', 'manage_clients'],
     children: [
-      { id: 'client-list', label: 'Client List', href: '/clients', implemented: false },
-      { id: 'onboarding', label: 'Onboarding Wizard', href: '/clients/onboarding', implemented: false },
-      { id: 'portal-settings', label: 'Portal Settings', href: '/clients/portal', implemented: false },
-      { id: 'contracts', label: 'Contracts & Rate Cards', href: '/clients/contracts', implemented: false },
+      { id: 'clients-list', label: 'All Clients', href: '/clients', implemented: true, requiredAnyPermission: ['view_clients', 'manage_clients'] },
+      { id: 'clients-onboard', label: 'Onboarding', href: '/clients/onboard', implemented: true, requiredPermission: 'manage_clients' },
     ],
+  },
+  {
+    id: 'warehouses',
+    label: 'Warehouses',
+    icon: Warehouse,
+    href: '/warehouses',
+    implemented: true,
+    requiredAnyPermission: ['view_warehouses', 'manage_warehouses'],
   },
   {
     id: 'inventory',
@@ -209,7 +217,6 @@ export const navigation: NavSection[] = [
       { id: 'users', label: 'Users & Roles', href: '/admin/users', implemented: true, requiredAnyPermission: ['view_users', 'manage_users'] },
       { id: 'roles', label: 'Role Permissions', href: '/admin/roles', implemented: true, requiredAnyPermission: ['view_roles', 'manage_roles'] },
       { id: 'company', label: 'Company Settings', href: '/admin/company', implemented: false },
-      { id: 'warehouse', label: 'Warehouse Setup', href: '/admin/warehouse', implemented: false },
       { id: 'billing-rules', label: 'Billing Rules', href: '/admin/billing-rules', implemented: false },
       { id: 'notifications', label: 'Notifications', href: '/admin/notifications', implemented: false },
       { id: 'audit-log', label: 'Audit Log', href: '/admin/audit-log', implemented: false },

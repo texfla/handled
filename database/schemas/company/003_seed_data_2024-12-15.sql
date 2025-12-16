@@ -8,20 +8,20 @@
 
 INSERT INTO company.warehouses (id, code, name, type, status, address, timezone, capacity, operating_hours, capabilities, notes) VALUES
   (
-    'wh_dfw_01',
-    'DFW-01',
-    'Dallas Fulfillment Center',
+    'wh_nj_01',
+    'NJ-01',
+    'New Jersey Fulfillment Center',
     'owned',
     'active',
     jsonb_build_object(
-      'street1', '123 Warehouse Way',
-      'city', 'Dallas',
-      'state', 'TX',
-      'zip', '75201',
+      'street1', '1050 Slocum Ave',
+      'city', 'Ridgefield',
+      'state', 'NJ',
+      'zip', '07657',
       'country', 'US',
-      'timezone', 'America/Chicago'
+      'timezone', 'America/New_York'
     ),
-    'America/Chicago',
+    'America/New_York',
     jsonb_build_object(
       'total_sqft', 50000,
       'usable_sqft', 42000,
@@ -42,14 +42,14 @@ INSERT INTO company.warehouses (id, code, name, type, status, address, timezone,
   (
     'wh_lax_02',
     'LAX-02',
-    'Los Angeles Distribution Center',
+    'Riverside Distribution Center',
     'leased',
     'active',
     jsonb_build_object(
-      'street1', '456 Distribution Blvd',
-      'city', 'Los Angeles',
+      'street1', '250 Palmyrita Ave Suite 1',
+      'city', 'Riverside',
       'state', 'CA',
-      'zip', '90001',
+      'zip', '92507',
       'country', 'US',
       'timezone', 'America/Los_Angeles'
     ),
@@ -100,4 +100,5 @@ SELECT
   array_length(capabilities, 1) as capability_count
 FROM company.warehouses 
 ORDER BY code;
+
 

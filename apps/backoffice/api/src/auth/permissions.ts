@@ -22,6 +22,8 @@ export const PERMISSIONS = {
   VIEW_DASHBOARD: 'view_dashboard',
   VIEW_CLIENTS: 'view_clients',
   MANAGE_CLIENTS: 'manage_clients',
+  VIEW_WAREHOUSES: 'view_warehouses',
+  MANAGE_WAREHOUSES: 'manage_warehouses',
   VIEW_INVENTORY: 'view_inventory',
   MANAGE_INVENTORY: 'manage_inventory',
   VIEW_RECEIVING: 'view_receiving',
@@ -127,6 +129,18 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'Manage Clients',
     description: 'Create and modify client records',
     category: PERMISSION_CATEGORIES.CLIENTS,
+  },
+
+  // Warehouses
+  [PERMISSIONS.VIEW_WAREHOUSES]: {
+    name: 'View Warehouses',
+    description: 'View warehouse facilities and capacity',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+  },
+  [PERMISSIONS.MANAGE_WAREHOUSES]: {
+    name: 'Manage Warehouses',
+    description: 'Create and modify warehouse facilities',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
   },
 
   // Inventory
