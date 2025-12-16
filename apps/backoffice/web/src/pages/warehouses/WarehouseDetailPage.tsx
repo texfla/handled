@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Badge } from '../../components/ui/badge';
 import { Progress } from '../../components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { ArrowLeft, MapPin, Users, BarChart3, Settings as SettingsIcon } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, BarChart3 } from 'lucide-react';
 import { getStatusColor } from '../../lib/warehouse-utils';
 
 interface WarehouseAllocation {

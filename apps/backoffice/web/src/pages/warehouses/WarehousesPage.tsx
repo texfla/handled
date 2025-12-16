@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
-import { calculateCapacityUtilization, formatAddress, getStatusColor, WAREHOUSE_CAPABILITIES, TIMEZONE_OPTIONS } from '../../lib/warehouse-utils';
+import { calculateCapacityUtilization, getStatusColor, WAREHOUSE_CAPABILITIES, TIMEZONE_OPTIONS } from '../../lib/warehouse-utils';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../../components/ui/alert-dialog';
+import { cn } from '../../lib/utils';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
@@ -56,7 +57,6 @@ export function WarehousesPage() {
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
-  const [deleteWarehouse, setDeleteWarehouse] = useState<Warehouse | null>(null);
 
   // Form state
   const [code, setCode] = useState('');
@@ -110,7 +110,6 @@ export function WarehousesPage() {
     mutationFn: (id: string) => api.delete(`/api/warehouses/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['warehouses'] });
-      setDeleteWarehouse(null);
     },
     onError: (error: any) => {
       setError(error.response?.data?.error || 'Failed to delete warehouse');
@@ -374,11 +373,11 @@ export function WarehousesPage() {
                   )}
 
                   {/* Actions */}
-                  <div className="flex gap-2 pt-3 border-t">
+                  <div className="pt-3 border-t">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1"
+                      className="w-full"
                       onClick={(e) => {
                         e.stopPropagation();
                         openEditDialog(warehouse);
@@ -386,16 +385,6 @@ export function WarehousesPage() {
                     >
                       <Edit className="h-3 w-3 mr-2" />
                       Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteWarehouse(warehouse);
-                      }}
-                    >
-                      <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
                 </CardContent>
@@ -622,18 +611,23 @@ export function WarehousesPage() {
                   { key: 'sat', label: 'Saturday' },
                   { key: 'sun', label: 'Sunday' }
                 ].map(({ key, label }) => {
-                  const [open, close] = (operatingHours[key] || '').split('-');
+                  const hoursStr = operatingHours[key] || '';
+                  const [openTime, closeTime] = hoursStr ? hoursStr.split('-') : ['', ''];
                   
                   return (
                     <div key={key} className="grid grid-cols-[100px_1fr_1fr] gap-3 items-center">
                       <Label className="text-sm">{label}</Label>
                       <Input
                         type="time"
-                        value={open || ''}
+                        value={openTime}
                         onChange={(e) => {
                           const newHours = { ...operatingHours };
-                          if (e.target.value) {
-                            newHours[key] = `${e.target.value}-${close || '18:00'}`;
+                          const newOpen = e.target.value;
+                          
+                          if (newOpen && closeTime) {
+                            newHours[key] = `${newOpen}-${closeTime}`;
+                          } else if (newOpen) {
+                            newHours[key] = `${newOpen}-`;
                           } else {
                             delete newHours[key];
                           }
@@ -643,11 +637,13 @@ export function WarehousesPage() {
                       />
                       <Input
                         type="time"
-                        value={close || ''}
+                        value={closeTime}
                         onChange={(e) => {
                           const newHours = { ...operatingHours };
-                          if (open && e.target.value) {
-                            newHours[key] = `${open}-${e.target.value}`;
+                          const newClose = e.target.value;
+                          
+                          if (openTime && newClose) {
+                            newHours[key] = `${openTime}-${newClose}`;
                           } else {
                             delete newHours[key];
                           }
@@ -721,75 +717,88 @@ export function WarehousesPage() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleSave}
-              disabled={createMutation.isPending || updateMutation.isPending}
-            >
-              {(createMutation.isPending || updateMutation.isPending) && (
-                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              )}
-              {editingWarehouse ? 'Save Changes' : 'Create Warehouse'}
-            </Button>
+          <DialogFooter className={cn(
+            "flex items-center",
+            editingWarehouse ? "!justify-between" : "justify-end"
+          )}>
+            {/* Delete button on left - only when editing */}
+            {editingWarehouse && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" type="button">
+                    <Trash2 className="h-3 w-3 mr-2" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Delete {editingWarehouse.code}?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-3">
+                      {editingWarehouse._count && editingWarehouse._count.warehouseAllocations > 0 ? (
+                        <>
+                          <p className="text-destructive font-medium">
+                            This warehouse has {editingWarehouse._count.warehouseAllocations} active client allocation
+                            {editingWarehouse._count.warehouseAllocations !== 1 ? 's' : ''}.
+                          </p>
+                          <p className="text-sm">
+                            You must remove all client allocations before deleting this warehouse.
+                            Go to each client and reassign their space to a different warehouse.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p>
+                            This warehouse ({editingWarehouse.name}) has no active client allocations and can be safely deleted.
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            This action cannot be undone.
+                          </p>
+                        </>
+                      )}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={editingWarehouse._count && editingWarehouse._count.warehouseAllocations > 0}
+                      onClick={() => {
+                        deleteMutation.mutate(editingWarehouse.id);
+                        closeDialog();
+                      }}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {deleteMutation.isPending && (
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      )}
+                      Delete Warehouse
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+
+            {/* Right side buttons */}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={closeDialog}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSave}
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
+                {(createMutation.isPending || updateMutation.isPending) && (
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                )}
+                {editingWarehouse ? 'Save Changes' : 'Create Warehouse'}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Delete Confirmation */}
-      <AlertDialog 
-        open={!!deleteWarehouse} 
-        onOpenChange={(open) => !open && setDeleteWarehouse(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Delete {deleteWarehouse?.code}?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              {deleteWarehouse && deleteWarehouse._count && deleteWarehouse._count.warehouseAllocations > 0 ? (
-                <>
-                  <p className="text-destructive font-medium">
-                    This warehouse has {deleteWarehouse._count.warehouseAllocations} active client allocation
-                    {deleteWarehouse._count.warehouseAllocations !== 1 ? 's' : ''}.
-                  </p>
-                  <p className="text-sm">
-                    You must remove all client allocations before deleting this warehouse.
-                    Go to each client and reassign their space to a different warehouse.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p>
-                    This warehouse ({deleteWarehouse?.name}) has no active client allocations
-                    and can be safely deleted.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    This action cannot be undone.
-                  </p>
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleteWarehouse(null)}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={deleteWarehouse?._count && deleteWarehouse._count.warehouseAllocations > 0}
-              onClick={() => deleteWarehouse && deleteMutation.mutate(deleteWarehouse.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteMutation.isPending && (
-                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              )}
-              Delete Warehouse
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
