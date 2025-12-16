@@ -1,6 +1,7 @@
 // Prisma Schema for PRIMARY Database (DBaaS)
 // Contains: config schema (auth, users, roles, permissions, integration_runs)
-//           customer schema (future: organizations, facilities, orders, shipments)
+//           company schema (warehouses, zones)
+//           customer schema (organizations, facilities, contacts, contracts)
 
 generator client {
   provider        = "prisma-client-js"
@@ -11,7 +12,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("PRIMARY_DATABASE_URL")
-  schemas  = ["config", "customer"]
+  schemas  = ["config", "company", "customer"]
 }
 
 // ============================================
@@ -85,9 +86,10 @@ model User {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  userRoles       UserRole[]
-  sessions        Session[]
-  integrationRuns IntegrationRun[]
+  userRoles          UserRole[]
+  sessions           Session[]
+  integrationRuns    IntegrationRun[]
+  managedWarehouses  Warehouse[]
 
   @@map("users")
   @@schema("config")
@@ -124,32 +126,208 @@ model IntegrationRun {
 }
 
 // ============================================
-// CUSTOMER SCHEMA - Customer production data
+// COMPANY SCHEMA - YOUR operational assets
+// ============================================
+
+model Warehouse {
+  id              String    @id @default(dbgenerated("'wh_' || gen_random_uuid()"))
+  code            String    @unique
+  name            String
+  type            String
+  status          String    @default("active")
+  address         Json
+  timezone        String    @default("America/Chicago")
+  capacity        Json      @default("{}")
+  operatingHours  Json?     @map("operating_hours")
+  capabilities    String[]
+  managerId       String?   @map("manager_id")
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  manager   User?           @relation(fields: [managerId], references: [id])
+  zones     WarehouseZone[]
+  facilities Facility[]
+
+  @@map("warehouses")
+  @@schema("company")
+  @@index([code])
+  @@index([status])
+  @@index([managerId])
+}
+
+model WarehouseZone {
+  id              String   @id @default(dbgenerated("'zone_' || gen_random_uuid()"))
+  warehouseId     String   @map("warehouse_id")
+  zoneCode        String   @map("zone_code")
+  zoneType        String?  @map("zone_type")
+  capacityPallets Int?     @map("capacity_pallets")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, zoneCode])
+  @@map("warehouse_zones")
+  @@schema("company")
+  @@index([warehouseId])
+}
+
+// ============================================
+// CUSTOMER SCHEMA - THEIR data (multi-tenant)
 // ============================================
 
 model Organization {
-  id        String   @id
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(dbgenerated("'org_' || gen_random_uuid()"))
+  name           String
+  slug           String   @unique
+  status         String   @default("prospect")
+  setupProgress  Json     @default("{}") @map("setup_progress")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
-  facilities Facility[]
+  facilities       Facility[]
+  clientFacilities ClientFacility[]
+  contacts         Contact[]
+  contracts        Contract[]
+  settings         ClientSettings?
 
   @@map("organizations")
   @@schema("customer")
+  @@index([status])
 }
 
 model Facility {
-  id             String   @id
+  id                  String   @id @default(dbgenerated("'fac_' || gen_random_uuid()"))
+  organizationId      String   @map("organization_id")
+  companyWarehouseId  String   @map("company_warehouse_id")
+  isPrimary           Boolean  @default(false) @map("is_primary")
+  spaceAllocation     Json?    @map("space_allocation")
+  zoneAssignment      String?  @map("zone_assignment")
+  status              String   @default("active")
+  notes               String?
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  warehouse    Warehouse    @relation(fields: [companyWarehouseId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, companyWarehouseId])
+  @@map("facilities")
+  @@schema("customer")
+  @@index([organizationId])
+  @@index([companyWarehouseId])
+  @@index([status])
+}
+
+model ClientFacility {
+  id             String   @id @default(dbgenerated("'client_fac_' || gen_random_uuid()"))
   organizationId String   @map("organization_id")
   name           String
-  address        Json?
-  zip            String?  @db.VarChar(5)
+  facilityType   String?  @map("facility_type")
+  address        Json
+  isSource       Boolean  @default(false) @map("is_source")
+  isDestination  Boolean  @default(false) @map("is_destination")
+  notes          String?
   createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@map("facilities")
+  @@map("client_facilities")
   @@schema("customer")
+  @@index([organizationId])
+  @@index([isSource])
+  @@index([isDestination])
+}
+
+model Contact {
+  id             String   @id @default(dbgenerated("'contact_' || gen_random_uuid()"))
+  organizationId String   @map("organization_id")
+  firstName      String   @map("first_name")
+  lastName       String   @map("last_name")
+  title          String?
+  email          String?
+  phone          String?
+  role           String?
+  isPrimary      Boolean  @default(false) @map("is_primary")
+  active         Boolean  @default(true)
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("contacts")
+  @@schema("customer")
+  @@index([organizationId])
+  @@index([isPrimary])
+  @@index([active])
+}
+
+model Contract {
+  id             String    @id @default(dbgenerated("'contract_' || gen_random_uuid()"))
+  organizationId String    @map("organization_id")
+  contractNumber String?   @unique @map("contract_number")
+  name           String
+  startDate      DateTime  @map("start_date") @db.Date
+  endDate        DateTime? @map("end_date") @db.Date
+  autoRenew      Boolean   @default(false) @map("auto_renew")
+  status         String    @default("draft")
+  billingCycle   String?   @map("billing_cycle")
+  paymentTerms   String?   @map("payment_terms")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rateCards    RateCard[]
+
+  @@map("contracts")
+  @@schema("customer")
+  @@index([organizationId])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+model RateCard {
+  id             String    @id @default(dbgenerated("'rate_' || gen_random_uuid()"))
+  contractId     String    @map("contract_id")
+  name           String
+  effectiveDate  DateTime  @map("effective_date") @db.Date
+  expirationDate DateTime? @map("expiration_date") @db.Date
+  version        Int       @default(1)
+  supersedesId   String?   @map("supersedes_id")
+  rates          Json      @default("{}")
+  isActive       Boolean   @default(true) @map("is_active")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@map("rate_cards")
+  @@schema("customer")
+  @@index([contractId])
+  @@index([isActive])
+  @@index([effectiveDate])
+}
+
+model ClientSettings {
+  organizationId          String   @id @map("organization_id")
+  portalEnabled           Boolean  @default(false) @map("portal_enabled")
+  portalSubdomain         String?  @unique @map("portal_subdomain")
+  notificationEmail       String?  @map("notification_email")
+  notificationPreferences Json     @default("{}") @map("notification_preferences")
+  timezone                String   @default("America/Chicago")
+  settings                Json     @default("{}")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("client_settings")
+  @@schema("customer")
+  @@index([portalEnabled])
 }

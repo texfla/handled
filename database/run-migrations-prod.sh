@@ -2,24 +2,66 @@
 # ============================================================================
 # PRODUCTION Migration Runner
 # ============================================================================
-# ONLY runs baseline migrations (dated *_YYYY-MM-DD.sql files)
-# CANNOT run dev seed data (code to detect _dev.sql doesn't exist)
+# Runs ONLY dated baseline files (*_YYYY-MM-DD.sql)
+# Skips dev seed data files (*_dev.sql)
 #
-# Usage: bash database/run-migrations-prod.sh
+# Usage: 
+#   bash database/run-migrations-prod.sh -prod  (uses PRIMARY_DATABASE_URL - production)
+#   bash database/run-migrations-prod.sh -dev   (uses PRIMARY_DATABASE_URL - development)
+#   bash database/run-migrations-prod.sh -test  (uses TEST_DATABASE_URL)
+#
+# IMPORTANT: Argument is REQUIRED for safety
 # ============================================================================
 
 set -e  # Exit on any error
 
 # =============================================================================
-# SAFETY CHECK: Fail if NODE_ENV suggests this isn't production
+# PARSE ARGUMENTS
 # =============================================================================
 
-if [ "$NODE_ENV" = "development" ] || [ "$NODE_ENV" = "test" ]; then
-    echo "ERROR: NODE_ENV=$NODE_ENV detected!"
-    echo "This script is for PRODUCTION only."
-    echo "Use run-migrations-dev.sh for development environments."
+if [ -z "$1" ]; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "ERROR: Target environment required"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "This script runs PRODUCTION migrations (baseline files only)."
+    echo "You must specify which environment to target:"
+    echo ""
+    echo "  bash database/run-migrations-prod.sh -prod  → production (no dev data)"
+    echo "  bash database/run-migrations-prod.sh -dev   → local development (no dev data)"
+    echo "  bash database/run-migrations-prod.sh -test  → local testing (no dev data)"
+    echo ""
+    echo "For development WITH dev seed data, use:"
+    echo "  bash database/run-migrations-dev.sh -dev"
+    echo ""
     exit 1
 fi
+
+TARGET_ENV="$1"
+
+case "$TARGET_ENV" in
+    -prod)
+        ENV_NAME="PRODUCTION"
+        # Extra safety check for production
+        if [ "$NODE_ENV" = "development" ] || [ "$NODE_ENV" = "test" ]; then
+            echo "ERROR: NODE_ENV=$NODE_ENV conflicts with -prod target!"
+            echo "Set NODE_ENV=production or use -dev/-test flag instead."
+            exit 1
+        fi
+        ;;
+    -dev)
+        ENV_NAME="DEVELOPMENT"
+        ;;
+    -test)
+        ENV_NAME="TEST"
+        ;;
+    *)
+        echo "Error: Invalid argument '$TARGET_ENV'"
+        echo "Usage: bash database/run-migrations-prod.sh [-prod|-dev|-test]"
+        exit 1
+        ;;
+esac
 
 # =============================================================================
 # LOAD ENVIRONMENT
@@ -36,12 +78,16 @@ fi
 
 if [ -f "$ENV_FILE" ]; then
     # Load environment variables (properly handle quotes)
+    # Only set variables that aren't already set (preserve command-line overrides)
     while IFS='=' read -r key value; do
         [[ $key =~ ^#.*$ ]] && continue
         [[ -z "$key" ]] && continue
         value="${value%\"}"
         value="${value#\"}"
-        export "$key=$value"
+        # Only export if not already set
+        if [ -z "${!key}" ]; then
+            export "$key=$value"
+        fi
     done < <(grep -v '^#' "$ENV_FILE" | grep -v '^$')
 else
     echo "WARNING: .env file not found at $ENV_FILE"
@@ -51,12 +97,35 @@ fi
 # CONFIGURATION
 # =============================================================================
 
-# Detect split vs single DB mode
-SPLIT_DB_MODE="${SPLIT_DB_MODE:-false}"
+# Select database URL based on target environment
+case "$TARGET_ENV" in
+    -test)
+        if [ -z "$TEST_DATABASE_URL" ]; then
+            echo "Error: TEST_DATABASE_URL not set in .env"
+            exit 1
+        fi
+        # For test, use TEST_DATABASE_URL for both PRIMARY and DATA (single DB)
+        SELECTED_PRIMARY_URL="$TEST_DATABASE_URL"
+        SELECTED_DATA_URL="$TEST_DATABASE_URL"
+        SPLIT_DB_MODE="false"
+        ;;
+    -prod)
+        # For production, use production URLs
+        SELECTED_PRIMARY_URL="$PRIMARY_DATABASE_URL"
+        SELECTED_DATA_URL="${DATA_DATABASE_URL:-$PRIMARY_DATABASE_URL}"
+        SPLIT_DB_MODE="${SPLIT_DB_MODE:-false}"
+        ;;
+    -dev)
+        # For dev, use dev URLs
+        SELECTED_PRIMARY_URL="$PRIMARY_DATABASE_URL"
+        SELECTED_DATA_URL="${DATA_DATABASE_URL:-$PRIMARY_DATABASE_URL}"
+        SPLIT_DB_MODE="${SPLIT_DB_MODE:-false}"
+        ;;
+esac
 
 # Remove pgbouncer/connection_limit params for psql
-PRIMARY_DB=$(echo "$PRIMARY_DATABASE_URL" | sed -E 's/[?&]pgbouncer=[^&]*//g' | sed -E 's/[?&]connection_limit=[^&]*//g' | sed -E 's/\?$//' | sed -E 's/&$//')
-DATA_DB=$(echo "$DATA_DATABASE_URL" | sed -E 's/[?&]pgbouncer=[^&]*//g' | sed -E 's/[?&]connection_limit=[^&]*//g' | sed -E 's/\?$//' | sed -E 's/&$//')
+PRIMARY_DB=$(echo "$SELECTED_PRIMARY_URL" | sed -E 's/[?&]pgbouncer=[^&]*//g' | sed -E 's/[?&]connection_limit=[^&]*//g' | sed -E 's/\?$//' | sed -E 's/&$//')
+DATA_DB=$(echo "$SELECTED_DATA_URL" | sed -E 's/[?&]pgbouncer=[^&]*//g' | sed -E 's/[?&]connection_limit=[^&]*//g' | sed -E 's/\?$//' | sed -E 's/&$//')
 
 # Schema folder routing
 PRIMARY_SCHEMAS=("config" "company" "customer")
@@ -70,11 +139,12 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}PRODUCTION Migration Runner${NC}"
+echo -e "${BLUE}${ENV_NAME} Migration Runner (Production Mode)${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
+echo "Target: $ENV_NAME"
 echo "Split DB Mode: $SPLIT_DB_MODE"
-echo "Baseline Files Only: *_YYYY-MM-DD.sql"
+echo "Baseline Files Only: *_YYYY-MM-DD.sql (no dev seed data)"
 echo ""
 
 # =============================================================================
@@ -83,7 +153,10 @@ echo ""
 
 TOTAL_RUN=0
 
-for SCHEMA in config customer workspace reference; do
+# Process PRIMARY schemas first, then DATA schemas
+ALL_SCHEMAS=("${PRIMARY_SCHEMAS[@]}" "${DATA_SCHEMAS[@]}")
+
+for SCHEMA in "${ALL_SCHEMAS[@]}"; do
     # Determine target database for migrations
     if [[ " ${PRIMARY_SCHEMAS[@]} " =~ " ${SCHEMA} " ]]; then
         DB_URL="$PRIMARY_DB"
@@ -150,8 +223,8 @@ done
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 if [ "$TOTAL_RUN" -eq 0 ]; then
-    echo -e "${GREEN}✓ PRODUCTION database is up to date!${NC}"
+    echo -e "${GREEN}✓ ${ENV_NAME} database is up to date!${NC}"
 else
-    echo -e "${GREEN}✓ Successfully applied $TOTAL_RUN baseline migration(s)!${NC}"
+    echo -e "${GREEN}✓ Successfully applied $TOTAL_RUN baseline migration(s) to ${ENV_NAME}!${NC}"
 fi
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
