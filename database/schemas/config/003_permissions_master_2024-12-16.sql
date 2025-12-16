@@ -85,16 +85,35 @@ INSERT INTO config.permissions (code, name, description, category) VALUES
   ('manage_integrations', 'Manage Integrations', 'Configure and run integrations', 'integrations'),
   
   -- ==================================================
-  -- Data permissions (legacy from initial RBAC)
+  -- Demographics data permissions (updated: 2024-12-16)
   -- ==================================================
-  ('view_data', 'View Data', 'View data and reports', 'data'),
-  ('import_data', 'Import Data', 'Upload and import data files', 'data'),
-  ('export_data', 'Export Data', 'Download and export data', 'data'),
-  ('run_transformations', 'Run Transformations', 'Execute data transformations', 'data'),
+  ('view_demographics', 'View Demographics', 'View demographic and ZIP code data', 'data'),
+  ('manage_demographics', 'Manage Demographics', 'Manage demographic data and ZIP codes', 'data'),
+  ('import_demographics', 'Import Demographics', 'Upload demographic and ZIP code files', 'data'),
+  ('export_demographics', 'Export Demographics', 'Download demographic data', 'data'),
   
   -- ==================================================
-  -- NOTE: Legacy 3PL permissions removed 2024-12-15
-  -- Replaced with specific permissions: view_clients, view_warehouses, etc.
+  -- Carrier rates permissions (updated: 2024-12-16)
+  -- ==================================================
+  ('view_carrier_rates', 'View Carrier Rates', 'View carrier pricing and zone data', 'data'),
+  ('manage_carrier_rates', 'Manage Carrier Rates', 'Manage carrier pricing data', 'data'),
+  ('import_carrier_rates', 'Import Carrier Rates', 'Upload carrier rate and zone files', 'data'),
+  ('export_carrier_rates', 'Export Carrier Rates', 'Download carrier rate data', 'data'),
+  
+  -- ==================================================
+  -- Transformations permissions (updated: 2024-12-16)
+  -- ==================================================
+  ('view_transformations', 'View Transformations', 'View transformation history and status', 'data'),
+  ('manage_transformations', 'Manage Transformations', 'Execute and configure transformations', 'data')
+  
+  -- ==================================================
+  -- DEPRECATED PERMISSIONS (removed 2024-12-16)
+  -- ==================================================
+  -- view_data → Split into view_demographics, view_carrier_rates
+  -- import_data → Split into import_demographics, import_carrier_rates
+  -- export_data → Split into export_demographics, export_carrier_rates
+  -- run_transformations → Renamed to manage_transformations (added view_transformations)
+  -- view_3pl, manage_3pl_settings → Replaced with specific permissions
   -- ==================================================
 
 -- ==================================================

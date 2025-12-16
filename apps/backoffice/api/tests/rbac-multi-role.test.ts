@@ -21,8 +21,8 @@ describe('RBAC - Multi-Role Assignment', () => {
     
     try {
       // Create two roles
-      role1 = await createTestRole('Role A', ['view_data']);
-      role2 = await createTestRole('Role B', ['import_data']);
+      role1 = await createTestRole('Role A', ['view_demographics']);
+      role2 = await createTestRole('Role B', ['import_demographics']);
       assert.ok(role1);
       assert.ok(role2);
       
@@ -145,11 +145,11 @@ describe('RBAC - Permission Flattening', () => {
     let roleA, roleB, user;
     
     try {
-      // Create Role A with [view_data, import_data]
-      roleA = await createTestRole('Role A', ['view_data', 'import_data']);
+      // Create Role A with [view_demographics, import_demographics]
+      roleA = await createTestRole('Role A', ['view_demographics', 'import_demographics']);
       
-      // Create Role B with [export_data, run_transformations]
-      roleB = await createTestRole('Role B', ['export_data', 'run_transformations']);
+      // Create Role B with [export_demographics, manage_transformations]
+      roleB = await createTestRole('Role B', ['export_demographics', 'manage_transformations']);
       
       // Assign user both roles
       user = await createTestUser(`union_${Date.now()}@test.com`, [roleA.id, roleB.id]);
@@ -164,10 +164,10 @@ describe('RBAC - Permission Flattening', () => {
       const permissions = Array.from(permissionsSet);
       
       // Verify user has all 4 permissions (union)
-      assert.ok(permissions.includes('view_data'));
-      assert.ok(permissions.includes('import_data'));
-      assert.ok(permissions.includes('export_data'));
-      assert.ok(permissions.includes('run_transformations'));
+      assert.ok(permissions.includes('view_demographics'));
+      assert.ok(permissions.includes('import_demographics'));
+      assert.ok(permissions.includes('export_demographics'));
+      assert.ok(permissions.includes('manage_transformations'));
       assert.strictEqual(permissions.length, 4);
       
     } finally {
@@ -199,11 +199,11 @@ describe('RBAC - Permission Flattening', () => {
     let roleA, roleB, user;
     
     try {
-      // Create Role A with [view_data, import_data]
-      roleA = await createTestRole('Role A Overlap', ['view_data', 'import_data']);
+      // Create Role A with [view_demographics, import_demographics]
+      roleA = await createTestRole('Role A Overlap', ['view_demographics', 'import_demographics']);
       
-      // Create Role B with [view_data, export_data] (view_data overlaps)
-      roleB = await createTestRole('Role B Overlap', ['view_data', 'export_data']);
+      // Create Role B with [view_demographics, export_demographics] (view_demographics overlaps)
+      roleB = await createTestRole('Role B Overlap', ['view_demographics', 'export_demographics']);
       
       // Assign user both roles
       user = await createTestUser(`dedup_${Date.now()}@test.com`, [roleA.id, roleB.id]);
@@ -217,10 +217,10 @@ describe('RBAC - Permission Flattening', () => {
       }
       const permissions = Array.from(permissionsSet);
       
-      // Verify user has [view_data, import_data, export_data] (no duplicates)
-      assert.ok(permissions.includes('view_data'));
-      assert.ok(permissions.includes('import_data'));
-      assert.ok(permissions.includes('export_data'));
+      // Verify user has [view_demographics, import_demographics, export_demographics] (no duplicates)
+      assert.ok(permissions.includes('view_demographics'));
+      assert.ok(permissions.includes('import_demographics'));
+      assert.ok(permissions.includes('export_demographics'));
       assert.strictEqual(permissions.length, 3); // Not 4
       
     } finally {
@@ -253,8 +253,8 @@ describe('RBAC - Permission Flattening', () => {
     
     try {
       // Create roles
-      roleA = await createTestRole('Role A Remove', ['view_data']);
-      roleB = await createTestRole('Role B Remove', ['export_data']);
+      roleA = await createTestRole('Role A Remove', ['view_demographics']);
+      roleB = await createTestRole('Role B Remove', ['export_demographics']);
       
       // User has both roles
       user = await createTestUser(`remove_${Date.now()}@test.com`, [roleA.id, roleB.id]);
@@ -299,9 +299,9 @@ describe('RBAC - Permission Flattening', () => {
       }
       const permissions = Array.from(permissionsSet);
       
-      // Verify user still has export_data but not view_data
-      assert.ok(permissions.includes('export_data'));
-      assert.ok(!permissions.includes('view_data'));
+      // Verify user still has export_demographics but not view_demographics
+      assert.ok(permissions.includes('export_demographics'));
+      assert.ok(!permissions.includes('view_demographics'));
       
     } finally {
       if (user) {
@@ -551,7 +551,7 @@ describe('RBAC - Edge Cases', () => {
     
     try {
       // Create role with 1+ users
-      role = await createTestRole('Role With Users', ['view_data']);
+      role = await createTestRole('Role With Users', ['view_demographics']);
       user = await createTestUser(`hasrole_${Date.now()}@test.com`, [role.id]);
       
       // Verify UserRole entry exists
@@ -594,7 +594,7 @@ describe('RBAC - Edge Cases', () => {
     let role, user;
     
     try {
-      // Create role with 0 permissions
+      // Create role with no permissions
       role = await createTestRole('Empty Role', []);
       user = await createTestUser(`empty_${Date.now()}@test.com`, [role.id]);
       

@@ -7,19 +7,15 @@
 
 export const PERMISSIONS = {
   // Admin permissions
-  MANAGE_USERS: 'manage_users',
-  MANAGE_ROLES: 'manage_roles',
-  VIEW_USERS: 'view_users',
-  VIEW_ROLES: 'view_roles',
-  
-  // Data management permissions (legacy - now under integrations)
-  VIEW_DATA: 'view_data',
-  IMPORT_DATA: 'import_data',
-  EXPORT_DATA: 'export_data',
-  RUN_TRANSFORMATIONS: 'run_transformations',
-
-  // 3PL Module permissions
   VIEW_DASHBOARD: 'view_dashboard',
+  VIEW_USERS: 'view_users',
+  MANAGE_USERS: 'manage_users',
+  VIEW_ROLES: 'view_roles',
+  MANAGE_ROLES: 'manage_roles',
+  VIEW_SETTINGS: 'view_settings',
+  MANAGE_SETTINGS: 'manage_settings',
+
+  // Operations permissions
   VIEW_CLIENTS: 'view_clients',
   MANAGE_CLIENTS: 'manage_clients',
   VIEW_WAREHOUSES: 'view_warehouses',
@@ -34,15 +30,35 @@ export const PERMISSIONS = {
   MANAGE_SHIPPING: 'manage_shipping',
   VIEW_RETURNS: 'view_returns',
   MANAGE_RETURNS: 'manage_returns',
-  VIEW_BILLING: 'view_billing',
-  MANAGE_BILLING: 'manage_billing',
   VIEW_OPERATIONS: 'view_operations',
   MANAGE_OPERATIONS: 'manage_operations',
+
+  // Billing permissions
+  VIEW_BILLING: 'view_billing',
+  MANAGE_BILLING: 'manage_billing',
+
+  // Reports permissions
   VIEW_REPORTS: 'view_reports',
+
+  // Integrations permissions
   VIEW_INTEGRATIONS: 'view_integrations',
   MANAGE_INTEGRATIONS: 'manage_integrations',
-  VIEW_SETTINGS: 'view_settings',
-  MANAGE_SETTINGS: 'manage_settings',
+
+  // Demographics data permissions
+  VIEW_DEMOGRAPHICS: 'view_demographics',
+  MANAGE_DEMOGRAPHICS: 'manage_demographics',
+  IMPORT_DEMOGRAPHICS: 'import_demographics',
+  EXPORT_DEMOGRAPHICS: 'export_demographics',
+
+  // Carrier rates permissions
+  VIEW_CARRIER_RATES: 'view_carrier_rates',
+  MANAGE_CARRIER_RATES: 'manage_carrier_rates',
+  IMPORT_CARRIER_RATES: 'import_carrier_rates',
+  EXPORT_CARRIER_RATES: 'export_carrier_rates',
+
+  // Transformations permissions
+  VIEW_TRANSFORMATIONS: 'view_transformations',
+  MANAGE_TRANSFORMATIONS: 'manage_transformations',
 } as const;
 
 export const PERMISSION_CATEGORIES = {
@@ -100,36 +116,6 @@ export const PERMISSION_INFO: Record<Permission, {
     action: 'view'
   },
 
-  // Legacy Data (now Integrations)
-  [PERMISSIONS.VIEW_DATA]: {
-    name: 'View Data',
-    description: 'View data and reports',
-    category: PERMISSION_CATEGORIES.DATA,
-    resource: 'data',
-    action: 'view'
-  },
-  [PERMISSIONS.IMPORT_DATA]: {
-    name: 'Import Data',
-    description: 'Upload and import data files',
-    category: PERMISSION_CATEGORIES.DATA,
-    resource: 'data',
-    action: 'import'
-  },
-  [PERMISSIONS.EXPORT_DATA]: {
-    name: 'Export Data',
-    description: 'Download and export data',
-    category: PERMISSION_CATEGORIES.DATA,
-    resource: 'data',
-    action: 'export'
-  },
-  [PERMISSIONS.RUN_TRANSFORMATIONS]: {
-    name: 'Run Transformations',
-    description: 'Execute data transformations',
-    category: PERMISSION_CATEGORIES.DATA,
-    resource: 'transformations',
-    action: 'run'
-  },
-
   // Dashboard
   [PERMISSIONS.VIEW_DASHBOARD]: {
     name: 'View Dashboard',
@@ -137,6 +123,22 @@ export const PERMISSION_INFO: Record<Permission, {
     category: PERMISSION_CATEGORIES.ADMIN,
     resource: 'dashboard',
     action: 'view'
+  },
+
+  // Settings
+  [PERMISSIONS.VIEW_SETTINGS]: {
+    name: 'View Settings',
+    description: 'View system settings',
+    category: PERMISSION_CATEGORIES.ADMIN,
+    resource: 'settings',
+    action: 'view'
+  },
+  [PERMISSIONS.MANAGE_SETTINGS]: {
+    name: 'Manage Settings',
+    description: 'Modify system configuration',
+    category: PERMISSION_CATEGORIES.ADMIN,
+    resource: 'settings',
+    action: 'manage'
   },
 
   // Clients
@@ -308,19 +310,79 @@ export const PERMISSION_INFO: Record<Permission, {
     action: 'manage'
   },
 
-  // Settings
-  [PERMISSIONS.VIEW_SETTINGS]: {
-    name: 'View Settings',
-    description: 'View system settings',
-    category: PERMISSION_CATEGORIES.ADMIN,
-    resource: 'settings',
+  // Demographics data
+  [PERMISSIONS.VIEW_DEMOGRAPHICS]: {
+    name: 'View Demographics',
+    description: 'View demographic and ZIP code data',
+    category: PERMISSION_CATEGORIES.DATA,
+    resource: 'demographics',
     action: 'view'
   },
-  [PERMISSIONS.MANAGE_SETTINGS]: {
-    name: 'Manage Settings',
-    description: 'Modify system configuration',
-    category: PERMISSION_CATEGORIES.ADMIN,
-    resource: 'settings',
+  [PERMISSIONS.MANAGE_DEMOGRAPHICS]: {
+    name: 'Manage Demographics',
+    description: 'Manage demographic data and ZIP codes',
+    category: PERMISSION_CATEGORIES.DATA,
+    resource: 'demographics',
+    action: 'manage'
+  },
+  [PERMISSIONS.IMPORT_DEMOGRAPHICS]: {
+    name: 'Import Demographics',
+    description: 'Upload demographic and ZIP code files',
+    category: PERMISSION_CATEGORIES.DATA,
+    resource: 'demographics',
+    action: 'import'
+  },
+  [PERMISSIONS.EXPORT_DEMOGRAPHICS]: {
+    name: 'Export Demographics',
+    description: 'Download demographic data',
+    category: PERMISSION_CATEGORIES.DATA,
+    resource: 'demographics',
+    action: 'export'
+  },
+
+  // Carrier rates
+  [PERMISSIONS.VIEW_CARRIER_RATES]: {
+    name: 'View Carrier Rates',
+    description: 'View carrier pricing and zone data',
+    category: PERMISSION_CATEGORIES.DATA,
+    resource: 'carrier_rates',
+    action: 'view'
+  },
+  [PERMISSIONS.MANAGE_CARRIER_RATES]: {
+    name: 'Manage Carrier Rates',
+    description: 'Manage carrier pricing data',
+    category: PERMISSION_CATEGORIES.DATA,
+    resource: 'carrier_rates',
+    action: 'manage'
+  },
+  [PERMISSIONS.IMPORT_CARRIER_RATES]: {
+    name: 'Import Carrier Rates',
+    description: 'Upload carrier rate and zone files',
+    category: PERMISSION_CATEGORIES.DATA,
+    resource: 'carrier_rates',
+    action: 'import'
+  },
+  [PERMISSIONS.EXPORT_CARRIER_RATES]: {
+    name: 'Export Carrier Rates',
+    description: 'Download carrier rate data',
+    category: PERMISSION_CATEGORIES.DATA,
+    resource: 'carrier_rates',
+    action: 'export'
+  },
+
+  // Transformations
+  [PERMISSIONS.VIEW_TRANSFORMATIONS]: {
+    name: 'View Transformations',
+    description: 'View transformation history and status',
+    category: PERMISSION_CATEGORIES.DATA,
+    resource: 'transformations',
+    action: 'view'
+  },
+  [PERMISSIONS.MANAGE_TRANSFORMATIONS]: {
+    name: 'Manage Transformations',
+    description: 'Execute and configure transformations',
+    category: PERMISSION_CATEGORIES.DATA,
+    resource: 'transformations',
     action: 'manage'
   },
 };

@@ -24,10 +24,9 @@
 
 INSERT INTO config.roles (code, name, description, icon, is_system) VALUES
   ('admin', 'Administrator', 'Full system access with all permissions', 'shield-check', true),
-  ('customer_service', 'Customer Service', 'Help customers, view orders, manage customer data', 'headphones', false),
-  ('3pl_ops', '3PL Operations', 'Daily warehouse operations, imports, transformations', 'package', false),
-  ('3pl_manager', '3PL Manager', 'Oversee 3PL operations, full access to 3PL settings', 'package-check', false),
-  ('3pl_viewer', '3PL Viewer', 'Read-only access to 3PL data for reporting', 'eye', false)
+  ('superuser', 'Superuser', 'Full operational access - cannot manage roles', 'crown', false),
+  ('warehouse_lead', 'Warehouse Lead', 'Manage warehouse operations and inventory', 'package-check', false),
+  ('salesperson', 'Salesperson', 'Manage clients and view operations', 'trending-up', false)
 ON CONFLICT (code) DO NOTHING;
 
 -- ==================================================
@@ -47,29 +46,6 @@ CROSS JOIN config.permissions p
 WHERE r.code = 'admin'
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
--- ------------------------------------
--- CUSTOMER_SERVICE: Customer-facing operations
--- ------------------------------------
-INSERT INTO config.role_permissions (role_id, permission_id, granted)
-SELECT r.id, p.id, true
-FROM config.roles r
-CROSS JOIN config.permissions p
-WHERE r.code = 'customer_service'
-  AND p.code IN (
-    -- View access
-    'view_dashboard',
-    'view_clients',
-    'view_orders',
-    'view_inventory',
-    'view_shipping',
-    'view_billing',
-    'view_reports',
-    -- Manage returns (customer service handles returns)
-    'view_returns', 'manage_returns',
-    -- Export data for reports
-    'export_data'
-  )
-ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- ------------------------------------
 -- 3PL_OPS: Daily warehouse operations
@@ -78,77 +54,20 @@ INSERT INTO config.role_permissions (role_id, permission_id, granted)
 SELECT r.id, p.id, true
 FROM config.roles r
 CROSS JOIN config.permissions p
-WHERE r.code = '3pl_ops'
+WHERE r.code = 'superuser'
+  AND p.code != 'manage_roles'  -- Exclude role management
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- ------------------------------------
+-- WAREHOUSE_LEAD: Warehouse operations
+-- ------------------------------------
+INSERT INTO config.role_permissions (role_id, permission_id, granted)
+SELECT r.id, p.id, true
+FROM config.roles r
+CROSS JOIN config.permissions p
+WHERE r.code = 'warehouse_lead'
   AND p.code IN (
     -- View access
-    'view_dashboard',
-    'view_clients',
-    'view_warehouses',
-    'view_inventory',
-    'view_receiving',
-    'view_orders',
-    'view_shipping',
-    'view_operations',
-    -- Operational permissions
-    'manage_inventory',
-    'manage_receiving',
-    'manage_orders',
-    'manage_shipping',
-    'manage_operations',
-    -- Data operations
-    'import_data',
-    'export_data',
-    'run_transformations',
-    'view_integrations'
-  )
-ON CONFLICT (role_id, permission_id) DO NOTHING;
-
--- ------------------------------------
--- 3PL_MANAGER: Full 3PL access
--- ------------------------------------
-INSERT INTO config.role_permissions (role_id, permission_id, granted)
-SELECT r.id, p.id, true
-FROM config.roles r
-CROSS JOIN config.permissions p
-WHERE r.code = '3pl_manager'
-  AND (
-    -- Management permissions
-    p.code IN ('manage_settings', 'manage_clients', 'manage_warehouses')
-    -- All operational permissions
-    OR p.code IN (
-      'view_dashboard',
-      'view_inventory', 'manage_inventory',
-      'view_receiving', 'manage_receiving',
-      'view_orders', 'manage_orders',
-      'view_shipping', 'manage_shipping',
-      'view_returns', 'manage_returns',
-      'view_operations', 'manage_operations',
-      'view_billing', 'manage_billing'
-    )
-    -- All data permissions
-    OR p.code IN (
-      'import_data',
-      'export_data',
-      'run_transformations',
-      'view_integrations',
-      'manage_integrations'
-    )
-    -- Reports
-    OR p.code = 'view_reports'
-  )
-ON CONFLICT (role_id, permission_id) DO NOTHING;
-
--- ------------------------------------
--- 3PL_VIEWER: Read-only 3PL access
--- ------------------------------------
-INSERT INTO config.role_permissions (role_id, permission_id, granted)
-SELECT r.id, p.id, true
-FROM config.roles r
-CROSS JOIN config.permissions p
-WHERE r.code = '3pl_viewer'
-  AND p.code IN (
-    -- All view permissions
-    'view_dashboard',
     'view_clients',
     'view_warehouses',
     'view_inventory',
@@ -157,11 +76,40 @@ WHERE r.code = '3pl_viewer'
     'view_shipping',
     'view_returns',
     'view_operations',
+    -- Warehouse operations
+    'manage_warehouses',
+    'manage_inventory',
+    'manage_receiving',
+    'manage_orders',
+    'manage_shipping',
+    'manage_operations',
+    -- Data access
+    'view_demographics',
+    'view_carrier_rates',
+    'view_transformations',
+    'view_integrations'
+  )
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- ------------------------------------
+-- SALESPERSON: Client management and sales
+-- ------------------------------------
+INSERT INTO config.role_permissions (role_id, permission_id, granted)
+SELECT r.id, p.id, true
+FROM config.roles r
+CROSS JOIN config.permissions p
+WHERE r.code = 'salesperson'
+  AND p.code IN (
+    -- Client management
+    'view_clients',
+    'manage_clients',
+    -- View operations for context
+    'view_inventory',
+    'view_orders',
+    'view_shipping',
     'view_billing',
-    'view_reports',
-    'view_integrations',
-    -- Export for reporting
-    'export_data'
+    -- Reports
+    'view_reports'
   )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
