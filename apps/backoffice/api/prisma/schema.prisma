@@ -9,7 +9,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["config", "workspace", "reference"]
+  schemas  = ["config", "company", "customer", "workspace", "reference"]
 }
 
 // ============================================
@@ -74,6 +74,7 @@ model User {
   userRole        Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
   sessions        Session[]
   integrationRuns IntegrationRun[]
+  warehouses      Warehouse[]
 
   @@map("users")
   @@schema("config")
@@ -107,6 +108,208 @@ model IntegrationRun {
 
   @@map("integration_runs")
   @@schema("config")
+}
+
+// ============================================
+// COMPANY SCHEMA - Your warehouses and assets
+// ============================================
+
+model Warehouse {
+  id             String   @id @default(dbgenerated("'wh_'::text || gen_random_uuid()"))
+  code           String   @unique
+  name           String
+  type           String
+  status         String   @default("active")
+  address        Json
+  timezone       String   @default("America/Chicago")
+  capacity       Json     @default("{}")
+  operatingHours Json?    @map("operating_hours")
+  capabilities   String[]
+  managerId      String?  @map("manager_id")
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  manager              User?                 @relation(fields: [managerId], references: [id])
+  zones                WarehouseZone[]
+  warehouseAllocations WarehouseAllocation[]
+
+  @@map("warehouses")
+  @@schema("company")
+}
+
+model WarehouseZone {
+  id              String   @id @default(dbgenerated("'zone_'::text || gen_random_uuid()"))
+  warehouseId     String   @map("warehouse_id")
+  zoneCode        String   @map("zone_code")
+  zoneType        String?  @map("zone_type")
+  capacityPallets Int?     @map("capacity_pallets")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, zoneCode])
+  @@map("warehouse_zones")
+  @@schema("company")
+}
+
+// ============================================
+// CUSTOMER SCHEMA - Client organizations and facilities
+// ============================================
+
+model Customer {
+  id             String   @id @default(dbgenerated("'cust_'::text || gen_random_uuid()"))
+  name           String
+  slug           String   @unique
+  status         String   @default("prospect")
+  setupProgress  Json?    @map("setup_progress") @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  warehouseAllocations WarehouseAllocation[]
+  facilities           CustomerFacility[]
+  contacts             Contact[]
+  contracts            Contract[]
+  settings             CustomerSettings?
+
+  @@map("customers")
+  @@schema("customer")
+  @@index([status])
+}
+
+model WarehouseAllocation {
+  id                  String   @id @default(dbgenerated("'alloc_'::text || gen_random_uuid()"))
+  customerId          String   @map("customer_id")
+  companyWarehouseId  String   @map("company_warehouse_id")
+  isPrimary           Boolean? @default(false) @map("is_primary")
+  spaceAllocated      Json?    @map("space_allocated")
+  zoneAssignment      String?  @map("zone_assignment")
+  status              String   @default("active")
+  notes               String?
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at")
+
+  customer  Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [companyWarehouseId], references: [id], onDelete: Restrict)
+
+  @@unique([customerId, companyWarehouseId])
+  @@map("warehouse_allocations")
+  @@schema("customer")
+  @@index([customerId])
+  @@index([companyWarehouseId])
+  @@index([status])
+}
+
+model CustomerFacility {
+  id             String   @id @default(dbgenerated("'fac_'::text || gen_random_uuid()"))
+  customerId     String   @map("customer_id")
+  name           String
+  facilityType   String?  @map("facility_type")
+  address        Json
+  isSource       Boolean? @default(false) @map("is_source")
+  isDestination  Boolean? @default(false) @map("is_destination")
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("facilities")
+  @@schema("customer")
+  @@index([customerId])
+  @@index([isSource])
+  @@index([isDestination])
+}
+
+model Contact {
+  id             String   @id @default(dbgenerated("'contact_'::text || gen_random_uuid()"))
+  customerId     String   @map("customer_id")
+  firstName      String   @map("first_name")
+  lastName       String   @map("last_name")
+  title          String?
+  email          String?
+  phone          String?
+  role           String?
+  isPrimary      Boolean? @default(false) @map("is_primary")
+  active         Boolean? @default(true)
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("contacts")
+  @@schema("customer")
+  @@index([customerId])
+  @@index([isPrimary])
+  @@index([active])
+}
+
+model Contract {
+  id             String    @id @default(dbgenerated("'contract_'::text || gen_random_uuid()"))
+  customerId     String    @map("customer_id")
+  contractNumber String?   @unique @map("contract_number")
+  name           String
+  startDate      DateTime  @map("start_date") @db.Date
+  endDate        DateTime? @map("end_date") @db.Date
+  autoRenew      Boolean?  @default(false) @map("auto_renew")
+  status         String    @default("draft")
+  billingCycle   String?   @map("billing_cycle")
+  paymentTerms   String?   @map("payment_terms")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  customer  Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  rateCards RateCard[]
+
+  @@map("contracts")
+  @@schema("customer")
+  @@index([customerId])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+model RateCard {
+  id             String    @id @default(dbgenerated("'rate_'::text || gen_random_uuid()"))
+  contractId     String    @map("contract_id")
+  name           String
+  effectiveDate  DateTime  @map("effective_date") @db.Date
+  expirationDate DateTime? @map("expiration_date") @db.Date
+  version        Int?      @default(1)
+  supersedesId   String?   @map("supersedes_id")
+  rates          Json      @default("{}")
+  isActive       Boolean?  @default(true) @map("is_active")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  contract   Contract   @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  supersedes RateCard?  @relation("RateCardSupersedes", fields: [supersedesId], references: [id])
+  superseded RateCard[] @relation("RateCardSupersedes")
+
+  @@map("rate_cards")
+  @@schema("customer")
+}
+
+model CustomerSettings {
+  customerId              String   @id @map("customer_id")
+  portalEnabled           Boolean? @default(false) @map("portal_enabled")
+  portalSubdomain         String?  @unique @map("portal_subdomain")
+  notificationEmail       String?  @map("notification_email")
+  notificationPreferences Json?    @default("{}") @map("notification_preferences")
+  timezone                String?  @default("America/Chicago")
+  settings                Json?    @default("{}")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @default(now()) @updatedAt @map("updated_at")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("settings")
+  @@schema("customer")
+  @@index([portalEnabled])
 }
 
 // ============================================

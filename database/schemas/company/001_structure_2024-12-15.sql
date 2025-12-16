@@ -109,3 +109,4 @@ SELECT
   'company.warehouse_zones',
   COUNT(*)
 FROM company.warehouse_zones;
+

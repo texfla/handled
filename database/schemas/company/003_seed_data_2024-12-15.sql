@@ -100,3 +100,4 @@ SELECT
   array_length(capabilities, 1) as capability_count
 FROM company.warehouses 
 ORDER BY code;
+

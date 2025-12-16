@@ -30,14 +30,14 @@ const warehouseSchema = z.object({
 
 export const warehousesRoutes: FastifyPluginAsync = async (fastify) => {
   // List warehouses
-  fastify.get('/', async (request, reply) => {
+  fastify.get('/', async () => {
     const warehouses = await prismaPrimary.warehouse.findMany({
       include: {
         manager: {
           select: { id: true, name: true, email: true },
         },
         _count: {
-          select: { facilities: true },
+          select: { warehouseAllocations: true },
         },
       },
       orderBy: { code: 'asc' },
@@ -56,9 +56,9 @@ export const warehousesRoutes: FastifyPluginAsync = async (fastify) => {
         manager: {
           select: { id: true, name: true, email: true },
         },
-        facilities: {
+        warehouseAllocations: {
           include: {
-            organization: {
+            customer: {
               select: { id: true, name: true, slug: true },
             },
           },
@@ -87,7 +87,7 @@ export const warehousesRoutes: FastifyPluginAsync = async (fastify) => {
         address: body.address as any,
         timezone: body.timezone,
         capacity: body.capacity || {},
-        operatingHours: body.operating_hours || null,
+        operatingHours: body.operating_hours || undefined,
         capabilities: body.capabilities || [],
         managerId: body.manager_id || null,
         notes: body.notes || null,
@@ -98,7 +98,7 @@ export const warehousesRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Update warehouse
-  fastify.put('/:id', async (request, reply) => {
+  fastify.put('/:id', async (request) => {
     const { id } = request.params as { id: string };
     const body = warehouseSchema.partial().parse(request.body);
 
@@ -126,15 +126,15 @@ export const warehousesRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.delete('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
 
-    // Check if warehouse has active client facilities
-    const facilitiesCount = await prismaPrimary.facility.count({
+    // Check if warehouse has active client allocations
+    const allocationsCount = await prismaPrimary.warehouseAllocation.count({
       where: { companyWarehouseId: id, status: 'active' },
     });
 
-    if (facilitiesCount > 0) {
+    if (allocationsCount > 0) {
       return reply.status(400).send({
-        error: 'Cannot delete warehouse with active client facilities',
-        details: `${facilitiesCount} active facilities exist`,
+        error: 'Cannot delete warehouse with active client allocations',
+        details: `${allocationsCount} active allocations exist`,
       });
     }
 
@@ -143,3 +143,5 @@ export const warehousesRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(204).send();
   });
 };
+
+

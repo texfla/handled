@@ -118,94 +118,112 @@ describe('Database Split - DATA DB', () => {
 });
 
 describe('Database Split - Customer Schema', () => {
-  test('Organization CRUD works', async () => {
-    const orgId = generateId(15);
+  test('Customer CRUD works', async () => {
+    const custId = generateId(15);
     
     // Create
-    const org = await prismaPrimary.organization.create({
+    const customer = await prismaPrimary.customer.create({
       data: { 
-        id: orgId,
+        id: custId,
         name: 'Test 3PL Company',
         slug: 'test-3pl-' + Date.now()
       }
     });
-    assert.ok(org);
-    assert.strictEqual(org.name, 'Test 3PL Company');
+    assert.ok(customer);
+    assert.strictEqual(customer.name, 'Test 3PL Company');
     
     // Read
-    const found = await prismaPrimary.organization.findUnique({
-      where: { id: orgId }
+    const found = await prismaPrimary.customer.findUnique({
+      where: { id: custId }
     });
     assert.ok(found);
-    assert.strictEqual(found?.id, orgId);
+    assert.strictEqual(found?.id, custId);
     
     // Update
-    const updated = await prismaPrimary.organization.update({
-      where: { id: orgId },
+    const updated = await prismaPrimary.customer.update({
+      where: { id: custId },
       data: { name: 'Updated 3PL Company' }
     });
     assert.strictEqual(updated.name, 'Updated 3PL Company');
     
     // Delete
-    await prismaPrimary.organization.delete({
-      where: { id: orgId }
+    await prismaPrimary.customer.delete({
+      where: { id: custId }
     });
     
     // Verify deletion
-    const deleted = await prismaPrimary.organization.findUnique({
-      where: { id: orgId }
+    const deleted = await prismaPrimary.customer.findUnique({
+      where: { id: custId }
     });
     assert.strictEqual(deleted, null);
   });
   
-  test('Facility CRUD works with organization relation', async () => {
-    const orgId = generateId(15);
-    const facilityId = generateId(15);
+  test('WarehouseAllocation CRUD works with customer relation', async () => {
+    const custId = generateId(15);
+    const allocationId = generateId(15);
     
-    // Create org first
-    const org = await prismaPrimary.organization.create({
+    // Create customer first
+    const customer = await prismaPrimary.customer.create({
       data: { 
-        id: orgId,
+        id: custId,
         name: '3PL Co',
         slug: '3pl-co-' + Date.now()
       }
     });
     
     // Create facility
-    const facility = await prismaPrimary.facility.create({
+    // Create a warehouse first (facilities link to warehouses now)
+    const warehouseId = 'wh_test_' + Date.now();
+    const warehouse = await prismaPrimary.warehouse.create({
       data: {
-        id: facilityId,
-        organizationId: org.id,
-        name: 'NYC Warehouse',
-        address: { street: '123 Main St', city: 'New York', state: 'NY' },
-        zip: '10001'
+        id: warehouseId,
+        code: 'TEST-01',
+        name: 'Test Warehouse',
+        type: 'owned',
+        status: 'active',
+        address: { street1: '123 Warehouse Ave', city: 'New York', state: 'NY', zip: '10001', country: 'US' },
+        timezone: 'America/New_York',
+        capacity: { usable_pallets: 1000 }
       }
     });
-    assert.ok(facility);
-    assert.strictEqual(facility.zip, '10001');
-    assert.strictEqual(facility.organizationId, org.id);
+    
+    const allocation = await prismaPrimary.warehouseAllocation.create({
+      data: {
+        id: allocationId,
+        customerId: customer.id,
+        companyWarehouseId: warehouse.id,
+        isPrimary: true,
+        spaceAllocated: { pallets: 100, sqft: 5000 },
+        zoneAssignment: 'A1-A10',
+        status: 'active'
+      }
+    });
+    assert.ok(allocation);
+    assert.strictEqual(allocation.companyWarehouseId, warehouse.id);
+    assert.strictEqual(allocation.customerId, customer.id);
     
     // Query with relation
-    const orgWithFacilities = await prismaPrimary.organization.findUnique({
-      where: { id: org.id },
-      include: { facilities: true }
+    const customerWithAllocations = await prismaPrimary.customer.findUnique({
+      where: { id: customer.id },
+      include: { warehouseAllocations: true }
     });
-    assert.ok(orgWithFacilities);
-    assert.strictEqual(orgWithFacilities?.facilities.length, 1);
-    assert.strictEqual(orgWithFacilities?.facilities[0].name, 'NYC Warehouse');
+    assert.ok(customerWithAllocations);
+    assert.strictEqual(customerWithAllocations?.warehouseAllocations.length, 1);
+    assert.strictEqual(customerWithAllocations?.warehouseAllocations[0].isPrimary, true);
     
     // Cleanup
-    await prismaPrimary.facility.delete({ where: { id: facilityId }});
-    await prismaPrimary.organization.delete({ where: { id: org.id }});
+    await prismaPrimary.warehouseAllocation.delete({ where: { id: allocationId }});
+    await prismaPrimary.customer.delete({ where: { id: customer.id }});
+    await prismaPrimary.warehouse.delete({ where: { id: warehouseId }});
   });
   
   test('Customer data isolation (no cross-DB queries)', async () => {
-    const orgId = generateId(15);
+    const custId = generateId(15);
     
-    // Create org in PRIMARY DB
-    const org = await prismaPrimary.organization.create({
+    // Create customer in PRIMARY DB
+    const customer = await prismaPrimary.customer.create({
       data: { 
-        id: orgId,
+        id: custId,
         name: 'Isolation Test',
         slug: 'test-iso-' + Date.now()
       }
@@ -216,43 +234,61 @@ describe('Database Split - Customer Schema', () => {
     assert.ok(user);
     
     // Customer and config are both in PRIMARY - can query together
-    assert.ok(org);
+    assert.ok(customer);
     assert.ok(user);
     
     // Cleanup
-    await prismaPrimary.organization.delete({ where: { id: orgId }});
+    await prismaPrimary.customer.delete({ where: { id: custId }});
   });
 
-  test('CASCADE delete works for facilities', async () => {
-    const orgId = generateId(15);
-    const facilityId = generateId(15);
+  test('CASCADE delete works for warehouse allocations', async () => {
+    const custId = generateId(15);
+    const allocationId = generateId(15);
     
-    // Create org and facility
-    const org = await prismaPrimary.organization.create({
+    // Create customer and facility
+    const customer = await prismaPrimary.customer.create({
       data: { 
-        id: orgId,
+        id: custId,
         name: 'Delete Test Org',
         slug: 'delete-test-' + Date.now()
       }
     });
     
-    await prismaPrimary.facility.create({
+    // Create warehouse first
+    const warehouseId = 'wh_cascade_' + Date.now();
+    await prismaPrimary.warehouse.create({
       data: {
-        id: facilityId,
-        organizationId: org.id,
-        name: 'Delete Test Facility',
-        zip: '10001'
+        id: warehouseId,
+        code: 'CASCADE-DEL',
+        name: 'Cascade Delete Warehouse',
+        type: 'owned',
+        status: 'active',
+        address: { street1: '999 Delete St', city: 'Test', state: 'NY', zip: '10001', country: 'US' },
+        timezone: 'America/New_York',
+        capacity: { usable_pallets: 100 }
       }
     });
     
-    // Delete org (should cascade to facility)
-    await prismaPrimary.organization.delete({ where: { id: org.id }});
-    
-    // Verify facility is also deleted
-    const facility = await prismaPrimary.facility.findUnique({
-      where: { id: facilityId }
+    await prismaPrimary.warehouseAllocation.create({
+      data: {
+        id: allocationId,
+        customerId: customer.id,
+        companyWarehouseId: warehouseId,
+        status: 'active'
+      }
     });
-    assert.strictEqual(facility, null);
+    
+    // Delete customer (should cascade to warehouse allocation)
+    await prismaPrimary.customer.delete({ where: { id: customer.id }});
+    
+    // Verify warehouse allocation is also deleted
+    const allocation = await prismaPrimary.warehouseAllocation.findUnique({
+      where: { id: allocationId }
+    });
+    assert.strictEqual(allocation, null);
+    
+    // Cleanup warehouse
+    await prismaPrimary.warehouse.delete({ where: { id: warehouseId }});
   });
 });
 
@@ -269,10 +305,10 @@ describe('Database Split - Data Isolation', () => {
   test('No accidental cross-database queries', async () => {
     // This test ensures data models are correctly separated
     
-    // PRIMARY DB models: user, role, permission, integrationRun, organization, facility
+    // PRIMARY DB models: user, role, permission, integrationRun, customer, facility
     assert.ok(prismaPrimary.user);
     assert.ok(prismaPrimary.role);
-    assert.ok(prismaPrimary.organization);
+    assert.ok(prismaPrimary.customer);
     
     // DATA DB models: carrier, service, deliveryMatrix, etc.
     assert.ok(prismaData.carrier);

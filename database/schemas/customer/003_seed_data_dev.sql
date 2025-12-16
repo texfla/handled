@@ -7,14 +7,14 @@
 -- ============================================
 
 -- ============================================
--- SAMPLE ORGANIZATIONS
+-- SAMPLE CUSTOMERS
 -- ============================================
 
-INSERT INTO customer.organizations (id, name, slug, status, setup_progress) VALUES
-  ('org_acme', 'Acme Corporation', 'acme', 'active', jsonb_build_object('completed', true, 'step', 5)),
-  ('org_beta', 'Beta Industries', 'beta', 'active', jsonb_build_object('completed', true, 'step', 5)),
-  ('org_gamma', 'Gamma LLC', 'gamma', 'setup', jsonb_build_object('completed', false, 'step', 3)),
-  ('org_prospect', 'Prospect Company', 'prospect-co', 'prospect', jsonb_build_object('completed', false, 'step', 0))
+INSERT INTO customer.customers (id, name, slug, status, setup_progress) VALUES
+  ('cust_acme', 'Acme Corporation', 'acme', 'active', jsonb_build_object('completed', true, 'step', 5)),
+  ('cust_beta', 'Beta Industries', 'beta', 'active', jsonb_build_object('completed', true, 'step', 5)),
+  ('cust_gamma', 'Gamma LLC', 'gamma', 'setup', jsonb_build_object('completed', false, 'step', 3)),
+  ('cust_prospect', 'Prospect Company', 'prospect-co', 'prospect', jsonb_build_object('completed', false, 'step', 0))
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   status = EXCLUDED.status,
@@ -22,41 +22,41 @@ ON CONFLICT (id) DO UPDATE SET
   updated_at = NOW();
 
 -- ============================================
--- SAMPLE FACILITIES (allocations at YOUR warehouses)
+-- SAMPLE WAREHOUSE ALLOCATIONS (space at YOUR warehouses)
 -- ============================================
 
 -- Acme has allocations at both DFW and LAX
-INSERT INTO customer.facilities (id, organization_id, company_warehouse_id, is_primary, space_allocation, zone_assignment, status, notes) VALUES
-  ('fac_acme_dfw', 'org_acme', 'wh_dfw_01', TRUE, jsonb_build_object('pallets', 500, 'sqft', 10000), 'A1-A25', 'active', 'Primary warehouse for Acme'),
-  ('fac_acme_lax', 'org_acme', 'wh_lax_02', FALSE, jsonb_build_object('pallets', 200, 'sqft', 5000), 'B1-B10', 'active', 'West Coast overflow')
-ON CONFLICT (organization_id, company_warehouse_id) DO UPDATE SET
+INSERT INTO customer.warehouse_allocations (id, customer_id, company_warehouse_id, is_primary, space_allocated, zone_assignment, status, notes) VALUES
+  ('alloc_acme_dfw', 'cust_acme', 'wh_dfw_01', TRUE, jsonb_build_object('pallets', 500, 'sqft', 10000), 'A1-A25', 'active', 'Primary warehouse for Acme'),
+  ('alloc_acme_lax', 'cust_acme', 'wh_lax_02', FALSE, jsonb_build_object('pallets', 200, 'sqft', 5000), 'B1-B10', 'active', 'West Coast overflow')
+ON CONFLICT (customer_id, company_warehouse_id) DO UPDATE SET
   is_primary = EXCLUDED.is_primary,
-  space_allocation = EXCLUDED.space_allocation,
+  space_allocated = EXCLUDED.space_allocated,
   zone_assignment = EXCLUDED.zone_assignment,
   status = EXCLUDED.status,
   notes = EXCLUDED.notes,
   updated_at = NOW();
 
 -- Beta uses only DFW
-INSERT INTO customer.facilities (id, organization_id, company_warehouse_id, is_primary, space_allocation, zone_assignment, status, notes) VALUES
-  ('fac_beta_dfw', 'org_beta', 'wh_dfw_01', TRUE, jsonb_build_object('pallets', 300, 'sqft', 6000), 'C1-C15', 'active', 'Primary warehouse for Beta')
-ON CONFLICT (organization_id, company_warehouse_id) DO UPDATE SET
+INSERT INTO customer.warehouse_allocations (id, customer_id, company_warehouse_id, is_primary, space_allocated, zone_assignment, status, notes) VALUES
+  ('alloc_beta_dfw', 'cust_beta', 'wh_dfw_01', TRUE, jsonb_build_object('pallets', 300, 'sqft', 6000), 'C1-C15', 'active', 'Primary warehouse for Beta')
+ON CONFLICT (customer_id, company_warehouse_id) DO UPDATE SET
   is_primary = EXCLUDED.is_primary,
-  space_allocation = EXCLUDED.space_allocation,
+  space_allocated = EXCLUDED.space_allocated,
   zone_assignment = EXCLUDED.zone_assignment,
   status = EXCLUDED.status,
   notes = EXCLUDED.notes,
   updated_at = NOW();
 
 -- ============================================
--- SAMPLE CLIENT FACILITIES (their own warehouses)
+-- SAMPLE FACILITIES (THEIR warehouses/buildings)
 -- ============================================
 
 -- Acme's manufacturing plant (we receive inventory from here)
-INSERT INTO customer.client_facilities (id, organization_id, name, facility_type, address, is_source, is_destination, notes) VALUES
+INSERT INTO customer.facilities (id, customer_id, name, facility_type, address, is_source, is_destination, notes) VALUES
   (
-    'client_fac_acme_plant',
-    'org_acme',
+    'fac_acme_plant',
+    'cust_acme',
     'Acme Manufacturing Plant',
     'manufacturing',
     jsonb_build_object(
@@ -71,8 +71,8 @@ INSERT INTO customer.client_facilities (id, organization_id, name, facility_type
     'Primary manufacturing facility - ships inventory to us'
   ),
   (
-    'client_fac_acme_retail',
-    'org_acme',
+    'fac_acme_retail',
+    'cust_acme',
     'Acme Retail Store',
     'retail',
     jsonb_build_object(
@@ -98,10 +98,10 @@ ON CONFLICT (id) DO UPDATE SET
 -- SAMPLE CONTACTS
 -- ============================================
 
-INSERT INTO customer.contacts (id, organization_id, first_name, last_name, title, email, phone, role, is_primary, active, notes) VALUES
-  ('contact_acme_john', 'org_acme', 'John', 'Smith', 'Operations Manager', 'john.smith@acme.com', '555-0101', 'operations', TRUE, TRUE, 'Primary point of contact'),
-  ('contact_acme_jane', 'org_acme', 'Jane', 'Doe', 'CFO', 'jane.doe@acme.com', '555-0102', 'billing', FALSE, TRUE, 'Handles all billing matters'),
-  ('contact_beta_bob', 'org_beta', 'Bob', 'Johnson', 'CEO', 'bob@betaindustries.com', '555-0201', 'executive', TRUE, TRUE, 'Primary contact and decision maker')
+INSERT INTO customer.contacts (id, customer_id, first_name, last_name, title, email, phone, role, is_primary, active, notes) VALUES
+  ('contact_acme_john', 'cust_acme', 'John', 'Smith', 'Operations Manager', 'john.smith@acme.com', '555-0101', 'operations', TRUE, TRUE, 'Primary point of contact'),
+  ('contact_acme_jane', 'cust_acme', 'Jane', 'Doe', 'CFO', 'jane.doe@acme.com', '555-0102', 'billing', FALSE, TRUE, 'Handles all billing matters'),
+  ('contact_beta_bob', 'cust_beta', 'Bob', 'Johnson', 'CEO', 'bob@betaindustries.com', '555-0201', 'executive', TRUE, TRUE, 'Primary contact and decision maker')
 ON CONFLICT (id) DO UPDATE SET
   first_name = EXCLUDED.first_name,
   last_name = EXCLUDED.last_name,
@@ -118,10 +118,10 @@ ON CONFLICT (id) DO UPDATE SET
 -- SAMPLE CONTRACTS
 -- ============================================
 
-INSERT INTO customer.contracts (id, organization_id, contract_number, name, start_date, end_date, auto_renew, status, billing_cycle, payment_terms, notes) VALUES
+INSERT INTO customer.contracts (id, customer_id, contract_number, name, start_date, end_date, auto_renew, status, billing_cycle, payment_terms, notes) VALUES
   (
     'contract_acme_2024',
-    'org_acme',
+    'cust_acme',
     'ACME-2024-001',
     'Acme 2024 Storage Agreement',
     '2024-01-01',
@@ -134,7 +134,7 @@ INSERT INTO customer.contracts (id, organization_id, contract_number, name, star
   ),
   (
     'contract_beta_2024',
-    'org_beta',
+    'cust_beta',
     'BETA-2024-001',
     'Beta 2024 Fulfillment Agreement',
     '2024-06-01',
@@ -204,12 +204,12 @@ ON CONFLICT (id) DO UPDATE SET
   updated_at = NOW();
 
 -- ============================================
--- SAMPLE CLIENT SETTINGS
+-- SAMPLE CUSTOMER SETTINGS
 -- ============================================
 
-INSERT INTO customer.client_settings (organization_id, portal_enabled, portal_subdomain, notification_email, timezone, settings) VALUES
+INSERT INTO customer.settings (customer_id, portal_enabled, portal_subdomain, notification_email, timezone, settings) VALUES
   (
-    'org_acme',
+    'cust_acme',
     TRUE,
     'acme',
     'ops@acme.com',
@@ -221,7 +221,7 @@ INSERT INTO customer.client_settings (organization_id, portal_enabled, portal_su
     )
   ),
   (
-    'org_beta',
+    'cust_beta',
     FALSE,
     NULL,
     'admin@betaindustries.com',
@@ -232,7 +232,7 @@ INSERT INTO customer.client_settings (organization_id, portal_enabled, portal_su
       'weekly_reports', false
     )
   )
-ON CONFLICT (organization_id) DO UPDATE SET
+ON CONFLICT (customer_id) DO UPDATE SET
   portal_enabled = EXCLUDED.portal_enabled,
   portal_subdomain = EXCLUDED.portal_subdomain,
   notification_email = EXCLUDED.notification_email,
@@ -245,13 +245,13 @@ ON CONFLICT (organization_id) DO UPDATE SET
 -- ============================================
 
 SELECT 
-  'Organizations' as entity,
+  'Customers' as entity,
   COUNT(*) as count
-FROM customer.organizations
+FROM customer.customers
 UNION ALL
-SELECT 'Facilities', COUNT(*) FROM customer.facilities
+SELECT 'Warehouse Allocations', COUNT(*) FROM customer.warehouse_allocations
 UNION ALL
-SELECT 'Client Facilities', COUNT(*) FROM customer.client_facilities
+SELECT 'Facilities (Their Buildings)', COUNT(*) FROM customer.facilities
 UNION ALL
 SELECT 'Contacts', COUNT(*) FROM customer.contacts
 UNION ALL
@@ -259,4 +259,4 @@ SELECT 'Contracts', COUNT(*) FROM customer.contracts
 UNION ALL
 SELECT 'Rate Cards', COUNT(*) FROM customer.rate_cards
 UNION ALL
-SELECT 'Client Settings', COUNT(*) FROM customer.client_settings;
+SELECT 'Settings', COUNT(*) FROM customer.settings;

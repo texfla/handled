@@ -8,10 +8,10 @@ const organizationSchema = z.object({
   status: z.enum(['prospect', 'setup', 'active', 'paused', 'terminated']).optional(),
 });
 
-const facilitySchema = z.object({
+const warehouseAllocationSchema = z.object({
   company_warehouse_id: z.string(),
   is_primary: z.boolean().optional(),
-  space_allocation: z.object({
+  space_allocated: z.object({
     pallets: z.number().optional(),
     sqft: z.number().optional(),
   }).optional(),
@@ -20,7 +20,7 @@ const facilitySchema = z.object({
   notes: z.string().optional(),
 });
 
-const clientFacilitySchema = z.object({
+const customerFacilitySchema = z.object({
   name: z.string().min(1),
   facility_type: z.enum(['warehouse', 'manufacturing', 'retail', 'office', 'other']).optional(),
   address: z.object({
@@ -77,14 +77,15 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // List clients
-  fastify.get('/', async (request, reply) => {
+  fastify.get('/', async (request) => {
     const { status } = request.query as { status?: string };
     
-    const clients = await prismaPrimary.organization.findMany({
+    const clients = await prismaPrimary.customer.findMany({
       where: status ? { status } : undefined,
       include: {
         _count: {
           select: {
+            warehouseAllocations: true,
             facilities: true,
             contacts: true,
             contracts: true,
@@ -101,17 +102,17 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
 
-    const client = await prismaPrimary.organization.findUnique({
+    const client = await prismaPrimary.customer.findUnique({
       where: { id },
       include: {
-        facilities: {
+        warehouseAllocations: {
           include: {
             warehouse: {
               select: { id: true, code: true, name: true },
             },
           },
         },
-        clientFacilities: true,
+        facilities: true,
         contacts: {
           where: { active: true },
           orderBy: [{ isPrimary: 'desc' }, { lastName: 'asc' }],
@@ -138,7 +139,7 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/', async (request, reply) => {
     const body = organizationSchema.parse(request.body);
 
-    const client = await prismaPrimary.organization.create({
+    const client = await prismaPrimary.customer.create({
       data: {
         name: body.name,
         slug: body.slug,
@@ -151,11 +152,11 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Update client
-  fastify.put('/:id', async (request, reply) => {
+  fastify.put('/:id', async (request) => {
     const { id } = request.params as { id: string };
     const body = organizationSchema.partial().parse(request.body);
 
-    const client = await prismaPrimary.organization.update({
+    const client = await prismaPrimary.customer.update({
       where: { id },
       data: body,
     });
@@ -164,15 +165,15 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // ============================================
-  // FACILITIES (Client allocations at YOUR warehouses)
+  // WAREHOUSE ALLOCATIONS (Client space at YOUR warehouses)
   // ============================================
 
-  // List client facilities
-  fastify.get('/:id/facilities', async (request, reply) => {
+  // List client warehouse allocations
+  fastify.get('/:id/warehouse-allocations', async (request) => {
     const { id } = request.params as { id: string };
 
-    const facilities = await prismaPrimary.facility.findMany({
-      where: { organizationId: id },
+    const allocations = await prismaPrimary.warehouseAllocation.findMany({
+      where: { customerId: id },
       include: {
         warehouse: {
           select: { id: true, code: true, name: true, capacity: true },
@@ -180,20 +181,20 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     });
 
-    return { facilities };
+    return { allocations };
   });
 
-  // Create facility allocation with capacity validation
-  fastify.post('/:id/facilities', async (request, reply) => {
+  // Create warehouse allocation with capacity validation
+  fastify.post('/:id/warehouse-allocations', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const body = facilitySchema.parse(request.body);
+    const body = warehouseAllocationSchema.parse(request.body);
 
     // CRITICAL: Validate warehouse capacity before allocation
     const warehouse = await prismaPrimary.warehouse.findUnique({
       where: { id: body.company_warehouse_id },
       include: {
-        facilities: {
-          select: { spaceAllocation: true }
+        warehouseAllocations: {
+          select: { spaceAllocated: true }
         }
       }
     });
@@ -203,11 +204,11 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     // Calculate used capacity
-    const usedPallets = warehouse.facilities.reduce((sum, f) => {
-      return sum + ((f.spaceAllocation as any)?.pallets || 0);
+    const usedPallets = warehouse.warehouseAllocations.reduce((sum, a) => {
+      return sum + ((a.spaceAllocated as any)?.pallets || 0);
     }, 0);
 
-    const requestedPallets = body.space_allocation?.pallets || 0;
+    const requestedPallets = body.space_allocated?.pallets || 0;
     const totalCapacity = (warehouse.capacity as any).usable_pallets || 0;
     const availablePallets = totalCapacity - usedPallets;
 
@@ -223,48 +224,48 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    // Proceed with facility creation
-    const facility = await prismaPrimary.facility.create({
+    // Proceed with warehouse allocation creation
+    const allocation = await prismaPrimary.warehouseAllocation.create({
       data: {
-        organizationId: id,
+        customerId: id,
         companyWarehouseId: body.company_warehouse_id,
         isPrimary: body.is_primary || false,
-        spaceAllocation: body.space_allocation || {},
+        spaceAllocated: body.space_allocated || {},
         zoneAssignment: body.zone_assignment || null,
         status: body.status || 'active',
         notes: body.notes || null,
       },
     });
 
-    return reply.status(201).send({ facility });
+    return reply.status(201).send({ allocation });
   });
 
-  // Update facility allocation
-  fastify.put('/:id/facilities/:facilityId', async (request, reply) => {
-    const { id, facilityId } = request.params as { id: string; facilityId: string };
-    const body = facilitySchema.partial().parse(request.body);
+  // Update warehouse allocation
+  fastify.put('/:id/warehouse-allocations/:allocationId', async (request, reply) => {
+    const { allocationId } = request.params as { id: string; allocationId: string };
+    const body = warehouseAllocationSchema.partial().parse(request.body);
 
     // If updating space allocation, validate capacity
-    if (body.space_allocation) {
-      const facility = await prismaPrimary.facility.findUnique({
-        where: { id: facilityId },
-        include: { warehouse: { include: { facilities: true } } }
+    if (body.space_allocated) {
+      const allocation = await prismaPrimary.warehouseAllocation.findUnique({
+        where: { id: allocationId },
+        include: { warehouse: { include: { warehouseAllocations: true } } }
       });
 
-      if (!facility) {
-        return reply.status(404).send({ error: 'Facility not found' });
+      if (!allocation) {
+        return reply.status(404).send({ error: 'Warehouse allocation not found' });
       }
 
-      const currentAllocation = (facility.spaceAllocation as any)?.pallets || 0;
-      const newAllocation = body.space_allocation.pallets || 0;
+      const currentAllocation = (allocation.spaceAllocated as any)?.pallets || 0;
+      const newAllocation = body.space_allocated.pallets || 0;
       const difference = newAllocation - currentAllocation;
 
       if (difference > 0) {
         // Check if increase is possible
-        const totalCapacity = (facility.warehouse.capacity as any).usable_pallets || 0;
-        const usedByOthers = facility.warehouse.facilities
-          .filter(f => f.id !== facilityId)
-          .reduce((sum, f) => sum + ((f.spaceAllocation as any)?.pallets || 0), 0);
+        const totalCapacity = (allocation.warehouse.capacity as any).usable_pallets || 0;
+        const usedByOthers = allocation.warehouse.warehouseAllocations
+          .filter(a => a.id !== allocationId)
+          .reduce((sum, a) => sum + ((a.spaceAllocated as any)?.pallets || 0), 0);
         
         const available = totalCapacity - usedByOthers;
         
@@ -280,52 +281,52 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
 
-    const updated = await prismaPrimary.facility.update({
-      where: { id: facilityId },
+    const updated = await prismaPrimary.warehouseAllocation.update({
+      where: { id: allocationId },
       data: {
         ...(body.is_primary !== undefined && { isPrimary: body.is_primary }),
-        ...(body.space_allocation && { spaceAllocation: body.space_allocation }),
+        ...(body.space_allocated && { spaceAllocated: body.space_allocated }),
         ...(body.zone_assignment !== undefined && { zoneAssignment: body.zone_assignment }),
         ...(body.status && { status: body.status }),
         ...(body.notes !== undefined && { notes: body.notes }),
       },
     });
 
-    return { facility: updated };
+    return { allocation: updated };
   });
 
-  // Delete facility allocation
-  fastify.delete('/:id/facilities/:facilityId', async (request, reply) => {
-    const { facilityId } = request.params as { id: string; facilityId: string };
+  // Delete warehouse allocation
+  fastify.delete('/:id/warehouse-allocations/:allocationId', async (request, reply) => {
+    const { allocationId } = request.params as { id: string; allocationId: string };
 
-    await prismaPrimary.facility.delete({ where: { id: facilityId } });
+    await prismaPrimary.warehouseAllocation.delete({ where: { id: allocationId } });
 
     return reply.status(204).send();
   });
 
   // ============================================
-  // CLIENT FACILITIES (Their own warehouses)
+  // FACILITIES (THEIR warehouses/buildings)
   // ============================================
 
-  // List client-owned facilities
-  fastify.get('/:id/client-facilities', async (request, reply) => {
+  // List customer facilities
+  fastify.get('/:id/facilities', async (request) => {
     const { id } = request.params as { id: string };
 
-    const facilities = await prismaPrimary.clientFacility.findMany({
-      where: { organizationId: id },
+    const facilities = await prismaPrimary.customerFacility.findMany({
+      where: { customerId: id },
     });
 
     return { facilities };
   });
 
-  // Create client facility
-  fastify.post('/:id/client-facilities', async (request, reply) => {
+  // Create customer facility
+  fastify.post('/:id/facilities', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const body = clientFacilitySchema.parse(request.body);
+    const body = customerFacilitySchema.parse(request.body);
 
-    const facility = await prismaPrimary.clientFacility.create({
+    const facility = await prismaPrimary.customerFacility.create({
       data: {
-        organizationId: id,
+        customerId: id,
         name: body.name,
         facilityType: body.facility_type || null,
         address: body.address as any,
@@ -343,11 +344,11 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // List contacts
-  fastify.get('/:id/contacts', async (request, reply) => {
+  fastify.get('/:id/contacts', async (request) => {
     const { id } = request.params as { id: string };
 
     const contacts = await prismaPrimary.contact.findMany({
-      where: { organizationId: id, active: true },
+      where: { customerId: id, active: true },
       orderBy: [{ isPrimary: 'desc' }, { lastName: 'asc' }],
     });
 
@@ -361,7 +362,7 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
 
     const contact = await prismaPrimary.contact.create({
       data: {
-        organizationId: id,
+        customerId: id,
         firstName: body.first_name,
         lastName: body.last_name,
         title: body.title || null,
@@ -377,7 +378,7 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Update contact
-  fastify.put('/:id/contacts/:contactId', async (request, reply) => {
+  fastify.put('/:id/contacts/:contactId', async (request) => {
     const { contactId } = request.params as { id: string; contactId: string };
     const body = contactSchema.partial().parse(request.body);
 
@@ -416,11 +417,11 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // List contracts
-  fastify.get('/:id/contracts', async (request, reply) => {
+  fastify.get('/:id/contracts', async (request) => {
     const { id } = request.params as { id: string };
 
     const contracts = await prismaPrimary.contract.findMany({
-      where: { organizationId: id },
+      where: { customerId: id },
       include: {
         rateCards: {
           where: { isActive: true },
@@ -439,7 +440,7 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
 
     const contract = await prismaPrimary.contract.create({
       data: {
-        organizationId: id,
+        customerId: id,
         contractNumber: body.contract_number || null,
         name: body.name,
         startDate: new Date(body.start_date),
@@ -460,7 +461,7 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // List rate cards for a contract
-  fastify.get('/:id/contracts/:contractId/rate-cards', async (request, reply) => {
+  fastify.get('/:id/contracts/:contractId/rate-cards', async (request) => {
     const { contractId } = request.params as { id: string; contractId: string };
 
     const rateCards = await prismaPrimary.rateCard.findMany({
@@ -493,3 +494,5 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send({ rateCard });
   });
 };
+
+

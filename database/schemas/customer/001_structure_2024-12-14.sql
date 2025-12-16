@@ -9,7 +9,7 @@
 DROP SCHEMA IF EXISTS customer CASCADE;
 CREATE SCHEMA customer;
 
-COMMENT ON SCHEMA customer IS 'Client data: organizations, allocations, contacts, contracts';
+COMMENT ON SCHEMA customer IS 'Client data: customers, allocations, contacts, contracts';
 
 -- ============================================
 -- UTILITY FUNCTION
@@ -24,11 +24,11 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================
--- ORGANIZATIONS (client companies)
+-- CUSTOMERS (client companies)
 -- ============================================
 
-CREATE TABLE customer.organizations (
-  id TEXT PRIMARY KEY DEFAULT ('org_' || gen_random_uuid()),
+CREATE TABLE customer.customers (
+  id TEXT PRIMARY KEY DEFAULT ('cust_' || gen_random_uuid()),
   name TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,
   
@@ -42,32 +42,32 @@ CREATE TABLE customer.organizations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_organizations_status ON customer.organizations(status);
-CREATE INDEX idx_organizations_slug ON customer.organizations(slug);
+CREATE INDEX idx_customers_status ON customer.customers(status);
+CREATE INDEX idx_customers_slug ON customer.customers(slug);
 
-CREATE TRIGGER update_organizations_updated_at
-  BEFORE UPDATE ON customer.organizations
+CREATE TRIGGER update_customers_updated_at
+  BEFORE UPDATE ON customer.customers
   FOR EACH ROW
   EXECUTE FUNCTION customer.update_updated_at();
 
-COMMENT ON TABLE customer.organizations IS 'Client companies we serve';
-COMMENT ON COLUMN customer.organizations.status IS 'Client lifecycle: prospect, setup, active, paused, terminated';
-COMMENT ON COLUMN customer.organizations.setup_progress IS 'JSONB tracking onboarding wizard completion';
+COMMENT ON TABLE customer.customers IS 'Client companies we serve';
+COMMENT ON COLUMN customer.customers.status IS 'Client lifecycle: prospect, setup, active, paused, terminated';
+COMMENT ON COLUMN customer.customers.setup_progress IS 'JSONB tracking onboarding wizard completion';
 
 -- ============================================
--- FACILITIES (client allocations at YOUR warehouses)
+-- WAREHOUSE ALLOCATIONS (client space at YOUR warehouses)
 -- ============================================
 
-CREATE TABLE customer.facilities (
-  id TEXT PRIMARY KEY DEFAULT ('fac_' || gen_random_uuid()),
+CREATE TABLE customer.warehouse_allocations (
+  id TEXT PRIMARY KEY DEFAULT ('alloc_' || gen_random_uuid()),
   
   -- Relationships
-  organization_id TEXT NOT NULL REFERENCES customer.organizations(id) ON DELETE CASCADE,
+  customer_id TEXT NOT NULL REFERENCES customer.customers(id) ON DELETE CASCADE,
   company_warehouse_id TEXT NOT NULL REFERENCES company.warehouses(id) ON DELETE RESTRICT,
   
   -- Allocation details
   is_primary BOOLEAN DEFAULT FALSE,
-  space_allocation JSONB,  -- { pallets: 100, sqft: 5000 }
+  space_allocated JSONB,  -- { pallets: 100, sqft: 5000 }
   zone_assignment TEXT,     -- 'A1-A50' (which bays in warehouse)
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'setup', 'inactive')),
   
@@ -78,31 +78,31 @@ CREATE TABLE customer.facilities (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   
   -- Constraints
-  UNIQUE(organization_id, company_warehouse_id)
+  UNIQUE(customer_id, company_warehouse_id)
 );
 
-CREATE INDEX idx_facilities_organization ON customer.facilities(organization_id);
-CREATE INDEX idx_facilities_warehouse ON customer.facilities(company_warehouse_id);
-CREATE INDEX idx_facilities_status ON customer.facilities(status);
+CREATE INDEX idx_warehouse_allocations_customer ON customer.warehouse_allocations(customer_id);
+CREATE INDEX idx_warehouse_allocations_warehouse ON customer.warehouse_allocations(company_warehouse_id);
+CREATE INDEX idx_warehouse_allocations_status ON customer.warehouse_allocations(status);
 
-CREATE TRIGGER update_facilities_updated_at
-  BEFORE UPDATE ON customer.facilities
+CREATE TRIGGER update_warehouse_allocations_updated_at
+  BEFORE UPDATE ON customer.warehouse_allocations
   FOR EACH ROW
   EXECUTE FUNCTION customer.update_updated_at();
 
-COMMENT ON TABLE customer.facilities IS 'Client allocations at YOUR warehouses';
-COMMENT ON COLUMN customer.facilities.company_warehouse_id IS 'FK to company.warehouses - which of YOUR warehouses they use';
-COMMENT ON COLUMN customer.facilities.space_allocation IS 'JSONB: pallets, sqft allocated to this client';
+COMMENT ON TABLE customer.warehouse_allocations IS 'Client space allocations at YOUR warehouses (billing/capacity)';
+COMMENT ON COLUMN customer.warehouse_allocations.company_warehouse_id IS 'FK to company.warehouses - which of YOUR warehouses they use';
+COMMENT ON COLUMN customer.warehouse_allocations.space_allocated IS 'JSONB: pallets, sqft allocated to this client';
 
 -- ============================================
--- CLIENT FACILITIES (their warehouses - planning only)
+-- FACILITIES (THEIR warehouses/buildings - supply chain visibility)
 -- ============================================
 
-CREATE TABLE customer.client_facilities (
-  id TEXT PRIMARY KEY DEFAULT ('client_fac_' || gen_random_uuid()),
+CREATE TABLE customer.facilities (
+  id TEXT PRIMARY KEY DEFAULT ('fac_' || gen_random_uuid()),
   
   -- Relationships
-  organization_id TEXT NOT NULL REFERENCES customer.organizations(id) ON DELETE CASCADE,
+  customer_id TEXT NOT NULL REFERENCES customer.customers(id) ON DELETE CASCADE,
   
   -- Identity
   name TEXT NOT NULL,
@@ -122,18 +122,18 @@ CREATE TABLE customer.client_facilities (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_client_facilities_org ON customer.client_facilities(organization_id);
-CREATE INDEX idx_client_facilities_source ON customer.client_facilities(is_source) WHERE is_source = TRUE;
-CREATE INDEX idx_client_facilities_dest ON customer.client_facilities(is_destination) WHERE is_destination = TRUE;
+CREATE INDEX idx_facilities_customer ON customer.facilities(customer_id);
+CREATE INDEX idx_facilities_source ON customer.facilities(is_source) WHERE is_source = TRUE;
+CREATE INDEX idx_facilities_dest ON customer.facilities(is_destination) WHERE is_destination = TRUE;
 
-CREATE TRIGGER update_client_facilities_updated_at
-  BEFORE UPDATE ON customer.client_facilities
+CREATE TRIGGER update_facilities_updated_at
+  BEFORE UPDATE ON customer.facilities
   FOR EACH ROW
   EXECUTE FUNCTION customer.update_updated_at();
 
-COMMENT ON TABLE customer.client_facilities IS 'Client-owned warehouses/facilities for planning and visibility';
-COMMENT ON COLUMN customer.client_facilities.is_source IS 'TRUE if we receive inventory from this facility';
-COMMENT ON COLUMN customer.client_facilities.is_destination IS 'TRUE if we ship orders to this facility';
+COMMENT ON TABLE customer.facilities IS 'Customer-owned warehouses/facilities for supply chain planning and visibility';
+COMMENT ON COLUMN customer.facilities.is_source IS 'TRUE if we receive inventory from this facility';
+COMMENT ON COLUMN customer.facilities.is_destination IS 'TRUE if we ship orders to this facility';
 
 -- ============================================
 -- CONTACTS (client team members)
@@ -141,7 +141,7 @@ COMMENT ON COLUMN customer.client_facilities.is_destination IS 'TRUE if we ship 
 
 CREATE TABLE customer.contacts (
   id TEXT PRIMARY KEY DEFAULT ('contact_' || gen_random_uuid()),
-  organization_id TEXT NOT NULL REFERENCES customer.organizations(id) ON DELETE CASCADE,
+  customer_id TEXT NOT NULL REFERENCES customer.customers(id) ON DELETE CASCADE,
   
   -- Identity
   first_name TEXT NOT NULL,
@@ -166,7 +166,7 @@ CREATE TABLE customer.contacts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_contacts_organization ON customer.contacts(organization_id);
+CREATE INDEX idx_contacts_customer ON customer.contacts(customer_id);
 CREATE INDEX idx_contacts_primary ON customer.contacts(is_primary) WHERE is_primary = TRUE;
 CREATE INDEX idx_contacts_active ON customer.contacts(active) WHERE active = TRUE;
 
@@ -184,7 +184,7 @@ COMMENT ON COLUMN customer.contacts.role IS 'Contact role: operations, billing, 
 
 CREATE TABLE customer.contracts (
   id TEXT PRIMARY KEY DEFAULT ('contract_' || gen_random_uuid()),
-  organization_id TEXT NOT NULL REFERENCES customer.organizations(id) ON DELETE CASCADE,
+  customer_id TEXT NOT NULL REFERENCES customer.customers(id) ON DELETE CASCADE,
   
   -- Identity
   contract_number TEXT UNIQUE,
@@ -209,7 +209,7 @@ CREATE TABLE customer.contracts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_contracts_organization ON customer.contracts(organization_id);
+CREATE INDEX idx_contracts_customer ON customer.contracts(customer_id);
 CREATE INDEX idx_contracts_status ON customer.contracts(status);
 CREATE INDEX idx_contracts_dates ON customer.contracts(start_date, end_date);
 
@@ -267,8 +267,8 @@ COMMENT ON COLUMN customer.rate_cards.supersedes_id IS 'Previous rate card versi
 -- CLIENT SETTINGS (portal, notifications, preferences)
 -- ============================================
 
-CREATE TABLE customer.client_settings (
-  organization_id TEXT PRIMARY KEY REFERENCES customer.organizations(id) ON DELETE CASCADE,
+CREATE TABLE customer.settings (
+  customer_id TEXT PRIMARY KEY REFERENCES customer.customers(id) ON DELETE CASCADE,
   
   -- Portal
   portal_enabled BOOLEAN DEFAULT FALSE,
@@ -287,25 +287,25 @@ CREATE TABLE customer.client_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_client_settings_portal ON customer.client_settings(portal_enabled) WHERE portal_enabled = TRUE;
+CREATE INDEX idx_settings_portal ON customer.settings(portal_enabled) WHERE portal_enabled = TRUE;
 
-CREATE TRIGGER update_client_settings_updated_at
-  BEFORE UPDATE ON customer.client_settings
+CREATE TRIGGER update_settings_updated_at
+  BEFORE UPDATE ON customer.settings
   FOR EACH ROW
   EXECUTE FUNCTION customer.update_updated_at();
 
-COMMENT ON TABLE customer.client_settings IS 'Client-specific configuration and preferences';
-COMMENT ON COLUMN customer.client_settings.portal_subdomain IS 'Unique subdomain for client portal access';
+COMMENT ON TABLE customer.settings IS 'Client-specific configuration and preferences';
+COMMENT ON COLUMN customer.settings.portal_subdomain IS 'Unique subdomain for client portal access';
 
 -- ============================================
 -- VERIFICATION
 -- ============================================
 
-SELECT 'customer.organizations' as table_name, COUNT(*) as row_count FROM customer.organizations
+SELECT 'customer.customers' as table_name, COUNT(*) as row_count FROM customer.customers
+UNION ALL
+SELECT 'customer.warehouse_allocations', COUNT(*) FROM customer.warehouse_allocations
 UNION ALL
 SELECT 'customer.facilities', COUNT(*) FROM customer.facilities
-UNION ALL
-SELECT 'customer.client_facilities', COUNT(*) FROM customer.client_facilities
 UNION ALL
 SELECT 'customer.contacts', COUNT(*) FROM customer.contacts
 UNION ALL
@@ -313,4 +313,4 @@ SELECT 'customer.contracts', COUNT(*) FROM customer.contracts
 UNION ALL
 SELECT 'customer.rate_cards', COUNT(*) FROM customer.rate_cards
 UNION ALL
-SELECT 'customer.client_settings', COUNT(*) FROM customer.client_settings;
+SELECT 'customer.settings', COUNT(*) FROM customer.settings;

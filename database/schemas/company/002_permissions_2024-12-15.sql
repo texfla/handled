@@ -61,3 +61,4 @@ SELECT
 FROM pg_tables 
 WHERE schemaname = 'company'
 ORDER BY tablename;
+

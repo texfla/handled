@@ -160,3 +160,4 @@ Migrations run in this order:
 5. `reference` - Transformed reference data
 
 This order ensures dependencies are satisfied (e.g., `customer.facilities` depends on `company.warehouses`).
+

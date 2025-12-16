@@ -145,9 +145,9 @@ model Warehouse {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  manager   User?           @relation(fields: [managerId], references: [id])
-  zones     WarehouseZone[]
-  facilities Facility[]
+  manager              User?                 @relation(fields: [managerId], references: [id])
+  zones                WarehouseZone[]
+  warehouseAllocations WarehouseAllocation[]
 
   @@map("warehouses")
   @@schema("company")
@@ -178,8 +178,8 @@ model WarehouseZone {
 // CUSTOMER SCHEMA - THEIR data (multi-tenant)
 // ============================================
 
-model Organization {
-  id             String   @id @default(dbgenerated("'org_' || gen_random_uuid()"))
+model Customer {
+  id             String   @id @default(dbgenerated("'cust_' || gen_random_uuid()"))
   name           String
   slug           String   @unique
   status         String   @default("prospect")
@@ -187,43 +187,43 @@ model Organization {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  facilities       Facility[]
-  clientFacilities ClientFacility[]
-  contacts         Contact[]
-  contracts        Contract[]
-  settings         ClientSettings?
+  warehouseAllocations WarehouseAllocation[]
+  facilities           CustomerFacility[]
+  contacts             Contact[]
+  contracts            Contract[]
+  settings             CustomerSettings?
 
-  @@map("organizations")
+  @@map("customers")
   @@schema("customer")
   @@index([status])
 }
 
-model Facility {
-  id                  String   @id @default(dbgenerated("'fac_' || gen_random_uuid()"))
-  organizationId      String   @map("organization_id")
+model WarehouseAllocation {
+  id                  String   @id @default(dbgenerated("'alloc_' || gen_random_uuid()"))
+  customerId          String   @map("customer_id")
   companyWarehouseId  String   @map("company_warehouse_id")
   isPrimary           Boolean  @default(false) @map("is_primary")
-  spaceAllocation     Json?    @map("space_allocation")
+  spaceAllocated      Json?    @map("space_allocated")
   zoneAssignment      String?  @map("zone_assignment")
   status              String   @default("active")
   notes               String?
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  warehouse    Warehouse    @relation(fields: [companyWarehouseId], references: [id], onDelete: Restrict)
+  customer  Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [companyWarehouseId], references: [id], onDelete: Restrict)
 
-  @@unique([organizationId, companyWarehouseId])
-  @@map("facilities")
+  @@unique([customerId, companyWarehouseId])
+  @@map("warehouse_allocations")
   @@schema("customer")
-  @@index([organizationId])
+  @@index([customerId])
   @@index([companyWarehouseId])
   @@index([status])
 }
 
-model ClientFacility {
-  id             String   @id @default(dbgenerated("'client_fac_' || gen_random_uuid()"))
-  organizationId String   @map("organization_id")
+model CustomerFacility {
+  id             String   @id @default(dbgenerated("'fac_' || gen_random_uuid()"))
+  customerId     String   @map("customer_id")
   name           String
   facilityType   String?  @map("facility_type")
   address        Json
@@ -233,18 +233,18 @@ model ClientFacility {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  @@map("client_facilities")
+  @@map("facilities")
   @@schema("customer")
-  @@index([organizationId])
+  @@index([customerId])
   @@index([isSource])
   @@index([isDestination])
 }
 
 model Contact {
   id             String   @id @default(dbgenerated("'contact_' || gen_random_uuid()"))
-  organizationId String   @map("organization_id")
+  customerId     String   @map("customer_id")
   firstName      String   @map("first_name")
   lastName       String   @map("last_name")
   title          String?
@@ -257,18 +257,18 @@ model Contact {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@map("contacts")
   @@schema("customer")
-  @@index([organizationId])
+  @@index([customerId])
   @@index([isPrimary])
   @@index([active])
 }
 
 model Contract {
   id             String    @id @default(dbgenerated("'contract_' || gen_random_uuid()"))
-  organizationId String    @map("organization_id")
+  customerId     String    @map("customer_id")
   contractNumber String?   @unique @map("contract_number")
   name           String
   startDate      DateTime  @map("start_date") @db.Date
@@ -281,12 +281,12 @@ model Contract {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  rateCards    RateCard[]
+  customer  Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  rateCards RateCard[]
 
   @@map("contracts")
   @@schema("customer")
-  @@index([organizationId])
+  @@index([customerId])
   @@index([status])
   @@index([startDate, endDate])
 }
@@ -314,8 +314,8 @@ model RateCard {
   @@index([effectiveDate])
 }
 
-model ClientSettings {
-  organizationId          String   @id @map("organization_id")
+model CustomerSettings {
+  customerId              String   @id @map("customer_id")
   portalEnabled           Boolean  @default(false) @map("portal_enabled")
   portalSubdomain         String?  @unique @map("portal_subdomain")
   notificationEmail       String?  @map("notification_email")
@@ -325,9 +325,9 @@ model ClientSettings {
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  @@map("client_settings")
+  @@map("settings")
   @@schema("customer")
   @@index([portalEnabled])
 }
