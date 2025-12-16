@@ -73,6 +73,7 @@ export function WarehousesPage() {
   const [usablePallets, setUsablePallets] = useState('');
   const [usableSqft, setUsableSqft] = useState('');
   const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>([]);
+  const [operatingHours, setOperatingHours] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
 
@@ -140,6 +141,7 @@ export function WarehousesPage() {
     setUsablePallets(String(warehouse.capacity.usable_pallets || ''));
     setUsableSqft(String(warehouse.capacity.usable_sqft || ''));
     setSelectedCapabilities(warehouse.capabilities || []);
+    setOperatingHours(warehouse.operatingHours || {});
     setError('');
     setDialogOpen(true);
   };
@@ -165,6 +167,7 @@ export function WarehousesPage() {
     setUsablePallets('');
     setUsableSqft('');
     setSelectedCapabilities([]);
+    setOperatingHours({});
     setNotes('');
     setError('');
   };
@@ -203,6 +206,7 @@ export function WarehousesPage() {
         usable_pallets: usablePallets ? parseInt(usablePallets) : undefined,
         usable_sqft: usableSqft ? parseInt(usableSqft) : undefined,
       },
+      operating_hours: Object.keys(operatingHours).length > 0 ? operatingHours : undefined,
       capabilities: selectedCapabilities,
       notes: notes.trim() || undefined,
     };
@@ -270,7 +274,7 @@ export function WarehousesPage() {
             return (
               <Card 
                 key={warehouse.id}
-                className="hover:shadow-lg transition-shadow cursor-pointer"
+                className="group hover:shadow-xl transition-all duration-200 cursor-pointer border-2 hover:border-primary/50"
                 onClick={() => navigate(`/warehouses/${warehouse.id}`)}
               >
                 <CardHeader className="pb-3">
@@ -337,20 +341,28 @@ export function WarehousesPage() {
 
                   {/* Capabilities */}
                   {warehouse.capabilities.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-2">
-                      {warehouse.capabilities.slice(0, 3).map((cap) => {
-                        const capInfo = WAREHOUSE_CAPABILITIES.find(c => c.value === cap);
-                        return (
-                          <Badge key={cap} variant="outline" className="text-xs">
-                            {capInfo?.icon} {capInfo?.label.split(' ')[0]}
+                    <div className="space-y-2">
+                      <span className="text-xs text-muted-foreground font-medium">Capabilities</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {warehouse.capabilities.slice(0, 4).map((cap) => {
+                          const capInfo = WAREHOUSE_CAPABILITIES.find(c => c.value === cap);
+                          return (
+                            <Badge 
+                              key={cap} 
+                              variant="secondary" 
+                              className="text-xs font-normal"
+                            >
+                              <span className="mr-1">{capInfo?.icon}</span>
+                              {capInfo?.label}
+                            </Badge>
+                          );
+                        })}
+                        {warehouse.capabilities.length > 4 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{warehouse.capabilities.length - 4}
                           </Badge>
-                        );
-                      })}
-                      {warehouse.capabilities.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{warehouse.capabilities.length - 3} more
-                        </Badge>
-                      )}
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -590,6 +602,89 @@ export function WarehousesPage() {
                     placeholder="50000"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Operating Hours */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm">Operating Hours</h3>
+              <p className="text-xs text-muted-foreground">
+                Leave blank for 24/7 operation
+              </p>
+              
+              <div className="space-y-3">
+                {[
+                  { key: 'mon', label: 'Monday' },
+                  { key: 'tue', label: 'Tuesday' },
+                  { key: 'wed', label: 'Wednesday' },
+                  { key: 'thu', label: 'Thursday' },
+                  { key: 'fri', label: 'Friday' },
+                  { key: 'sat', label: 'Saturday' },
+                  { key: 'sun', label: 'Sunday' }
+                ].map(({ key, label }) => {
+                  const [open, close] = (operatingHours[key] || '').split('-');
+                  
+                  return (
+                    <div key={key} className="grid grid-cols-[100px_1fr_1fr] gap-3 items-center">
+                      <Label className="text-sm">{label}</Label>
+                      <Input
+                        type="time"
+                        value={open || ''}
+                        onChange={(e) => {
+                          const newHours = { ...operatingHours };
+                          if (e.target.value) {
+                            newHours[key] = `${e.target.value}-${close || '18:00'}`;
+                          } else {
+                            delete newHours[key];
+                          }
+                          setOperatingHours(newHours);
+                        }}
+                        placeholder="08:00"
+                      />
+                      <Input
+                        type="time"
+                        value={close || ''}
+                        onChange={(e) => {
+                          const newHours = { ...operatingHours };
+                          if (open && e.target.value) {
+                            newHours[key] = `${open}-${e.target.value}`;
+                          } else {
+                            delete newHours[key];
+                          }
+                          setOperatingHours(newHours);
+                        }}
+                        placeholder="18:00"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setOperatingHours({
+                      mon: '08:00-18:00',
+                      tue: '08:00-18:00',
+                      wed: '08:00-18:00',
+                      thu: '08:00-18:00',
+                      fri: '08:00-18:00'
+                    });
+                  }}
+                >
+                  8am-6pm Weekdays
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setOperatingHours({})}
+                >
+                  Clear All
+                </Button>
               </div>
             </div>
 

@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/badge';
 import { Progress } from '../../components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { ArrowLeft, MapPin, Users, BarChart3, Settings as SettingsIcon } from 'lucide-react';
+import { getStatusColor } from '../../lib/warehouse-utils';
 
 interface WarehouseAllocation {
   id: string;
@@ -101,12 +102,22 @@ export function WarehouseDetailPage() {
         </Button>
       </div>
 
-      <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold">{warehouse.code}</h1>
-          <Badge>{warehouse.status}</Badge>
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold">{warehouse.code}</h1>
+            <Badge variant={getStatusColor(warehouse.status) as any} className="text-sm">
+              {warehouse.status}
+            </Badge>
+          </div>
+          <p className="text-xl text-muted-foreground">{warehouse.name}</p>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+            <MapPin className="h-4 w-4" />
+            <span>{warehouse.address.city}, {warehouse.address.state}</span>
+            <span>•</span>
+            <span className="capitalize">{warehouse.type} facility</span>
+          </div>
         </div>
-        <p className="text-muted-foreground mt-1">{warehouse.name}</p>
       </div>
 
       {/* Tabs */}
@@ -214,19 +225,34 @@ export function WarehouseDetailPage() {
           )}
 
           {/* Operating Hours */}
-          {warehouse.operatingHours && (
+          {warehouse.operatingHours && Object.keys(warehouse.operatingHours).length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm font-medium">Operating Hours</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {Object.entries(warehouse.operatingHours).map(([day, hours]) => (
-                    <div key={day} className="flex justify-between">
-                      <span className="capitalize font-medium">{day}:</span>
-                      <span className="text-muted-foreground">{hours}</span>
-                    </div>
-                  ))}
+                <div className="space-y-2">
+                  {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((dayKey) => {
+                    const dayLabels: Record<string, string> = {
+                      mon: 'Monday',
+                      tue: 'Tuesday',
+                      wed: 'Wednesday',
+                      thu: 'Thursday',
+                      fri: 'Friday',
+                      sat: 'Saturday',
+                      sun: 'Sunday'
+                    };
+                    const hours = warehouse.operatingHours?.[dayKey] || 'Closed';
+                    
+                    return (
+                      <div key={dayKey} className="flex justify-between items-center text-sm py-1">
+                        <span className="font-medium w-24">{dayLabels[dayKey]}</span>
+                        <span className={hours === 'Closed' ? 'text-muted-foreground italic' : 'font-mono'}>
+                          {hours}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
