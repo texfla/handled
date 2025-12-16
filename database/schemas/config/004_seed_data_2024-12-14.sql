@@ -80,9 +80,10 @@ FROM config.roles r
 CROSS JOIN config.permissions p
 WHERE r.code = '3pl_ops'
   AND p.code IN (
-    -- View access to 3PL data
-    'view_3pl',
+    -- View access
     'view_dashboard',
+    'view_clients',
+    'view_warehouses',
     'view_inventory',
     'view_receiving',
     'view_orders',
@@ -111,8 +112,8 @@ FROM config.roles r
 CROSS JOIN config.permissions p
 WHERE r.code = '3pl_manager'
   AND (
-    -- All 3PL permissions
-    p.code IN ('view_3pl', 'manage_3pl_settings')
+    -- Management permissions
+    p.code IN ('manage_settings', 'manage_clients', 'manage_warehouses')
     -- All operational permissions
     OR p.code IN (
       'view_dashboard',
@@ -147,9 +148,9 @@ CROSS JOIN config.permissions p
 WHERE r.code = '3pl_viewer'
   AND p.code IN (
     -- All view permissions
-    'view_3pl',
     'view_dashboard',
     'view_clients',
+    'view_warehouses',
     'view_inventory',
     'view_receiving',
     'view_orders',

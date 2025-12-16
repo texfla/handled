@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { prismaPrimary } from '../db/index.js';
 import { requirePermission } from '../middleware/requirePermission.js';
-import { PERMISSIONS } from '../auth/permissions.js';
+import { PERMISSIONS, PERMISSION_INFO, Permission } from '../auth/permissions.js';
 import { 
   getErrorMessage, 
   isPrismaUniqueConstraintError,
@@ -43,24 +43,32 @@ export async function roleRoutes(fastify: FastifyInstance) {
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
     });
 
-    // Group by category
-    const grouped = permissions.reduce((acc, permission) => {
+    // Enrich with metadata from PERMISSION_INFO
+    const enriched = permissions.map(p => {
+      const info = PERMISSION_INFO[p.code as Permission];
+      return {
+        id: p.id,
+        code: p.code,
+        name: p.name,
+        description: p.description,
+        category: p.category,
+        resource: info?.resource || 'other',
+        action: info?.action || 'unknown'
+      };
+    });
+
+    // Group by category for backward compatibility
+    const grouped = enriched.reduce((acc, permission) => {
       const category = permission.category || 'other';
       if (!acc[category]) {
         acc[category] = [];
       }
-      acc[category].push({
-        id: permission.id,
-        code: permission.code,
-        name: permission.name,
-        description: permission.description,
-        category: permission.category,
-      });
+      acc[category].push(permission);
       return acc;
     }, {} as Record<string, any[]>);
 
     return reply.send({
-      permissions,
+      permissions: enriched,
       grouped,
     });
   });

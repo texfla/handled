@@ -172,7 +172,7 @@ describe('Validation Utilities', () => {
 
     test('accepts permission format with underscores', () => {
       assert.deepStrictEqual(validatePermissions(['view_user_profiles']), { valid: true });
-      assert.deepStrictEqual(validatePermissions(['manage_3pl_settings']), { valid: true });
+      assert.deepStrictEqual(validatePermissions(['manage_settings']), { valid: true });
     });
   });
 });

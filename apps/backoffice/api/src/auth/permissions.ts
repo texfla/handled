@@ -67,27 +67,37 @@ export const PERMISSION_INFO: Record<Permission, {
   name: string;
   description: string;
   category: PermissionCategory;
+  resource: string;
+  action: string;
 }> = {
   // Admin
   [PERMISSIONS.MANAGE_USERS]: {
     name: 'Manage Users',
     description: 'Create, edit, and delete user accounts',
     category: PERMISSION_CATEGORIES.ADMIN,
+    resource: 'users',
+    action: 'manage'
   },
   [PERMISSIONS.MANAGE_ROLES]: {
     name: 'Manage Roles',
     description: 'Configure role permissions',
     category: PERMISSION_CATEGORIES.ADMIN,
+    resource: 'roles',
+    action: 'manage'
   },
   [PERMISSIONS.VIEW_USERS]: {
     name: 'View Users',
     description: 'View user list and details',
     category: PERMISSION_CATEGORIES.ADMIN,
+    resource: 'users',
+    action: 'view'
   },
   [PERMISSIONS.VIEW_ROLES]: {
     name: 'View Roles',
     description: 'View role structure and permissions',
     category: PERMISSION_CATEGORIES.ADMIN,
+    resource: 'roles',
+    action: 'view'
   },
 
   // Legacy Data (now Integrations)
@@ -95,21 +105,29 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'View Data',
     description: 'View data and reports',
     category: PERMISSION_CATEGORIES.DATA,
+    resource: 'data',
+    action: 'view'
   },
   [PERMISSIONS.IMPORT_DATA]: {
     name: 'Import Data',
     description: 'Upload and import data files',
     category: PERMISSION_CATEGORIES.DATA,
+    resource: 'data',
+    action: 'import'
   },
   [PERMISSIONS.EXPORT_DATA]: {
     name: 'Export Data',
     description: 'Download and export data',
     category: PERMISSION_CATEGORIES.DATA,
+    resource: 'data',
+    action: 'export'
   },
   [PERMISSIONS.RUN_TRANSFORMATIONS]: {
     name: 'Run Transformations',
     description: 'Execute data transformations',
     category: PERMISSION_CATEGORIES.DATA,
+    resource: 'transformations',
+    action: 'run'
   },
 
   // Dashboard
@@ -117,6 +135,8 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'View Dashboard',
     description: 'Access system dashboard and overview',
     category: PERMISSION_CATEGORIES.ADMIN,
+    resource: 'dashboard',
+    action: 'view'
   },
 
   // Clients
@@ -124,11 +144,15 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'View Clients',
     description: 'View client information and contracts',
     category: PERMISSION_CATEGORIES.CLIENTS,
+    resource: 'clients',
+    action: 'view'
   },
   [PERMISSIONS.MANAGE_CLIENTS]: {
     name: 'Manage Clients',
     description: 'Create and modify client records',
     category: PERMISSION_CATEGORIES.CLIENTS,
+    resource: 'clients',
+    action: 'manage'
   },
 
   // Warehouses
@@ -136,11 +160,15 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'View Warehouses',
     description: 'View warehouse facilities and capacity',
     category: PERMISSION_CATEGORIES.OPERATIONS,
+    resource: 'warehouses',
+    action: 'view'
   },
   [PERMISSIONS.MANAGE_WAREHOUSES]: {
     name: 'Manage Warehouses',
     description: 'Create and modify warehouse facilities',
     category: PERMISSION_CATEGORIES.OPERATIONS,
+    resource: 'warehouses',
+    action: 'manage'
   },
 
   // Inventory
@@ -148,11 +176,15 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'View Inventory',
     description: 'View stock levels and locations',
     category: PERMISSION_CATEGORIES.INVENTORY,
+    resource: 'inventory',
+    action: 'view'
   },
   [PERMISSIONS.MANAGE_INVENTORY]: {
     name: 'Manage Inventory',
     description: 'Adjust inventory and manage locations',
     category: PERMISSION_CATEGORIES.INVENTORY,
+    resource: 'inventory',
+    action: 'manage'
   },
 
   // Receiving
@@ -160,11 +192,15 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'View Receiving',
     description: 'View inbound shipments and receipts',
     category: PERMISSION_CATEGORIES.OPERATIONS,
+    resource: 'receiving',
+    action: 'view'
   },
   [PERMISSIONS.MANAGE_RECEIVING]: {
     name: 'Manage Receiving',
     description: 'Process receipts and putaway tasks',
     category: PERMISSION_CATEGORIES.OPERATIONS,
+    resource: 'receiving',
+    action: 'manage'
   },
 
   // Orders
@@ -172,11 +208,15 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'View Orders',
     description: 'View order details and status',
     category: PERMISSION_CATEGORIES.FULFILLMENT,
+    resource: 'orders',
+    action: 'view'
   },
   [PERMISSIONS.MANAGE_ORDERS]: {
     name: 'Manage Orders',
     description: 'Process picks, packs, and shipments',
     category: PERMISSION_CATEGORIES.FULFILLMENT,
+    resource: 'orders',
+    action: 'manage'
   },
 
   // Shipping
@@ -184,11 +224,15 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'View Shipping',
     description: 'View shipments and tracking',
     category: PERMISSION_CATEGORIES.FULFILLMENT,
+    resource: 'shipping',
+    action: 'view'
   },
   [PERMISSIONS.MANAGE_SHIPPING]: {
     name: 'Manage Shipping',
     description: 'Create shipments and print labels',
     category: PERMISSION_CATEGORIES.FULFILLMENT,
+    resource: 'shipping',
+    action: 'manage'
   },
 
   // Returns
@@ -196,11 +240,15 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'View Returns',
     description: 'View return requests and status',
     category: PERMISSION_CATEGORIES.FULFILLMENT,
+    resource: 'returns',
+    action: 'view'
   },
   [PERMISSIONS.MANAGE_RETURNS]: {
     name: 'Manage Returns',
     description: 'Process returns and dispositions',
     category: PERMISSION_CATEGORIES.FULFILLMENT,
+    resource: 'returns',
+    action: 'manage'
   },
 
   // Billing
@@ -208,11 +256,15 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'View Billing',
     description: 'View invoices and payments',
     category: PERMISSION_CATEGORIES.BILLING,
+    resource: 'billing',
+    action: 'view'
   },
   [PERMISSIONS.MANAGE_BILLING]: {
     name: 'Manage Billing',
     description: 'Create invoices and process payments',
     category: PERMISSION_CATEGORIES.BILLING,
+    resource: 'billing',
+    action: 'manage'
   },
 
   // Operations
@@ -220,11 +272,15 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'View Operations',
     description: 'View labor and productivity metrics',
     category: PERMISSION_CATEGORIES.OPERATIONS,
+    resource: 'operations',
+    action: 'view'
   },
   [PERMISSIONS.MANAGE_OPERATIONS]: {
     name: 'Manage Operations',
     description: 'Manage tasks and warehouse operations',
     category: PERMISSION_CATEGORIES.OPERATIONS,
+    resource: 'operations',
+    action: 'manage'
   },
 
   // Reports
@@ -232,6 +288,8 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'View Reports',
     description: 'Access reports and analytics',
     category: PERMISSION_CATEGORIES.REPORTS,
+    resource: 'reports',
+    action: 'view'
   },
 
   // Integrations
@@ -239,11 +297,15 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'View Integrations',
     description: 'View integration status and logs',
     category: PERMISSION_CATEGORIES.INTEGRATIONS,
+    resource: 'integrations',
+    action: 'view'
   },
   [PERMISSIONS.MANAGE_INTEGRATIONS]: {
     name: 'Manage Integrations',
     description: 'Configure and run integrations',
     category: PERMISSION_CATEGORIES.INTEGRATIONS,
+    resource: 'integrations',
+    action: 'manage'
   },
 
   // Settings
@@ -251,11 +313,15 @@ export const PERMISSION_INFO: Record<Permission, {
     name: 'View Settings',
     description: 'View system settings',
     category: PERMISSION_CATEGORIES.ADMIN,
+    resource: 'settings',
+    action: 'view'
   },
   [PERMISSIONS.MANAGE_SETTINGS]: {
     name: 'Manage Settings',
     description: 'Modify system configuration',
     category: PERMISSION_CATEGORIES.ADMIN,
+    resource: 'settings',
+    action: 'manage'
   },
 };
 

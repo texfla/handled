@@ -291,7 +291,8 @@ Some permissions automatically imply others for better UX:
 export const PERMISSION_IMPLICATIONS: Record<string, string[]> = {
   manage_users: ['view_roles'],        // User managers can view roles
   manage_roles: ['view_roles'],        // Role managers can view roles
-  manage_3pl_settings: ['view_3pl'],   // 3PL managers can view 3PL data
+  manage_clients: ['view_clients'],    // Client managers can view clients
+  manage_warehouses: ['view_warehouses'], // Warehouse managers can view warehouses
   // ... more implications
 };
 ```
@@ -329,7 +330,7 @@ const { hasPermission, hasAnyPermission, hasAllPermissions, isAdmin } = usePermi
 
 // Hide/show UI elements
 {hasPermission('manage_users') && <UsersButton />}
-{hasAnyPermission('view_3pl', 'manage_3pl_settings') && <ThreePLSection />}
+{hasAnyPermission('view_clients', 'view_warehouses') && <OperationsSection />}
 {isAdmin() && <DangerZone />}
 ```
 
@@ -343,7 +344,7 @@ fastify.get('/data', { preHandler: requirePermission('view_data') }, handler);
 
 // Any of multiple permissions (OR)
 fastify.post('/import', { 
-  preHandler: requireAnyPermission('import_data', 'manage_3pl_settings') 
+  preHandler: requireAnyPermission('import_data', 'manage_settings') 
 }, handler);
 
 // All permissions required (AND)

@@ -93,10 +93,9 @@ INSERT INTO config.permissions (code, name, description, category) VALUES
   ('run_transformations', 'Run Transformations', 'Execute data transformations', 'data'),
   
   -- ==================================================
-  -- 3PL-specific permissions (baseline: 2024-12-14)
+  -- NOTE: Legacy 3PL permissions removed 2024-12-15
+  -- Replaced with specific permissions: view_clients, view_warehouses, etc.
   -- ==================================================
-  ('view_3pl', 'View 3PL', 'View all 3PL operational data', '3pl'),
-  ('manage_3pl_settings', 'Manage 3PL Settings', 'Configure 3PL system settings', '3pl')
 
 -- ==================================================
 -- FUTURE PERMISSIONS: Add new permissions above this line

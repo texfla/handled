@@ -30,6 +30,7 @@ import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions';
 import { cn } from '../../lib/utils';
 import { getIconByValue } from '../../lib/role-icons';
 import { getErrorTitle } from '../../types/errors';
+import { groupPermissionsByResource, groupPermissionsByCategory, type PermissionInfo } from '../../lib/permission-utils';
 
 interface Permission {
   id: number;
@@ -455,45 +456,66 @@ export function RolesPage() {
             )}
 
             <div className="py-4 space-y-6">
-              {Object.entries(permissionsByCategory).map(([category, permissions]) => (
-                <div key={category} className="space-y-3">
-                  <h4 className="font-medium text-sm capitalize border-b pb-1">
-                    {category} Permissions
-                  </h4>
-                  <div className="space-y-2 pl-2">
-                    {permissions.map((permission) => (
-                      <div key={permission.code} className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          id={permission.code}
-                          checked={selectedPermissions.includes(permission.code)}
-                          onChange={() => togglePermission(permission.code)}
-                          disabled={!canEdit || editingRole?.isSystem}
-                          className={cn(
-                            "mt-1 h-4 w-4 rounded border-gray-300",
-                            (!canEdit || editingRole?.isSystem) && "cursor-not-allowed opacity-60"
-                          )}
-                        />
-                        <div className="flex-1">
-                          <Label
-                            htmlFor={permission.code}
-                            className={cn(
-                              "text-sm font-medium",
-                              canEdit && !editingRole?.isSystem ? "cursor-pointer" : "cursor-default",
-                              (!canEdit || editingRole?.isSystem) && "text-muted-foreground"
-                            )}
-                          >
-                            {permission.name}
-                          </Label>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {permission.description}
-                          </p>
+              {(() => {
+                // Get flat list of all permissions
+                const allPermissions = Object.values(permissionsByCategory).flat() as PermissionInfo[];
+                
+                // Group by resource
+                const grouped = groupPermissionsByResource(allPermissions);
+                
+                // Then group by category
+                const byCategory = groupPermissionsByCategory(grouped);
+                
+                return Object.entries(byCategory).map(([category, resourceGroups]) => (
+                  <div key={category} className="space-y-4">
+                    {/* Category Header */}
+                    <h3 className="font-semibold text-base capitalize border-b pb-2">
+                      {category} Permissions
+                    </h3>
+                    
+                    <div className="space-y-4 pl-2">
+                      {resourceGroups.map((group) => (
+                        <div key={group.resource} className="space-y-2">
+                          {/* Resource Name */}
+                          <h4 className="font-medium text-sm text-muted-foreground">
+                            {group.displayName}
+                          </h4>
+                          
+                          {/* Inline Action Checkboxes */}
+                          <div className="ml-4 flex flex-wrap gap-6">
+                            {group.permissions.map((perm) => (
+                              <div key={perm.code} className="flex items-center gap-2 min-w-[120px]">
+                                <input
+                                  type="checkbox"
+                                  id={perm.code}
+                                  checked={selectedPermissions.includes(perm.code)}
+                                  onChange={() => togglePermission(perm.code)}
+                                  disabled={!canEdit || editingRole?.isSystem}
+                                  className={cn(
+                                    "h-4 w-4 rounded border-gray-300",
+                                    (!canEdit || editingRole?.isSystem) && "cursor-not-allowed opacity-60"
+                                  )}
+                                />
+                                <Label
+                                  htmlFor={perm.code}
+                                  className={cn(
+                                    "text-sm font-medium capitalize cursor-pointer",
+                                    canEdit && !editingRole?.isSystem ? "cursor-pointer" : "cursor-default",
+                                    (!canEdit || editingRole?.isSystem) && "text-muted-foreground"
+                                  )}
+                                  title={perm.description}
+                                >
+                                  {perm.action}
+                                </Label>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ));
+              })()}
             </div>
 
             <DialogFooter>
