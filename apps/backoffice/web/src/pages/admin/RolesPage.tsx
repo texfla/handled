@@ -430,11 +430,11 @@ export function RolesPage() {
 
       {/* Edit/View Permissions Dialog */}
       <Dialog open={!!editingRole} onOpenChange={(open) => !open && handleCloseEditDialog()}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <form onSubmit={handleSavePermissions}>
             <DialogHeader>
               <DialogTitle>
-                {canEdit ? 'Configure' : 'View'} Permissions: {editingRole?.name}
+                {editingRole?.name} Permissions
               </DialogTitle>
               <DialogDescription>
                 {canEdit 
@@ -455,7 +455,7 @@ export function RolesPage() {
               </div>
             )}
 
-            <div className="py-4 space-y-6">
+            <div className="py-4">
               {(() => {
                 // Get flat list of all permissions
                 const allPermissions = Object.values(permissionsByCategory).flat() as PermissionInfo[];
@@ -466,52 +466,69 @@ export function RolesPage() {
                 // Then group by category
                 const byCategory = groupPermissionsByCategory(grouped);
                 
+                // Define action columns
+                const actionColumns = ['view', 'manage', 'import', 'export'];
+                
                 return Object.entries(byCategory).map(([category, resourceGroups]) => (
-                  <div key={category} className="space-y-4">
+                  <div key={category} className="space-y-3 mb-6">
                     {/* Category Header */}
-                    <h3 className="font-semibold text-base capitalize border-b pb-2">
+                    <h3 className="font-semibold text-base capitalize">
                       {category} Permissions
                     </h3>
                     
-                    <div className="space-y-4 pl-2">
-                      {resourceGroups.map((group) => (
-                        <div key={group.resource} className="space-y-2">
-                          {/* Resource Name */}
-                          <h4 className="font-medium text-sm text-muted-foreground">
-                            {group.displayName}
-                          </h4>
-                          
-                          {/* Inline Action Checkboxes */}
-                          <div className="ml-4 flex flex-wrap gap-6">
-                            {group.permissions.map((perm) => (
-                              <div key={perm.code} className="flex items-center gap-2 min-w-[120px]">
-                                <input
-                                  type="checkbox"
-                                  id={perm.code}
-                                  checked={selectedPermissions.includes(perm.code)}
-                                  onChange={() => togglePermission(perm.code)}
-                                  disabled={!canEdit || editingRole?.isSystem}
-                                  className={cn(
-                                    "h-4 w-4 rounded border-gray-300",
-                                    (!canEdit || editingRole?.isSystem) && "cursor-not-allowed opacity-60"
-                                  )}
-                                />
-                                <Label
-                                  htmlFor={perm.code}
-                                  className={cn(
-                                    "text-sm font-medium capitalize cursor-pointer",
-                                    canEdit && !editingRole?.isSystem ? "cursor-pointer" : "cursor-default",
-                                    (!canEdit || editingRole?.isSystem) && "text-muted-foreground"
-                                  )}
-                                  title={perm.description}
-                                >
-                                  {perm.action}
-                                </Label>
-                              </div>
+                    {/* Permission Matrix Table */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-sm font-medium w-[200px]">
+                              Resource
+                            </th>
+                            {actionColumns.map(action => (
+                              <th key={action} className="px-4 py-3 text-center text-sm font-medium w-[100px]">
+                                {action.charAt(0).toUpperCase() + action.slice(1)}
+                              </th>
                             ))}
-                          </div>
-                        </div>
-                      ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {resourceGroups.map((group, idx) => (
+                            <tr key={group.resource} className={cn(
+                              "border-t",
+                              idx % 2 === 0 ? "bg-background" : "bg-muted/20"
+                            )}>
+                              <td className="px-4 py-3 text-sm font-medium">
+                                {group.displayName}
+                              </td>
+                              {actionColumns.map(action => {
+                                const perm = group.permissions.find(p => p.action === action);
+                                return (
+                                  <td key={action} className="px-4 py-3 text-center">
+                                    {perm ? (
+                                      <div className="flex items-center justify-center">
+                                        <input
+                                          type="checkbox"
+                                          id={perm.code}
+                                          checked={selectedPermissions.includes(perm.code)}
+                                          onChange={() => togglePermission(perm.code)}
+                                          disabled={!canEdit || editingRole?.isSystem}
+                                          className={cn(
+                                            "h-4 w-4 rounded border-gray-300",
+                                            (!canEdit || editingRole?.isSystem) && "cursor-not-allowed opacity-60"
+                                          )}
+                                          title={perm.description}
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">—</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 ));
