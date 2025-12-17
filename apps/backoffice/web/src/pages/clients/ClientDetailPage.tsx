@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
+import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -16,12 +17,13 @@ import { ArrowLeft, Edit, Plus, Trash2, Warehouse, Users as UsersIcon, FileText,
 
 interface WarehouseAllocation {
   id: string;
+  customerId: string;
   companyWarehouseId: string;
   warehouse: {
     id: string;
     code: string;
     name: string;
-    capacity: {
+    capacity?: {
       usable_pallets?: number;
     };
   };
@@ -29,9 +31,12 @@ interface WarehouseAllocation {
     pallets?: number;
     sqft?: number;
   };
-  zoneAssignment?: string;
+  zoneAssignment?: string | null;
   isPrimary: boolean;
   status: string;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Contact {
@@ -110,6 +115,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function ClientDetailPage() {
+  const { hasPermission } = usePermissions();
+  const canManageClients = hasPermission(PERMISSIONS.MANAGE_CLIENTS);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -136,6 +143,10 @@ export function ClientDetailPage() {
   const [title, setTitle] = useState('');
   const [contactRole, setContactRole] = useState('general');
   const [contactIsPrimary, setContactIsPrimary] = useState(false);
+  
+  // Delete confirmation state
+  const [deleteContactConfirmed, setDeleteContactConfirmed] = useState(false);
+  const [deleteAllocationConfirmed, setDeleteAllocationConfirmed] = useState(false);
 
   // Settings state
   const [portalEnabled, setPortalEnabled] = useState(false);
@@ -169,14 +180,26 @@ export function ClientDetailPage() {
     },
   });
 
+  const updateAllocationMutation = useMutation({
+    mutationFn: ({ allocationId, data }: { allocationId: string; data: any }) =>
+      api.put(`/api/clients/${id}/warehouse-allocations/${allocationId}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['client', id] });
+      queryClient.invalidateQueries({ queryKey: ['warehouses'] });
+      closeAllocationDialog();
+    },
+    onError: (error: any) => {
+      setError(error.response?.data?.error || 'Failed to update allocation');
+    },
+  });
+
   const deleteAllocationMutation = useMutation({
     mutationFn: (allocationId: string) => api.delete(`/api/clients/${id}/warehouse-allocations/${allocationId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['client', id] });
       queryClient.invalidateQueries({ queryKey: ['warehouses'] });
-    },
-    onError: (error: any) => {
-      setError(error.response?.data?.error || 'Failed to delete allocation');
+      closeAllocationDialog();
+      setDeleteAllocationConfirmed(false);
     },
   });
 
@@ -193,7 +216,7 @@ export function ClientDetailPage() {
 
   const updateContactMutation = useMutation({
     mutationFn: ({ contactId, data }: { contactId: string; data: any }) => 
-      api.put(`/api/contacts/${contactId}`, data),
+      api.put(`/api/clients/${id}/contacts/${contactId}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['client', id] });
       closeContactDialog();
@@ -204,12 +227,11 @@ export function ClientDetailPage() {
   });
 
   const deleteContactMutation = useMutation({
-    mutationFn: (contactId: string) => api.delete(`/api/contacts/${contactId}`),
+    mutationFn: (contactId: string) => api.delete(`/api/clients/${id}/contacts/${contactId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['client', id] });
-    },
-    onError: (error: any) => {
-      setError(error.response?.data?.error || 'Failed to delete contact');
+      closeContactDialog();
+      setDeleteContactConfirmed(false);
     },
   });
 
@@ -239,7 +261,13 @@ export function ClientDetailPage() {
   const closeAllocationDialog = () => {
     setAllocationDialogOpen(false);
     setEditingAllocation(null);
+    setSelectedWarehouseId('');
+    setPallets('');
+    setSqft('');
+    setZone('');
+    setIsPrimary(false);
     setError('');
+    setDeleteAllocationConfirmed(false);
   };
 
   const handleSaveAllocation = () => {
@@ -259,7 +287,14 @@ export function ClientDetailPage() {
       status: 'active'
     };
 
-    createAllocationMutation.mutate(allocationData);
+    if (editingAllocation) {
+      updateAllocationMutation.mutate({
+        allocationId: editingAllocation.id,
+        data: allocationData
+      });
+    } else {
+      createAllocationMutation.mutate(allocationData);
+    }
   };
 
   const openAddContact = () => {
@@ -291,7 +326,15 @@ export function ClientDetailPage() {
   const closeContactDialog = () => {
     setContactDialogOpen(false);
     setEditingContact(null);
+    setFirstName('');
+    setLastName('');
+    setEmail('');
+    setPhone('');
+    setTitle('');
+    setContactRole('general');
+    setContactIsPrimary(false);
     setError('');
+    setDeleteContactConfirmed(false);
   };
 
   const handleSaveContact = () => {
@@ -569,7 +612,7 @@ export function ClientDetailPage() {
                 <CardContent>
                   {client.warehouseAllocations && client.warehouseAllocations.length > 0 ? (
                     <div className="space-y-2">
-                      {client.warehouseAllocations.map((alloc) => (
+                      {(client.warehouseAllocations || []).map((alloc: WarehouseAllocation) => (
                         <div key={alloc.id} className="flex items-start justify-between py-2 border-b last:border-0">
                           <div className="flex-1">
                             <div className="font-medium text-sm flex items-center gap-2">
@@ -606,7 +649,7 @@ export function ClientDetailPage() {
                 <CardContent>
                   {client.facilities && client.facilities.length > 0 ? (
                     <div className="space-y-2">
-                      {client.facilities.map((facility: any) => (
+                      {(client.facilities || []).map((facility: CustomerFacility) => (
                         <div key={facility.id} className="py-2 border-b last:border-0">
                           <div className="font-medium text-sm">{facility.name}</div>
                           <div className="text-xs text-muted-foreground">
@@ -715,15 +758,30 @@ export function ClientDetailPage() {
                       <th className="px-4 py-3 text-left text-sm font-medium">Zone</th>
                       <th className="px-4 py-3 text-left text-sm font-medium">Primary</th>
                       <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {client.warehouseAllocations.map((allocation) => (
-                      <tr key={allocation.id} className="border-b hover:bg-muted/50">
+                    {(client.warehouseAllocations || []).map((allocation: WarehouseAllocation) => (
+                      <tr 
+                        key={allocation.id} 
+                        className="border-b hover:bg-muted/30 cursor-pointer transition-colors"
+                        onClick={() => {
+                          setEditingAllocation(allocation);
+                          setSelectedWarehouseId(allocation.warehouse.id);
+                          setPallets(allocation.spaceAllocated?.pallets?.toString() || '');
+                          setSqft(allocation.spaceAllocated?.sqft?.toString() || '');
+                          setZone(allocation.zoneAssignment || '');
+                          setIsPrimary(allocation.isPrimary);
+                          setAllocationDialogOpen(true);
+                        }}
+                      >
                         <td className="px-4 py-3">
                           <div>
-                            <div className="font-medium">{allocation.warehouse.code}</div>
+                            {canManageClients ? (
+                              <div className="font-medium text-primary hover:underline">{allocation.warehouse.code}</div>
+                            ) : (
+                              <div className="font-medium">{allocation.warehouse.code}</div>
+                            )}
                             <div className="text-sm text-muted-foreground">{allocation.warehouse.name}</div>
                           </div>
                         </td>
@@ -750,33 +808,6 @@ export function ClientDetailPage() {
                           <Badge variant={allocation.status === 'active' ? 'default' : 'secondary'}>
                             {allocation.status}
                           </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Remove Allocation?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Remove {client.name}'s allocation at {allocation.warehouse.code}?
-                                  This will free up the allocated space.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deleteAllocationMutation.mutate(allocation.id)}
-                                  className="bg-destructive hover:bg-destructive/90"
-                                >
-                                  Remove
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
                         </td>
                       </tr>
                     ))}
@@ -893,19 +924,64 @@ export function ClientDetailPage() {
                 </div>
               </div>
 
-              <DialogFooter>
-                <Button variant="outline" onClick={closeAllocationDialog}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleSaveAllocation}
-                  disabled={createAllocationMutation.isPending}
-                >
-                  {createAllocationMutation.isPending && (
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  )}
-                  {editingAllocation ? 'Save' : 'Add'} Allocation
-                </Button>
+              <DialogFooter className="flex justify-between items-center">
+                {editingAllocation && canManageClients && (
+                  <AlertDialog onOpenChange={() => setDeleteAllocationConfirmed(false)}>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" className="mr-auto" type="button">
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remove Allocation?</AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-3">
+                          <p>Remove {client.name}'s allocation at {editingAllocation.warehouse.code}?</p>
+                          <p className="text-sm">This will free up the allocated space.</p>
+                          <div className="flex items-start gap-2 border rounded p-3 bg-muted/50">
+                            <input
+                              type="checkbox"
+                              id="confirm-delete-allocation"
+                              checked={deleteAllocationConfirmed}
+                              onChange={(e) => setDeleteAllocationConfirmed(e.target.checked)}
+                              className="mt-1 h-4 w-4 rounded"
+                            />
+                            <label htmlFor="confirm-delete-allocation" className="text-sm cursor-pointer">
+                              I understand this allocation will be permanently removed
+                            </label>
+                          </div>
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setDeleteAllocationConfirmed(false)}>
+                          Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          disabled={!deleteAllocationConfirmed || deleteAllocationMutation.isPending}
+                          onClick={() => editingAllocation && deleteAllocationMutation.mutate(editingAllocation.id)}
+                          className="bg-destructive hover:bg-destructive/90"
+                        >
+                          {deleteAllocationMutation.isPending ? 'Removing...' : 'Remove'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={closeAllocationDialog}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleSaveAllocation}
+                    disabled={createAllocationMutation.isPending || updateAllocationMutation.isPending}
+                  >
+                    {(createAllocationMutation.isPending || updateAllocationMutation.isPending) && (
+                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    )}
+                    {editingAllocation ? 'Save' : 'Add'} Allocation
+                  </Button>
+                </div>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -927,22 +1003,31 @@ export function ClientDetailPage() {
                 <table className="w-full">
                   <thead className="bg-muted/50">
                     <tr className="border-b">
-                      <th className="px-4 py-3 text-left text-sm font-medium">Name</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">Title</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">Email</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">Phone</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">Role</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">Primary</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">Actions</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Name</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Title</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Email</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Phone</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Role</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Primary</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {client.contacts.map((contact) => (
-                      <tr key={contact.id} className="border-b hover:bg-muted/50">
+                    {(client.contacts || []).map((contact: Contact) => (
+                      <tr 
+                        key={contact.id} 
+                        className="border-b hover:bg-muted/30 cursor-pointer transition-colors"
+                        onClick={() => openEditContact(contact)}
+                      >
                         <td className="px-4 py-3">
-                          <div className="font-medium">
-                            {contact.firstName} {contact.lastName}
-                          </div>
+                          {canManageClients ? (
+                            <div className="font-medium text-primary hover:underline">
+                              {contact.firstName} {contact.lastName}
+                            </div>
+                          ) : (
+                            <div className="font-medium">
+                              {contact.firstName} {contact.lastName}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-sm text-muted-foreground">
                           {contact.title || '—'}
@@ -960,42 +1045,6 @@ export function ClientDetailPage() {
                           {contact.isPrimary && (
                             <Badge variant="outline" className="text-xs">Primary</Badge>
                           )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditContact(contact)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Contact?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Remove {contact.firstName} {contact.lastName} from {client.name}?
-                                    This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => deleteContactMutation.mutate(contact.id)}
-                                    className="bg-destructive hover:bg-destructive/90"
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1123,19 +1172,64 @@ export function ClientDetailPage() {
                 </div>
               </div>
 
-              <DialogFooter>
-                <Button variant="outline" onClick={closeContactDialog}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleSaveContact}
-                  disabled={createContactMutation.isPending || updateContactMutation.isPending}
-                >
-                  {(createContactMutation.isPending || updateContactMutation.isPending) && (
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  )}
-                  {editingContact ? 'Save' : 'Add'} Contact
-                </Button>
+              <DialogFooter className="flex justify-between items-center">
+                {editingContact && canManageClients && (
+                  <AlertDialog onOpenChange={() => setDeleteContactConfirmed(false)}>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" className="mr-auto" type="button">
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Contact?</AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-3">
+                          <p>Remove {editingContact.firstName} {editingContact.lastName} from {client.name}?</p>
+                          <p className="text-sm">This action cannot be undone.</p>
+                          <div className="flex items-start gap-2 border rounded p-3 bg-muted/50">
+                            <input
+                              type="checkbox"
+                              id="confirm-delete-contact"
+                              checked={deleteContactConfirmed}
+                              onChange={(e) => setDeleteContactConfirmed(e.target.checked)}
+                              className="mt-1 h-4 w-4 rounded"
+                            />
+                            <label htmlFor="confirm-delete-contact" className="text-sm cursor-pointer">
+                              I understand this contact will be permanently deleted
+                            </label>
+                          </div>
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setDeleteContactConfirmed(false)}>
+                          Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          disabled={!deleteContactConfirmed || deleteContactMutation.isPending}
+                          onClick={() => editingContact && deleteContactMutation.mutate(editingContact.id)}
+                          className="bg-destructive hover:bg-destructive/90"
+                        >
+                          {deleteContactMutation.isPending ? 'Deleting...' : 'Delete'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={closeContactDialog}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleSaveContact}
+                    disabled={createContactMutation.isPending || updateContactMutation.isPending}
+                  >
+                    {(createContactMutation.isPending || updateContactMutation.isPending) && (
+                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    )}
+                    {editingContact ? 'Save' : 'Add'} Contact
+                  </Button>
+                </div>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -1153,7 +1247,7 @@ export function ClientDetailPage() {
 
           {client.contracts && client.contracts.length > 0 ? (
             <div className="space-y-4">
-              {client.contracts.map((contract) => (
+              {(client.contracts || []).map((contract: Contract) => (
                 <Card key={contract.id}>
                   <CardHeader>
                     <div className="flex items-start justify-between">

@@ -11,6 +11,9 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    hmr: {
+      overlay: true, // Keep error overlay
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
@@ -18,5 +21,6 @@ export default defineConfig({
       },
     },
   },
+  logLevel: 'warn', // Only show warnings and errors, not debug info
 });
 

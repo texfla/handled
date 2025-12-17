@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Badge } from '../../components/ui/badge';
 import { Plus, Search, Building2 } from 'lucide-react';
+import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions';
 
 interface Client {
   id: string;
@@ -41,6 +42,8 @@ const STATUS_LABELS: Record<string, string> = {
 
 export function ClientsPage() {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
+  const canManageClients = hasPermission(PERMISSIONS.MANAGE_CLIENTS);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -145,19 +148,22 @@ export function ClientsPage() {
                   <th className="px-4 py-3 text-left text-sm font-medium">Warehouses</th>
                   <th className="px-4 py-3 text-left text-sm font-medium">Contacts</th>
                   <th className="px-4 py-3 text-left text-sm font-medium">Contracts</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredClients.map((client) => (
                   <tr 
                     key={client.id} 
-                    className="border-b hover:bg-primary/5 cursor-pointer transition-all duration-200 hover:shadow-md"
+                    className="border-b hover:bg-muted/30 cursor-pointer transition-colors"
                     onClick={() => navigate(`/clients/${client.id}`)}
                   >
                     <td className="px-4 py-3">
                       <div>
-                        <div className="font-medium">{client.name}</div>
+                        {canManageClients ? (
+                          <div className="font-medium text-primary hover:underline">{client.name}</div>
+                        ) : (
+                          <div className="font-medium">{client.name}</div>
+                        )}
                         <div className="text-sm text-muted-foreground">{client.slug}</div>
                       </div>
                     </td>
@@ -174,18 +180,6 @@ export function ClientsPage() {
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {client._count?.contracts || 0} contract{client._count?.contracts !== 1 ? 's' : ''}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/clients/${client.id}`);
-                        }}
-                      >
-                        View
-                      </Button>
                     </td>
                   </tr>
                 ))}

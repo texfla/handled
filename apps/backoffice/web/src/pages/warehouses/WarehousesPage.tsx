@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Checkbox } from '../../components/ui/checkbox';
 import { Textarea } from '../../components/ui/textarea';
 import { Plus, Warehouse as WarehouseIcon, Edit, Trash2, MapPin, Users } from 'lucide-react';
+import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions';
 
 interface Warehouse {
   id: string;
@@ -55,6 +56,8 @@ interface Warehouse {
 export function WarehousesPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
+  const canManageWarehouses = hasPermission(PERMISSIONS.MANAGE_WAREHOUSES);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
 
@@ -273,7 +276,7 @@ export function WarehousesPage() {
             return (
               <Card 
                 key={warehouse.id}
-                className="group hover:shadow-xl transition-all duration-200 cursor-pointer border-2 hover:border-primary/50"
+                className="group hover:shadow-lg transition-all duration-200 cursor-pointer hover:border-primary/30"
                 onClick={() => navigate(`/warehouses/${warehouse.id}`)}
               >
                 <CardHeader className="pb-3">
@@ -283,7 +286,11 @@ export function WarehousesPage() {
                         <WarehouseIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div>
-                        <CardTitle className="text-lg">{warehouse.code}</CardTitle>
+                        {canManageWarehouses ? (
+                          <CardTitle className="text-lg text-primary hover:underline">{warehouse.code}</CardTitle>
+                        ) : (
+                          <CardTitle className="text-lg">{warehouse.code}</CardTitle>
+                        )}
                         <CardDescription className="text-sm">
                           {warehouse.name}
                         </CardDescription>

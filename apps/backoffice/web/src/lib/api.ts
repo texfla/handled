@@ -42,6 +42,17 @@ class ApiClient {
       );
     }
 
+    // Handle 204 No Content responses (no body to parse)
+    if (response.status === 204) {
+      return {} as T;
+    }
+
+    // Check if response has content before parsing JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType?.includes('application/json')) {
+      return {} as T;
+    }
+
     return response.json();
   }
 

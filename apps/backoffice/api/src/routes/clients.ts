@@ -99,7 +99,7 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
           select: {
             warehouseAllocations: true,
             facilities: true,
-            contacts: true,
+            contacts: { where: { active: true } },
             contracts: true,
           },
         },
@@ -232,18 +232,18 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
     }, 0);
 
     const requestedPallets = body.space_allocated?.pallets || 0;
-    const totalCapacity = (warehouse.capacity as any).usable_pallets || 0;
+    const totalCapacity = (warehouse.capacity as any)?.usable_pallets || Infinity;
     const availablePallets = totalCapacity - usedPallets;
 
-    if (requestedPallets > availablePallets) {
+    if (requestedPallets > 0 && requestedPallets > availablePallets) {
       return reply.status(400).send({
         error: 'Insufficient warehouse capacity',
         details: `Requested ${requestedPallets} pallets, only ${availablePallets} available`,
         warehouseId: warehouse.id,
         warehouseCode: warehouse.code,
-        totalCapacity,
+        totalCapacity: totalCapacity === Infinity ? 'unlimited' : totalCapacity,
         currentlyUsed: usedPallets,
-        available: availablePallets
+        available: availablePallets === Infinity ? 'unlimited' : availablePallets
       });
     }
 
@@ -285,20 +285,20 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (difference > 0) {
         // Check if increase is possible
-        const totalCapacity = (allocation.warehouse.capacity as any).usable_pallets || 0;
+        const totalCapacity = (allocation.warehouse.capacity as any)?.usable_pallets || Infinity;
         const usedByOthers = allocation.warehouse.warehouseAllocations
           .filter(a => a.id !== allocationId)
           .reduce((sum, a) => sum + ((a.spaceAllocated as any)?.pallets || 0), 0);
         
         const available = totalCapacity - usedByOthers;
         
-        if (newAllocation > available) {
+        if (newAllocation > 0 && newAllocation > available) {
           return reply.status(400).send({
             error: 'Insufficient warehouse capacity',
             details: `Requested ${newAllocation} pallets, only ${available} available`,
-            totalCapacity,
+            totalCapacity: totalCapacity === Infinity ? 'unlimited' : totalCapacity,
             currentlyUsed: usedByOthers + currentAllocation,
-            available
+            available: available === Infinity ? 'unlimited' : available
           });
         }
       }
@@ -562,7 +562,17 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
         });
 
         // 3. Create warehouse allocations (with capacity check)
-        const allocations = [];
+        const allocations: Array<{
+          id: string;
+          customerId: string;
+          companyWarehouseId: string;
+          isPrimary: boolean;
+          spaceAllocated: any;
+          zoneAssignment: string | null;
+          status: string;
+          createdAt: Date;
+          updatedAt: Date;
+        }> = [];
         
         for (const alloc of body.warehouse_allocations) {
           // Check capacity
