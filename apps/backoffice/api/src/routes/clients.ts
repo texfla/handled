@@ -268,37 +268,61 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
     const { allocationId } = request.params as { id: string; allocationId: string };
     const body = warehouseAllocationSchema.partial().parse(request.body);
 
-    // If updating space allocation, validate capacity
-    if (body.space_allocated) {
-      const allocation = await prismaPrimary.warehouseAllocation.findUnique({
-        where: { id: allocationId },
-        include: { warehouse: { include: { warehouseAllocations: true } } }
+    // Get current allocation
+    const allocation = await prismaPrimary.warehouseAllocation.findUnique({
+      where: { id: allocationId },
+      include: { warehouse: { include: { warehouseAllocations: true } } }
+    });
+
+    if (!allocation) {
+      return reply.status(404).send({ error: 'Warehouse allocation not found' });
+    }
+
+    // Determine which warehouse to validate against
+    const isChangingWarehouse = body.company_warehouse_id && body.company_warehouse_id !== allocation.companyWarehouseId;
+
+    // If warehouse is changing, fetch the new warehouse
+    let targetWarehouse = allocation.warehouse;
+    if (isChangingWarehouse) {
+      const newWarehouse = await prismaPrimary.warehouse.findUnique({
+        where: { id: body.company_warehouse_id },
+        include: { warehouseAllocations: true }
       });
 
-      if (!allocation) {
-        return reply.status(404).send({ error: 'Warehouse allocation not found' });
+      if (!newWarehouse) {
+        return reply.status(404).send({ error: 'Target warehouse not found' });
       }
 
-      const currentAllocation = (allocation.spaceAllocated as any)?.pallets || 0;
-      const newAllocation = body.space_allocated.pallets || 0;
-      const difference = newAllocation - currentAllocation;
+      targetWarehouse = newWarehouse;
+    }
 
-      if (difference > 0) {
-        // Check if increase is possible
-        const totalCapacity = (allocation.warehouse.capacity as any)?.usable_pallets || Infinity;
-        const usedByOthers = allocation.warehouse.warehouseAllocations
-          .filter(a => a.id !== allocationId)
-          .reduce((sum, a) => sum + ((a.spaceAllocated as any)?.pallets || 0), 0);
-        
-        const available = totalCapacity - usedByOthers;
-        
-        if (newAllocation > 0 && newAllocation > available) {
+    // Validate capacity if space allocation is being updated or warehouse is changing
+    if (body.space_allocated || isChangingWarehouse) {
+      const requestedPallets = (body.space_allocated?.pallets ?? (allocation.spaceAllocated as any)?.pallets) || 0;
+      
+      // Calculate used capacity in target warehouse
+      const usedPallets = targetWarehouse.warehouseAllocations
+        .filter(a => isChangingWarehouse ? true : a.id !== allocationId) // If changing warehouse, count all allocations; otherwise exclude current
+        .reduce((sum, a) => sum + ((a.spaceAllocated as any)?.pallets || 0), 0);
+
+      const totalCapacity = (targetWarehouse.capacity as any)?.usable_pallets || Infinity;
+      const availablePallets = totalCapacity - usedPallets;
+
+      // If changing warehouse, we need to check if the new warehouse has capacity
+      // If not changing warehouse, only check if we're increasing allocation
+      const currentPallets = (allocation.spaceAllocated as any)?.pallets || 0;
+      const isIncreasing = requestedPallets > currentPallets;
+
+      if (requestedPallets > 0 && (isChangingWarehouse || isIncreasing)) {
+        if (requestedPallets > availablePallets) {
           return reply.status(400).send({
             error: 'Insufficient warehouse capacity',
-            details: `Requested ${newAllocation} pallets, only ${available} available`,
+            details: `Requested ${requestedPallets} pallets, only ${availablePallets} available`,
+            warehouseId: targetWarehouse.id,
+            warehouseCode: targetWarehouse.code,
             totalCapacity: totalCapacity === Infinity ? 'unlimited' : totalCapacity,
-            currentlyUsed: usedByOthers + currentAllocation,
-            available: available === Infinity ? 'unlimited' : available
+            currentlyUsed: usedPallets,
+            available: availablePallets === Infinity ? 'unlimited' : availablePallets
           });
         }
       }
@@ -307,6 +331,7 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
     const updated = await prismaPrimary.warehouseAllocation.update({
       where: { id: allocationId },
       data: {
+        ...(body.company_warehouse_id && { companyWarehouseId: body.company_warehouse_id }),
         ...(body.is_primary !== undefined && { isPrimary: body.is_primary }),
         ...(body.space_allocated && { spaceAllocated: body.space_allocated }),
         ...(body.zone_assignment !== undefined && { zoneAssignment: body.zone_assignment }),

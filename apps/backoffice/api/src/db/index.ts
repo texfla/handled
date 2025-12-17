@@ -1,10 +1,14 @@
 import { PrismaClient as PrimaryClient } from '@prisma/client-primary';
 import { PrismaClient as DataClient } from '@prisma/client-data';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 import { debug } from '../lib/logger.js';
 
 // Lazy initialization to ensure env vars are loaded first
 let _prismaPrimary: PrimaryClient | null = null;
 let _prismaData: DataClient | null = null;
+let _poolPrimary: Pool | null = null;
+let _poolData: Pool | null = null;
 
 // Configure Prisma logging based on environment
 const LOG_QUERIES = process.env.LOG_DB_QUERIES === 'true';
@@ -19,10 +23,12 @@ function getPrismaPrimary(): PrimaryClient {
       throw new Error('PRIMARY_DATABASE_URL environment variable is not set');
     }
     
+    // Create PostgreSQL pool and adapter for Prisma 7
+    _poolPrimary = new Pool({ connectionString: url });
+    const adapter = new PrismaPg(_poolPrimary);
+    
     _prismaPrimary = new PrimaryClient({
-      datasources: { 
-        db: { url }
-      },
+      adapter,
       log: LOG_LEVEL
     });
   }
@@ -35,10 +41,13 @@ function getPrismaData(): DataClient {
     if (!url) {
       throw new Error('Neither DATA_DATABASE_URL nor PRIMARY_DATABASE_URL is set');
     }
+    
+    // Create PostgreSQL pool and adapter for Prisma 7
+    _poolData = new Pool({ connectionString: url });
+    const adapter = new PrismaPg(_poolData);
+    
     _prismaData = new DataClient({
-      datasources: { 
-        db: { url }
-      },
+      adapter,
       log: LOG_LEVEL
     });
   }
@@ -66,6 +75,8 @@ process.on('beforeExit', async () => {
   const promises: Promise<void>[] = [];
   if (_prismaPrimary) promises.push(_prismaPrimary.$disconnect());
   if (_prismaData) promises.push(_prismaData.$disconnect());
+  if (_poolPrimary) promises.push(_poolPrimary.end());
+  if (_poolData) promises.push(_poolData.end());
   await Promise.all(promises);
 });
 

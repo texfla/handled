@@ -4,14 +4,12 @@
 //           customer schema (organizations, facilities, contacts, contracts)
 
 generator client {
-  provider        = "prisma-client-js"
-  output          = "../node_modules/@prisma/client-primary"
-  previewFeatures = ["multiSchema"]
+  provider = "prisma-client"
+  output   = "../node_modules/@prisma/client-primary"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("PRIMARY_DATABASE_URL")
   schemas  = ["config", "company", "customer"]
 }
 

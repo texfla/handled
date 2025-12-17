@@ -860,16 +860,33 @@ export function ClientDetailPage() {
                       <SelectValue placeholder="Select warehouse" />
                     </SelectTrigger>
                     <SelectContent>
-                      {warehouses.map((wh: any) => (
-                        <SelectItem key={wh.id} value={wh.id}>
-                          {wh.code} - {wh.name}
-                          {wh.capacity?.usable_pallets && (
-                            <span className="text-xs text-muted-foreground ml-2">
-                              ({wh.capacity.usable_pallets} pallets)
-                            </span>
-                          )}
-                        </SelectItem>
-                      ))}
+                      {warehouses.map((wh: any) => {
+                        // Check if this warehouse is already allocated (excluding current allocation when editing)
+                        const isAllocated = client.warehouseAllocations?.some(
+                          alloc => alloc.companyWarehouseId === wh.id && 
+                                   (!editingAllocation || alloc.id !== editingAllocation.id)
+                        );
+                        
+                        return (
+                          <SelectItem 
+                            key={wh.id} 
+                            value={wh.id}
+                            disabled={isAllocated}
+                          >
+                            {wh.code} - {wh.name}
+                            {wh.capacity?.usable_pallets && (
+                              <span className="text-xs text-muted-foreground ml-2">
+                                ({wh.capacity.usable_pallets} pallets)
+                              </span>
+                            )}
+                            {isAllocated && (
+                              <span className="text-xs text-muted-foreground ml-2">
+                                • Already allocated
+                              </span>
+                            )}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>

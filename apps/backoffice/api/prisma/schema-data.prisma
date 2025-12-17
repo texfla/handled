@@ -3,14 +3,12 @@
 //           reference schema (transformed data - rebuildable)
 
 generator client {
-  provider        = "prisma-client-js"
-  output          = "../node_modules/@prisma/client-data"
-  previewFeatures = ["multiSchema"]
+  provider = "prisma-client"
+  output   = "../node_modules/@prisma/client-data"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATA_DATABASE_URL")
   schemas  = ["workspace", "reference"]
 }
 
