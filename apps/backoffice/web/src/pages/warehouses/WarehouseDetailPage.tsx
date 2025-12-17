@@ -166,22 +166,32 @@ export function WarehouseDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Pallets:</span>
-                    <span className="font-medium">
-                      {capacity.used} / {capacity.total}
-                    </span>
+                {capacity.pallets && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Pallets:</span>
+                      <span className="font-medium">
+                        {capacity.pallets.used} / {capacity.pallets.total}
+                      </span>
+                    </div>
+                    <Progress value={capacity.pallets.utilizationPercent} className="h-2" />
+                    <div className="text-xs text-muted-foreground text-right">
+                      {capacity.pallets.utilizationPercent}% utilized
+                    </div>
                   </div>
-                  <Progress value={capacity.utilizationPercent} className="h-2" />
-                  <div className="text-xs text-muted-foreground text-right">
-                    {capacity.utilizationPercent}% utilized
-                  </div>
-                </div>
-                {warehouse.capacity.usable_sqft && (
-                  <div className="text-sm pt-2 border-t">
-                    <span className="text-muted-foreground">Square Feet:</span>{' '}
-                    {warehouse.capacity.usable_sqft.toLocaleString()}
+                )}
+                {capacity.sqft && (
+                  <div className={capacity.pallets ? "space-y-1 pt-3 border-t" : "space-y-1"}>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Square Feet:</span>
+                      <span className="font-medium">
+                        {capacity.sqft.used.toLocaleString()} / {capacity.sqft.total.toLocaleString()}
+                      </span>
+                    </div>
+                    <Progress value={capacity.sqft.utilizationPercent} className="h-2" />
+                    <div className="text-xs text-muted-foreground text-right">
+                      {capacity.sqft.utilizationPercent}% utilized
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -353,35 +363,39 @@ export function WarehouseDetailPage() {
                 <CardTitle>Capacity Overview</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Total Capacity:</span>
-                    <span className="font-medium">{capacity.total} pallets</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Allocated:</span>
-                    <span className="font-medium">{capacity.used} pallets</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Available:</span>
-                    <span className="font-medium text-green-600">{capacity.available} pallets</span>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Utilization</span>
-                    <span>{capacity.utilizationPercent}%</span>
-                  </div>
-                  <Progress value={capacity.utilizationPercent} className="h-3" />
-                </div>
+                {capacity.pallets && (
+                  <>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Total Capacity:</span>
+                        <span className="font-medium">{capacity.pallets.total} pallets</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Allocated:</span>
+                        <span className="font-medium">{capacity.pallets.used} pallets</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Available:</span>
+                        <span className="font-medium text-green-600">{capacity.pallets.available} pallets</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Utilization</span>
+                        <span>{capacity.pallets.utilizationPercent}%</span>
+                      </div>
+                      <Progress value={capacity.pallets.utilizationPercent} className="h-3" />
+                    </div>
 
-                {capacity.utilizationPercent > 90 && (
-                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md p-3">
-                    <p className="text-sm text-amber-800 dark:text-amber-200">
-                      ⚠️ Capacity above 90%. Consider restricting new allocations or expanding.
-                    </p>
-                  </div>
+                    {capacity.pallets.utilizationPercent > 90 && (
+                      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md p-3">
+                        <p className="text-sm text-amber-800 dark:text-amber-200">
+                          ⚠️ Capacity above 90%. Consider restricting new allocations or expanding.
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -396,8 +410,8 @@ export function WarehouseDetailPage() {
                   <div className="space-y-3">
                     {warehouse.warehouseAllocations.map((allocation) => {
                       const pallets = allocation.spaceAllocated?.pallets || 0;
-                      const percent = capacity.total > 0 
-                        ? Math.round((pallets / capacity.total) * 100)
+                      const percent = capacity.pallets && capacity.pallets.total > 0 
+                        ? Math.round((pallets / capacity.pallets.total) * 100)
                         : 0;
                       
                       return (

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Navigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -62,6 +62,8 @@ export function RolesPage() {
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [error, setError] = useState<string>('');
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
+  const isSelectingRef = useRef(false);
   
   // Create role state
   const [isCreating, setIsCreating] = useState(false);
@@ -349,7 +351,33 @@ export function RolesPage() {
                   "relative cursor-pointer hover:bg-muted/30 transition-colors flex flex-col",
                   !canEdit && "opacity-90"
                 )}
-                onClick={() => openEditDialog(role)}
+                onMouseDown={(e) => {
+                  mouseDownPos.current = { x: e.clientX, y: e.clientY };
+                  isSelectingRef.current = false;
+                }}
+                onMouseMove={(e) => {
+                  if (mouseDownPos.current && e.buttons === 1) {
+                    const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+                    const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+                    if (dx > 5 || dy > 5) {
+                      isSelectingRef.current = true;
+                    }
+                  }
+                }}
+                onMouseUp={() => {
+                  mouseDownPos.current = null;
+                }}
+                onMouseLeave={() => {
+                  mouseDownPos.current = null;
+                  isSelectingRef.current = false;
+                }}
+                onClick={() => {
+                  if (!isSelectingRef.current && !window.getSelection()?.toString()) {
+                    openEditDialog(role);
+                  }
+                  mouseDownPos.current = null;
+                  isSelectingRef.current = false;
+                }}
               >
                 <CardHeader className="pb-2 px-4 pt-4">
                   <div className="flex items-center justify-between gap-2">

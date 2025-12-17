@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
@@ -46,6 +46,8 @@ export function ClientsPage() {
   const canManageClients = hasPermission(PERMISSIONS.MANAGE_CLIENTS);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
+  const isSelectingRef = useRef(false);
 
   const { data: clientsData, isLoading } = useQuery({
     queryKey: ['clients', statusFilter],
@@ -155,7 +157,33 @@ export function ClientsPage() {
                   <tr 
                     key={client.id} 
                     className="border-b hover:bg-muted/30 cursor-pointer transition-colors"
-                    onClick={() => navigate(`/clients/${client.id}`)}
+                    onMouseDown={(e) => {
+                      mouseDownPos.current = { x: e.clientX, y: e.clientY };
+                      isSelectingRef.current = false;
+                    }}
+                    onMouseMove={(e) => {
+                      if (mouseDownPos.current && e.buttons === 1) {
+                        const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+                        const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+                        if (dx > 5 || dy > 5) {
+                          isSelectingRef.current = true;
+                        }
+                      }
+                    }}
+                    onMouseUp={() => {
+                      mouseDownPos.current = null;
+                    }}
+                    onMouseLeave={() => {
+                      mouseDownPos.current = null;
+                      isSelectingRef.current = false;
+                    }}
+                    onClick={() => {
+                      if (!isSelectingRef.current && !window.getSelection()?.toString()) {
+                        navigate(`/clients/${client.id}`);
+                      }
+                      mouseDownPos.current = null;
+                      isSelectingRef.current = false;
+                    }}
                   >
                     <td className="px-4 py-3">
                       <div>

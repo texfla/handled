@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -55,6 +55,8 @@ export function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
   const [userFilter, setUserFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
+  const isSelectingRef = useRef(false);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -357,7 +359,33 @@ export function UsersPage() {
                   <TableRow
                     key={user.id}
                     className={`border-b hover:bg-muted/30 cursor-pointer transition-colors ${user.disabled ? 'bg-muted/50 opacity-75' : ''}`}
-                    onClick={() => openEditDialog(user)}
+                    onMouseDown={(e) => {
+                      mouseDownPos.current = { x: e.clientX, y: e.clientY };
+                      isSelectingRef.current = false;
+                    }}
+                    onMouseMove={(e) => {
+                      if (mouseDownPos.current && e.buttons === 1) {
+                        const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+                        const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+                        if (dx > 5 || dy > 5) {
+                          isSelectingRef.current = true;
+                        }
+                      }
+                    }}
+                    onMouseUp={() => {
+                      mouseDownPos.current = null;
+                    }}
+                    onMouseLeave={() => {
+                      mouseDownPos.current = null;
+                      isSelectingRef.current = false;
+                    }}
+                    onClick={() => {
+                      if (!isSelectingRef.current && !window.getSelection()?.toString()) {
+                        openEditDialog(user);
+                      }
+                      mouseDownPos.current = null;
+                      isSelectingRef.current = false;
+                    }}
                   >
                     <TableCell className="font-medium whitespace-nowrap">
                       {canManageUsers ? (

@@ -5,26 +5,59 @@ export interface CapacityUtilization {
   utilizationPercent: number;
 }
 
+export interface CapacityMetrics {
+  pallets: CapacityUtilization | null;
+  sqft: CapacityUtilization | null;
+}
+
 export function calculateCapacityUtilization(
   warehouse: {
-    capacity: { usable_pallets?: number };
-    warehouseAllocations?: Array<{ spaceAllocated?: { pallets?: number } }>;
+    capacity: { usable_pallets?: number; usable_sqft?: number };
+    warehouseAllocations?: Array<{ 
+      spaceAllocated?: { pallets?: number; sqft?: number };
+      space_allocated?: { pallets?: number; sqft?: number }; // Handle snake_case from API
+    }>;
   }
-): CapacityUtilization {
-  const totalCapacity = warehouse.capacity?.usable_pallets || 0;
-  const usedCapacity = warehouse.warehouseAllocations?.reduce((sum, allocation) => 
-    sum + (allocation.spaceAllocated?.pallets || 0), 
-    0
-  ) || 0;
+): CapacityMetrics {
+  const totalPallets = warehouse.capacity?.usable_pallets || 0;
+  const totalSqft = warehouse.capacity?.usable_sqft || 0;
+  
+  // Calculate used capacity - handle both camelCase and snake_case
+  const usedPallets = warehouse.warehouseAllocations?.reduce((sum, allocation) => {
+    const spaceData = allocation.spaceAllocated || allocation.space_allocated;
+    return sum + (spaceData?.pallets || 0);
+  }, 0) || 0;
+  
+  const usedSqft = warehouse.warehouseAllocations?.reduce((sum, allocation) => {
+    const spaceData = allocation.spaceAllocated || allocation.space_allocated;
+    return sum + (spaceData?.sqft || 0);
+  }, 0) || 0;
   
   return {
-    total: totalCapacity,
-    used: usedCapacity,
-    available: totalCapacity - usedCapacity,
-    utilizationPercent: totalCapacity > 0 
-      ? Math.round((usedCapacity / totalCapacity) * 100)
-      : 0
+    pallets: totalPallets > 0 ? {
+      total: totalPallets,
+      used: usedPallets,
+      available: totalPallets - usedPallets,
+      utilizationPercent: Math.round((usedPallets / totalPallets) * 100)
+    } : null,
+    sqft: totalSqft > 0 ? {
+      total: totalSqft,
+      used: usedSqft,
+      available: totalSqft - usedSqft,
+      utilizationPercent: Math.round((usedSqft / totalSqft) * 100)
+    } : null
   };
+}
+
+// Format large numbers for display (e.g., 50000 -> "50K")
+export function formatCapacityNumber(num: number): string {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  }
+  return num.toString();
 }
 
 export function formatAddress(address: {

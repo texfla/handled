@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
-import { calculateCapacityUtilization, getStatusColor, WAREHOUSE_CAPABILITIES, TIMEZONE_OPTIONS } from '../../lib/warehouse-utils';
+import { calculateCapacityUtilization, formatCapacityNumber, getStatusColor, WAREHOUSE_CAPABILITIES, TIMEZONE_OPTIONS } from '../../lib/warehouse-utils';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
@@ -15,7 +15,7 @@ import { Progress } from '../../components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Textarea } from '../../components/ui/textarea';
-import { Plus, Warehouse as WarehouseIcon, Edit, Trash2, MapPin, Users } from 'lucide-react';
+import { Plus, Warehouse as WarehouseIcon, Edit, Trash2, Users } from 'lucide-react';
 import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions';
 
 interface Warehouse {
@@ -60,6 +60,8 @@ export function WarehousesPage() {
   const canManageWarehouses = hasPermission(PERMISSIONS.MANAGE_WAREHOUSES);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
+  const isSelectingRef = useRef(false);
 
   // Form state
   const [code, setCode] = useState('');
@@ -277,23 +279,50 @@ export function WarehousesPage() {
               <Card 
                 key={warehouse.id}
                 className="group hover:shadow-lg transition-all duration-200 cursor-pointer hover:border-primary/30 flex flex-col"
-                onClick={() => navigate(`/warehouses/${warehouse.id}`)}
+                onMouseDown={(e) => {
+                  mouseDownPos.current = { x: e.clientX, y: e.clientY };
+                  isSelectingRef.current = false;
+                }}
+                onMouseMove={(e) => {
+                  if (mouseDownPos.current && e.buttons === 1) {
+                    const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+                    const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+                    // Only set selecting if mouse moved more than 5px
+                    if (dx > 5 || dy > 5) {
+                      isSelectingRef.current = true;
+                    }
+                  }
+                }}
+                onMouseUp={() => {
+                  mouseDownPos.current = null;
+                }}
+                onMouseLeave={() => {
+                  mouseDownPos.current = null;
+                  isSelectingRef.current = false;
+                }}
+                onClick={() => {
+                  // Only navigate if user didn't drag to select text
+                  if (!isSelectingRef.current && !window.getSelection()?.toString()) {
+                    navigate(`/warehouses/${warehouse.id}`);
+                  }
+                  mouseDownPos.current = null;
+                  isSelectingRef.current = false;
+                }}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                        <WarehouseIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div>
-                        {canManageWarehouses ? (
-                          <CardTitle className="text-lg text-primary hover:underline">{warehouse.code}</CardTitle>
-                        ) : (
-                          <CardTitle className="text-lg">{warehouse.code}</CardTitle>
-                        )}
-                        <CardDescription className="text-sm">
-                          {warehouse.name}
-                        </CardDescription>
+                    <div className="flex-1">
+                      {canManageWarehouses ? (
+                        <CardTitle className="text-lg text-primary hover:underline leading-tight">{warehouse.code}</CardTitle>
+                      ) : (
+                        <CardTitle className="text-lg leading-tight">{warehouse.code}</CardTitle>
+                      )}
+                      <CardDescription className="text-sm mt-0.5 mb-0.5 leading-tight">
+                        {warehouse.name}
+                      </CardDescription>
+                      {/* Full address inline with name */}
+                      <div className="text-xs text-muted-foreground leading-tight">
+                        {warehouse.address.street1}, {warehouse.address.city}, {warehouse.address.state} {warehouse.address.zip}
                       </div>
                     </div>
                     <Badge variant={statusColor as any}>
@@ -305,85 +334,76 @@ export function WarehousesPage() {
                 <CardContent className="flex-1 flex flex-col">
                   {/* Variable content wrapper */}
                   <div className="space-y-3 flex-1">
-                    {/* Location */}
-                    <div className="flex items-center gap-2 text-sm">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span>
-                        {warehouse.address.city}, {warehouse.address.state}
+                    {/* Condensed info row */}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        <span className="capitalize">{warehouse.type}</span> · <Users className="inline h-3 w-3 mb-0.5" /> {warehouse._count?.warehouseAllocations || 0} client{warehouse._count?.warehouseAllocations !== 1 ? 's' : ''}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {warehouse.timezone.replace('America/', '')}
                       </span>
                     </div>
 
-                    {/* Type */}
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-muted-foreground">Type:</span>
-                      <span className="capitalize">{warehouse.type}</span>
-                    </div>
-
-                    {/* Clients */}
-                    <div className="flex items-center gap-2 text-sm">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span>
-                        {warehouse._count?.warehouseAllocations || 0} client
-                        {warehouse._count?.warehouseAllocations !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-
-                    {/* Capacity */}
-                    {capacity.total > 0 && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Capacity:</span>
-                          <span className="font-medium">
-                            {capacity.used} / {capacity.total} pallets
-                          </span>
-                        </div>
-                        <Progress value={capacity.utilizationPercent} className="h-2" />
-                        <p className="text-xs text-muted-foreground text-right">
-                          {capacity.utilizationPercent}% utilized · {capacity.available} available
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Capabilities */}
-                    {warehouse.capabilities.length > 0 && (
+                    {/* Capacity - Dual metrics */}
+                    {(capacity.pallets || capacity.sqft) && (
                       <div className="space-y-2">
-                        <span className="text-xs text-muted-foreground font-medium">Capabilities</span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {warehouse.capabilities.slice(0, 4).map((cap) => {
-                            const capInfo = WAREHOUSE_CAPABILITIES.find(c => c.value === cap);
-                            return (
-                              <Badge 
-                                key={cap} 
-                                variant="secondary" 
-                                className="text-xs font-normal"
-                              >
-                                <span className="mr-1">{capInfo?.icon}</span>
-                                {capInfo?.label}
-                              </Badge>
-                            );
-                          })}
-                          {warehouse.capabilities.length > 4 && (
-                            <Badge variant="secondary" className="text-xs">
-                              +{warehouse.capabilities.length - 4}
-                            </Badge>
-                          )}
-                        </div>
+                        {/* Pallets */}
+                        {capacity.pallets && (
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-muted-foreground">Pallets</span>
+                              <span className="font-medium">
+                                {formatCapacityNumber(capacity.pallets.used)} / {formatCapacityNumber(capacity.pallets.total)} ({capacity.pallets.utilizationPercent}%)
+                              </span>
+                            </div>
+                            <Progress value={capacity.pallets.utilizationPercent} className="h-1.5" />
+                          </div>
+                        )}
+                        
+                        {/* Square Feet */}
+                        {capacity.sqft && (
+                          <div className={capacity.pallets ? "pt-1.5" : ""}>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-muted-foreground">Sq Ft</span>
+                              <span className="font-medium">
+                                {formatCapacityNumber(capacity.sqft.used)} / {formatCapacityNumber(capacity.sqft.total)} ({capacity.sqft.utilizationPercent}%)
+                              </span>
+                            </div>
+                            <Progress value={capacity.sqft.utilizationPercent} className="h-1.5" />
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    {/* Manager */}
+                    {/* Capabilities - more compact */}
+                    {warehouse.capabilities.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-3">
+                        {warehouse.capabilities.map((cap) => {
+                          const capInfo = WAREHOUSE_CAPABILITIES.find(c => c.value === cap);
+                          return (
+                            <Badge 
+                              key={cap} 
+                              variant="secondary" 
+                              className="text-[10px] px-1.5 py-0 font-normal"
+                            >
+                              <span className="mr-0.5">{capInfo?.icon}</span>
+                              {capInfo?.label.split(' ')[0]}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Manager - inline */}
                     {warehouse.manager && (
-                      <div className="text-sm text-muted-foreground pt-2 border-t">
-                        Manager: {warehouse.manager.name}
+                      <div className="text-xs text-muted-foreground">
+                        Mgr: {warehouse.manager.name}
                       </div>
                     )}
                   </div>
 
                   {/* Actions - anchored to bottom */}
-                  <div className="pt-3 border-t mt-3">
+                  <div className="pt-3 mt-3">
                     <Button
                       variant="outline"
                       size="sm"

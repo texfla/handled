@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
@@ -124,6 +124,8 @@ export function ClientDetailPage() {
   // Dialog state
   const [allocationDialogOpen, setAllocationDialogOpen] = useState(false);
   const [editingAllocation, setEditingAllocation] = useState<WarehouseAllocation | null>(null);
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
+  const isSelectingRef = useRef(false);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [error, setError] = useState('');
@@ -765,14 +767,38 @@ export function ClientDetailPage() {
                       <tr 
                         key={allocation.id} 
                         className="border-b hover:bg-muted/30 cursor-pointer transition-colors"
+                        onMouseDown={(e) => {
+                          mouseDownPos.current = { x: e.clientX, y: e.clientY };
+                          isSelectingRef.current = false;
+                        }}
+                        onMouseMove={(e) => {
+                          if (mouseDownPos.current && e.buttons === 1) {
+                            const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+                            const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+                            if (dx > 5 || dy > 5) {
+                              isSelectingRef.current = true;
+                            }
+                          }
+                        }}
+                        onMouseUp={() => {
+                          mouseDownPos.current = null;
+                        }}
+                        onMouseLeave={() => {
+                          mouseDownPos.current = null;
+                          isSelectingRef.current = false;
+                        }}
                         onClick={() => {
-                          setEditingAllocation(allocation);
-                          setSelectedWarehouseId(allocation.warehouse.id);
-                          setPallets(allocation.spaceAllocated?.pallets?.toString() || '');
-                          setSqft(allocation.spaceAllocated?.sqft?.toString() || '');
-                          setZone(allocation.zoneAssignment || '');
-                          setIsPrimary(allocation.isPrimary);
-                          setAllocationDialogOpen(true);
+                          if (!isSelectingRef.current && !window.getSelection()?.toString()) {
+                            setEditingAllocation(allocation);
+                            setSelectedWarehouseId(allocation.warehouse.id);
+                            setPallets(allocation.spaceAllocated?.pallets?.toString() || '');
+                            setSqft(allocation.spaceAllocated?.sqft?.toString() || '');
+                            setZone(allocation.zoneAssignment || '');
+                            setIsPrimary(allocation.isPrimary);
+                            setAllocationDialogOpen(true);
+                          }
+                          mouseDownPos.current = null;
+                          isSelectingRef.current = false;
                         }}
                       >
                         <td className="px-4 py-3">
@@ -1033,7 +1059,33 @@ export function ClientDetailPage() {
                       <tr 
                         key={contact.id} 
                         className="border-b hover:bg-muted/30 cursor-pointer transition-colors"
-                        onClick={() => openEditContact(contact)}
+                        onMouseDown={(e) => {
+                          mouseDownPos.current = { x: e.clientX, y: e.clientY };
+                          isSelectingRef.current = false;
+                        }}
+                        onMouseMove={(e) => {
+                          if (mouseDownPos.current && e.buttons === 1) {
+                            const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+                            const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+                            if (dx > 5 || dy > 5) {
+                              isSelectingRef.current = true;
+                            }
+                          }
+                        }}
+                        onMouseUp={() => {
+                          mouseDownPos.current = null;
+                        }}
+                        onMouseLeave={() => {
+                          mouseDownPos.current = null;
+                          isSelectingRef.current = false;
+                        }}
+                        onClick={() => {
+                          if (!isSelectingRef.current && !window.getSelection()?.toString()) {
+                            openEditContact(contact);
+                          }
+                          mouseDownPos.current = null;
+                          isSelectingRef.current = false;
+                        }}
                       >
                         <td className="px-4 py-3">
                           {canManageClients ? (
