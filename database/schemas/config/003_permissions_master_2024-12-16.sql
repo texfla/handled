@@ -104,7 +104,12 @@ INSERT INTO config.permissions (code, name, description, category) VALUES
   -- Transformations permissions (updated: 2024-12-16)
   -- ==================================================
   ('view_transformations', 'View Transformations', 'View transformation history and status', 'data'),
-  ('manage_transformations', 'Manage Transformations', 'Execute and configure transformations', 'data')
+  ('manage_transformations', 'Manage Transformations', 'Execute and configure transformations', 'data'),
+  
+  -- ==================================================
+  -- Design system permissions (added: 2024-12-11)
+  -- ==================================================
+  ('view_designs', 'View Designs', 'Access component library, style guide, and design patterns', 'designs')
   
   -- ==================================================
   -- DEPRECATED PERMISSIONS (removed 2024-12-16)

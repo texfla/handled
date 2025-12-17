@@ -11,6 +11,7 @@ import {
   BarChart3,
   Plug,
   Shield,
+  Palette,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -201,6 +202,17 @@ export const navigation: NavSection[] = [
       { id: 'carriers', label: 'Carriers', href: '/integrations/carriers', implemented: false },
       { id: 'edi', label: 'EDI Status', href: '/integrations/edi', implemented: false },
       { id: 'webhooks', label: 'Webhooks & API', href: '/integrations/webhooks', implemented: false },
+    ],
+  },
+  {
+    id: 'designs',
+    label: 'Designs',
+    icon: Palette,
+    href: '/designs',
+    implemented: true,
+    requiredPermission: 'view_designs',
+    children: [
+      { id: 'style-guide', label: 'Style Guide', href: '/designs/style-guide', implemented: true, requiredPermission: 'view_designs' },
     ],
   },
   {

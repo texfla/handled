@@ -76,6 +76,18 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   // ORGANIZATIONS (Clients)
   // ============================================
 
+  // Check slug availability
+  fastify.get('/check-slug/:slug', async (request, reply) => {
+    const { slug } = request.params as { slug: string };
+    
+    const existing = await prismaPrimary.customer.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+
+    return reply.send({ available: !existing });
+  });
+
   // List clients
   fastify.get('/', async (request) => {
     const { status } = request.query as { status?: string };
@@ -139,16 +151,27 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/', async (request, reply) => {
     const body = organizationSchema.parse(request.body);
 
-    const client = await prismaPrimary.customer.create({
-      data: {
-        name: body.name,
-        slug: body.slug,
-        status: body.status || 'prospect',
-        setupProgress: {},
-      },
-    });
+    try {
+      const client = await prismaPrimary.customer.create({
+        data: {
+          name: body.name,
+          slug: body.slug,
+          status: body.status || 'prospect',
+          setupProgress: {},
+        },
+      });
 
-    return reply.status(201).send({ client });
+      return reply.status(201).send({ client });
+    } catch (error: any) {
+      // Handle Prisma unique constraint errors
+      if (error.code === 'P2002') {
+        const field = error.meta?.target?.[0] || 'field';
+        return reply.code(409).send({
+          error: `A client with this ${field} already exists. Please use a different ${field}.`,
+        });
+      }
+      throw error;
+    }
   });
 
   // Update client
@@ -492,6 +515,128 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     return reply.status(201).send({ rateCard });
+  });
+
+  // ============================================
+  // ONBOARDING (Single transaction)
+  // ============================================
+  
+  fastify.post('/onboard', async (request, reply) => {
+    const body = request.body as {
+      client: { name: string; slug: string; status?: string };
+      contact: { first_name: string; last_name: string; email?: string; phone?: string; title?: string };
+      warehouse_allocations: Array<{
+        company_warehouse_id: string;
+        space_allocated?: { pallets?: number; sqft?: number };
+        zone_assignment?: string;
+        is_primary: boolean;
+      }>;
+      contract: { name: string; start_date: string; end_date?: string; billing_cycle?: string; payment_terms?: string };
+    };
+
+    try {
+      // Use transaction to ensure all-or-nothing
+      const result = await prismaPrimary.$transaction(async (tx) => {
+        // 1. Create client
+        const client = await tx.customer.create({
+          data: {
+            name: body.client.name,
+            slug: body.client.slug,
+            status: body.client.status || 'active',
+            setupProgress: {},
+          },
+        });
+
+        // 2. Create contact
+        const contact = await tx.contact.create({
+          data: {
+            customerId: client.id,
+            firstName: body.contact.first_name,
+            lastName: body.contact.last_name,
+            email: body.contact.email || null,
+            phone: body.contact.phone || null,
+            title: body.contact.title || null,
+            role: 'general',
+            isPrimary: true,
+          },
+        });
+
+        // 3. Create warehouse allocations (with capacity check)
+        const allocations = [];
+        
+        for (const alloc of body.warehouse_allocations) {
+          // Check capacity
+          const warehouse = await tx.warehouse.findUnique({
+            where: { id: alloc.company_warehouse_id },
+            include: { warehouseAllocations: { select: { spaceAllocated: true } } }
+          });
+
+          if (!warehouse) {
+            throw new Error(`Warehouse not found: ${alloc.company_warehouse_id}`);
+          }
+
+          const usedPallets = warehouse.warehouseAllocations.reduce((sum, a) => {
+            return sum + ((a.spaceAllocated as any)?.pallets || 0);
+          }, 0);
+
+          const requestedPallets = alloc.space_allocated?.pallets || 0;
+          const totalCapacity = (warehouse.capacity as any).usable_pallets || Infinity;
+          const availablePallets = totalCapacity - usedPallets;
+
+          if (requestedPallets > 0 && requestedPallets > availablePallets) {
+            throw new Error(
+              `Insufficient capacity at ${warehouse.code}: Requested ${requestedPallets} pallets, only ${availablePallets} available (${usedPallets}/${totalCapacity} used)`
+            );
+          }
+
+          const allocation = await tx.warehouseAllocation.create({
+            data: {
+              customerId: client.id,
+              companyWarehouseId: alloc.company_warehouse_id,
+              isPrimary: alloc.is_primary,
+              spaceAllocated: alloc.space_allocated || {},
+              zoneAssignment: alloc.zone_assignment || null,
+              status: 'active',
+            },
+          });
+
+          allocations.push(allocation);
+        }
+
+        // 4. Create contract
+        const contract = await tx.contract.create({
+          data: {
+            customerId: client.id,
+            contractNumber: null,
+            name: body.contract.name,
+            startDate: new Date(body.contract.start_date),
+            endDate: body.contract.end_date ? new Date(body.contract.end_date) : null,
+            status: 'active',
+            billingCycle: body.contract.billing_cycle || null,
+            paymentTerms: body.contract.payment_terms || null,
+          },
+        });
+
+        return { client, contact, allocations, contract };
+      });
+
+      return reply.status(201).send(result);
+    } catch (error: any) {
+      // Handle Prisma unique constraint errors
+      if (error.code === 'P2002') {
+        const field = error.meta?.target?.[0] || 'field';
+        return reply.code(409).send({
+          error: `A client with this ${field} already exists. Please use a different ${field}.`,
+        });
+      }
+      
+      // Handle capacity errors
+      if (error.message?.includes('Insufficient capacity')) {
+        return reply.code(400).send({ error: error.message });
+      }
+
+      throw error;
+    }
   });
 };
 

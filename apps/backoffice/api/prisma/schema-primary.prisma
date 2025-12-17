@@ -90,6 +90,7 @@ model User {
   sessions           Session[]
   integrationRuns    IntegrationRun[]
   managedWarehouses  Warehouse[]
+  contactLogs        ContactLog[]     @relation("LoggedByUser")
 
   @@map("users")
   @@schema("config")
@@ -184,6 +185,8 @@ model Customer {
   slug           String   @unique
   status         String   @default("prospect")
   setupProgress  Json     @default("{}") @map("setup_progress")
+  address        Json?
+  internalNotes  String?  @map("internal_notes")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -192,6 +195,7 @@ model Customer {
   contacts             Contact[]
   contracts            Contract[]
   settings             CustomerSettings?
+  contactLog           ContactLog[]
 
   @@map("customers")
   @@schema("customer")
@@ -257,13 +261,38 @@ model Contact {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer   Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contactLog ContactLog[]
 
   @@map("contacts")
   @@schema("customer")
   @@index([customerId])
   @@index([isPrimary])
   @@index([active])
+}
+
+model ContactLog {
+  id            String   @id @default(dbgenerated("'log_' || gen_random_uuid()"))
+  customerId    String   @map("customer_id")
+  contactId     String?  @map("contact_id")
+  loggedByUserId String  @map("logged_by_user_id")
+  contactType   String   @map("contact_type")
+  subject       String?
+  notes         String?
+  occurredAt    DateTime @map("occurred_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contact  Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  user     User     @relation("LoggedByUser", fields: [loggedByUserId], references: [id])
+
+  @@map("contact_log")
+  @@schema("customer")
+  @@index([customerId])
+  @@index([contactId])
+  @@index([occurredAt])
+  @@index([contactType])
 }
 
 model Contract {

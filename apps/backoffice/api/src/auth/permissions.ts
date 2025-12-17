@@ -59,6 +59,9 @@ export const PERMISSIONS = {
   // Transformations permissions
   VIEW_TRANSFORMATIONS: 'view_transformations',
   MANAGE_TRANSFORMATIONS: 'manage_transformations',
+
+  // Design system permissions
+  VIEW_DESIGNS: 'view_designs',
 } as const;
 
 export const PERMISSION_CATEGORIES = {
@@ -71,6 +74,7 @@ export const PERMISSION_CATEGORIES = {
   BILLING: 'billing',
   REPORTS: 'reports',
   INTEGRATIONS: 'integrations',
+  DESIGNS: 'designs',
 } as const;
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
@@ -384,6 +388,15 @@ export const PERMISSION_INFO: Record<Permission, {
     category: PERMISSION_CATEGORIES.DATA,
     resource: 'transformations',
     action: 'manage'
+  },
+
+  // Design system permissions
+  [PERMISSIONS.VIEW_DESIGNS]: {
+    name: 'View Designs',
+    description: 'Access component library, style guide, and design patterns',
+    category: PERMISSION_CATEGORIES.DESIGNS,
+    resource: 'designs',
+    action: 'view'
   },
 };
 

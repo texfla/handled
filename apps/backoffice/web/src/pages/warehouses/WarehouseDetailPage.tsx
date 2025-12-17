@@ -93,9 +93,9 @@ export function WarehouseDetailPage() {
   const capacity = calculateCapacityUtilization(warehouse);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 -mb-1 -ml-2">
         <Button variant="ghost" size="sm" onClick={() => navigate('/warehouses')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
@@ -103,15 +103,15 @@ export function WarehouseDetailPage() {
       </div>
 
       <div className="flex items-start justify-between">
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold">{warehouse.code}</h1>
+            <h1 className="text-2xl font-bold">{warehouse.code}</h1>
             <Badge variant={getStatusColor(warehouse.status) as any} className="text-sm">
               {warehouse.status}
             </Badge>
           </div>
-          <p className="text-xl text-muted-foreground">{warehouse.name}</p>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+          <p className="text-lg text-muted-foreground">{warehouse.name}</p>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
             <MapPin className="h-4 w-4" />
             <span>{warehouse.address.city}, {warehouse.address.state}</span>
             <span>•</span>

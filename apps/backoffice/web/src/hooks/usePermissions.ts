@@ -50,6 +50,9 @@ export const PERMISSIONS = {
   // Transformations permissions
   VIEW_TRANSFORMATIONS: 'view_transformations',
   MANAGE_TRANSFORMATIONS: 'manage_transformations',
+
+  // Design system permissions
+  VIEW_DESIGNS: 'view_designs',
 } as const;
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];

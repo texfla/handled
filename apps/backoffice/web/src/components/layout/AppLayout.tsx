@@ -17,7 +17,7 @@ function AppLayoutContent() {
           isCollapsed ? 'lg:pl-20' : 'lg:pl-[280px]'
         )}
       >
-        <div className="p-4 lg:p-6">
+        <div className="px-4 lg:px-6 pt-1 pb-4 lg:pt-2 lg:pb-6">
           <Outlet />
         </div>
       </main>

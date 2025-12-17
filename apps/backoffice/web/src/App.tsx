@@ -14,6 +14,11 @@ import { ExportsPage } from './pages/integrations/ExportsPage';
 import { WarehousesPage } from './pages/warehouses/WarehousesPage';
 import { WarehouseDetailPage } from './pages/warehouses/WarehouseDetailPage';
 
+// Clients
+import { ClientsPage } from './pages/clients/ClientsPage';
+import { ClientDetailPage } from './pages/clients/ClientDetailPage';
+import { ClientOnboardingWizard } from './pages/clients/ClientOnboardingWizard';
+
 // Profile
 import { ProfilePage } from './pages/profile/ProfilePage';
 import { AccountSettingsPage } from './pages/profile/AccountSettingsPage';
@@ -22,6 +27,7 @@ import { ActivityLogPage } from './pages/profile/ActivityLogPage';
 // Admin
 import { UsersPage } from './pages/admin/UsersPage';
 import { RolesPage } from './pages/admin/RolesPage';
+import { StyleGuidePage } from './pages/admin/StyleGuidePage';
 
 // Placeholders
 import { ComingSoonPage } from './pages/placeholders/ComingSoonPage';
@@ -59,8 +65,12 @@ export default function App() {
         {/* Dashboard */}
         <Route index element={<DashboardPage />} />
 
-        {/* Clients - Coming Soon */}
-        <Route path="clients/*" element={<ComingSoonPage />} />
+        {/* Clients */}
+        <Route path="clients">
+          <Route index element={<ClientsPage />} />
+          <Route path="onboard" element={<ClientOnboardingWizard />} />
+          <Route path=":id" element={<ClientDetailPage />} />
+        </Route>
 
         {/* Warehouses - Implemented */}
         <Route path="warehouses">
@@ -109,6 +119,12 @@ export default function App() {
           <Route index element={<ProfilePage />} />
           <Route path="account" element={<AccountSettingsPage />} />
           <Route path="activity" element={<ActivityLogPage />} />
+        </Route>
+
+        {/* Designs */}
+        <Route path="designs">
+          <Route index element={<Navigate to="/designs/style-guide" replace />} />
+          <Route path="style-guide" element={<StyleGuidePage />} />
         </Route>
 
         {/* Administration - Admin only */}
