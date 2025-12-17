@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../../components/ui/alert-dialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import { IconPicker } from '../../components/ui/icon-picker';
 import { 
   Users, 
@@ -347,15 +346,21 @@ export function RolesPage() {
               <Card 
                 key={role.id} 
                 className={cn(
-                  "relative",
+                  "relative cursor-pointer hover:bg-muted/30 transition-colors flex flex-col",
                   !canEdit && "opacity-90"
                 )}
+                onClick={() => openEditDialog(role)}
               >
                 <CardHeader className="pb-2 px-4 pt-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <RoleIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                      <CardTitle className="text-base">{role.name}</CardTitle>
+                      <CardTitle className={cn(
+                        "text-base",
+                        canEdit && "text-primary hover:underline"
+                      )}>
+                        {role.name}
+                      </CardTitle>
                     </div>
                     {role.isSystem && (
                       <Badge variant="outline" className="text-xs">
@@ -367,55 +372,35 @@ export function RolesPage() {
                     {role.description || 'No description'}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-2 px-4 pb-4">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CardContent className="px-4 pb-4 flex-1 flex flex-col">
+                  {/* User count */}
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                     <Users className="h-4 w-4" />
                     <span>{role.userCount} {role.userCount === 1 ? 'user' : 'users'}</span>
                   </div>
                   
-                  {/* Two buttons side by side */}
-                  <div className="flex items-center gap-2">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => openEditDialog(role)}
-                          >
-                            {canEdit ? (
-                              role.permissions.length === 0 ? (
-                                'No Permissions'
-                              ) : (
-                                `${role.permissions.length} ${role.permissions.length === 1 ? 'Permission' : 'Permissions'}`
-                              )
-                            ) : (
-                              role.permissions.length === 0 ? (
-                                'View Permissions'
-                              ) : (
-                                `View ${role.permissions.length} ${role.permissions.length === 1 ? 'Permission' : 'Permissions'}`
-                              )
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        {canView && !canEdit && (
-                          <TooltipContent>
-                            <p className="font-medium">Read-Only Access</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Requires 'Manage Roles' permission
-                            </p>
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
-                    </TooltipProvider>
+                  {/* Spacer to push bottom section down */}
+                  <div className="flex-1"></div>
+                  
+                  {/* Actions - anchored to bottom */}
+                  <div className="flex items-center gap-2 pt-2 border-t mt-2">
+                    <div className="text-sm text-muted-foreground flex-1">
+                      {role.permissions.length === 0 ? (
+                        'No permissions'
+                      ) : (
+                        `${role.permissions.length} ${role.permissions.length === 1 ? 'permission' : 'permissions'}`
+                      )}
+                    </div>
                     
                     {/* Settings gear button */}
                     {canEdit && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => openMetadataDialog(role)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openMetadataDialog(role);
+                        }}
                       >
                         <SettingsIcon className="h-4 w-4" />
                       </Button>

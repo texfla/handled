@@ -39,6 +39,11 @@ export const warehousesRoutes: FastifyPluginAsync = async (fastify) => {
         _count: {
           select: { warehouseAllocations: true },
         },
+        warehouseAllocations: {
+          select: {
+            spaceAllocated: true,
+          },
+        },
       },
       orderBy: { code: 'asc' },
     });

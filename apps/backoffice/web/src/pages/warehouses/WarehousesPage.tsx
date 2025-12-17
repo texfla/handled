@@ -276,7 +276,7 @@ export function WarehousesPage() {
             return (
               <Card 
                 key={warehouse.id}
-                className="group hover:shadow-lg transition-all duration-200 cursor-pointer hover:border-primary/30"
+                className="group hover:shadow-lg transition-all duration-200 cursor-pointer hover:border-primary/30 flex flex-col"
                 onClick={() => navigate(`/warehouses/${warehouse.id}`)}
               >
                 <CardHeader className="pb-3">
@@ -302,85 +302,88 @@ export function WarehousesPage() {
                   </div>
                 </CardHeader>
 
-                <CardContent className="space-y-3">
-                  {/* Location */}
-                  <div className="flex items-center gap-2 text-sm">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span>
-                      {warehouse.address.city}, {warehouse.address.state}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {warehouse.timezone.replace('America/', '')}
-                    </span>
-                  </div>
-
-                  {/* Type */}
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-muted-foreground">Type:</span>
-                    <span className="capitalize">{warehouse.type}</span>
-                  </div>
-
-                  {/* Clients */}
-                  <div className="flex items-center gap-2 text-sm">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <span>
-                      {warehouse._count?.warehouseAllocations || 0} client
-                      {warehouse._count?.warehouseAllocations !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-
-                  {/* Capacity */}
-                  {capacity.total > 0 && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Capacity:</span>
-                        <span className="font-medium">
-                          {capacity.used} / {capacity.total} pallets
-                        </span>
-                      </div>
-                      <Progress value={capacity.utilizationPercent} className="h-2" />
-                      <p className="text-xs text-muted-foreground text-right">
-                        {capacity.utilizationPercent}% utilized · {capacity.available} available
-                      </p>
+                <CardContent className="flex-1 flex flex-col">
+                  {/* Variable content wrapper */}
+                  <div className="space-y-3 flex-1">
+                    {/* Location */}
+                    <div className="flex items-center gap-2 text-sm">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        {warehouse.address.city}, {warehouse.address.state}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {warehouse.timezone.replace('America/', '')}
+                      </span>
                     </div>
-                  )}
 
-                  {/* Capabilities */}
-                  {warehouse.capabilities.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="text-xs text-muted-foreground font-medium">Capabilities</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {warehouse.capabilities.slice(0, 4).map((cap) => {
-                          const capInfo = WAREHOUSE_CAPABILITIES.find(c => c.value === cap);
-                          return (
-                            <Badge 
-                              key={cap} 
-                              variant="secondary" 
-                              className="text-xs font-normal"
-                            >
-                              <span className="mr-1">{capInfo?.icon}</span>
-                              {capInfo?.label}
+                    {/* Type */}
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground">Type:</span>
+                      <span className="capitalize">{warehouse.type}</span>
+                    </div>
+
+                    {/* Clients */}
+                    <div className="flex items-center gap-2 text-sm">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        {warehouse._count?.warehouseAllocations || 0} client
+                        {warehouse._count?.warehouseAllocations !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {/* Capacity */}
+                    {capacity.total > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Capacity:</span>
+                          <span className="font-medium">
+                            {capacity.used} / {capacity.total} pallets
+                          </span>
+                        </div>
+                        <Progress value={capacity.utilizationPercent} className="h-2" />
+                        <p className="text-xs text-muted-foreground text-right">
+                          {capacity.utilizationPercent}% utilized · {capacity.available} available
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Capabilities */}
+                    {warehouse.capabilities.length > 0 && (
+                      <div className="space-y-2">
+                        <span className="text-xs text-muted-foreground font-medium">Capabilities</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {warehouse.capabilities.slice(0, 4).map((cap) => {
+                            const capInfo = WAREHOUSE_CAPABILITIES.find(c => c.value === cap);
+                            return (
+                              <Badge 
+                                key={cap} 
+                                variant="secondary" 
+                                className="text-xs font-normal"
+                              >
+                                <span className="mr-1">{capInfo?.icon}</span>
+                                {capInfo?.label}
+                              </Badge>
+                            );
+                          })}
+                          {warehouse.capabilities.length > 4 && (
+                            <Badge variant="secondary" className="text-xs">
+                              +{warehouse.capabilities.length - 4}
                             </Badge>
-                          );
-                        })}
-                        {warehouse.capabilities.length > 4 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{warehouse.capabilities.length - 4}
-                          </Badge>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Manager */}
-                  {warehouse.manager && (
-                    <div className="text-sm text-muted-foreground pt-2 border-t">
-                      Manager: {warehouse.manager.name}
-                    </div>
-                  )}
+                    {/* Manager */}
+                    {warehouse.manager && (
+                      <div className="text-sm text-muted-foreground pt-2 border-t">
+                        Manager: {warehouse.manager.name}
+                      </div>
+                    )}
+                  </div>
 
-                  {/* Actions */}
-                  <div className="pt-3 border-t">
+                  {/* Actions - anchored to bottom */}
+                  <div className="pt-3 border-t mt-3">
                     <Button
                       variant="outline"
                       size="sm"

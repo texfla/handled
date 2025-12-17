@@ -24,9 +24,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '../../components/ui/alert-dialog';
 import { api } from '../../lib/api';
-import { Plus, Pencil, Trash2, KeyRound, Ban, CheckCircle, Loader2 } from 'lucide-react';
+import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions';
+import { Plus, Trash2, KeyRound, Ban, CheckCircle, Loader2 } from 'lucide-react';
 
 interface Role {
   id: number;
@@ -46,10 +48,12 @@ interface User {
 
 export function UsersPage() {
   const queryClient = useQueryClient();
+  const { hasPermission } = usePermissions();
+  const canManageUsers = hasPermission(PERMISSIONS.MANAGE_USERS);
+  
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
-  const [deleteUser, setDeleteUser] = useState<User | null>(null);
   const [userFilter, setUserFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   // Form states
@@ -135,7 +139,6 @@ export function UsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       queryClient.invalidateQueries({ queryKey: ['roles'] }); // Refresh role user counts
-      setDeleteUser(null);
     },
   });
 
@@ -353,9 +356,16 @@ export function UsersPage() {
                 {users.map((user) => (
                   <TableRow
                     key={user.id}
-                    className={user.disabled ? 'bg-muted/50 opacity-75' : ''}
+                    className={`border-b hover:bg-muted/30 cursor-pointer transition-colors ${user.disabled ? 'bg-muted/50 opacity-75' : ''}`}
+                    onClick={() => openEditDialog(user)}
                   >
-                    <TableCell className="font-medium whitespace-nowrap">{user.name}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap">
+                      {canManageUsers ? (
+                        <div className="text-primary hover:underline">{user.name}</div>
+                      ) : (
+                        <div>{user.name}</div>
+                      )}
+                    </TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
@@ -382,15 +392,10 @@ export function UsersPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => openEditDialog(user)}
-                          title="Edit user"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setResetPasswordUser(user)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setResetPasswordUser(user);
+                          }}
                           title="Reset password"
                         >
                           <KeyRound className="h-4 w-4" />
@@ -398,7 +403,10 @@ export function UsersPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => toggleDisableMutation.mutate({ id: user.id, disabled: !user.disabled })}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleDisableMutation.mutate({ id: user.id, disabled: !user.disabled });
+                          }}
                           title={user.disabled ? 'Enable user' : 'Disable user'}
                         >
                           {user.disabled ? (
@@ -406,14 +414,6 @@ export function UsersPage() {
                           ) : (
                             <Ban className="h-4 w-4 text-orange-600" />
                           )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteUser(user)}
-                          title="Delete user"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </TableCell>
@@ -476,14 +476,50 @@ export function UsersPage() {
                 </div>
               </div>
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditingUser(null)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={updateMutation.isPending || formData.roleIds.length === 0}>
-                {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Save Changes
-              </Button>
+            <DialogFooter className="flex items-center !justify-between">
+              {/* Delete button on left */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" type="button">
+                    <Trash2 className="h-3 w-3 mr-2" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete User</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete {editingUser?.name}? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        if (editingUser) {
+                          deleteMutation.mutate(editingUser.id);
+                          setEditingUser(null);
+                        }
+                      }}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              
+              {/* Save/Cancel on right */}
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingUser(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateMutation.isPending || formData.roleIds.length === 0}>
+                  {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -526,27 +562,6 @@ export function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteUser} onOpenChange={(open) => !open && setDeleteUser(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete User</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete {deleteUser?.name}? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteUser && deleteMutation.mutate(deleteUser.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
