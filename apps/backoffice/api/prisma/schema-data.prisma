@@ -17,10 +17,10 @@ datasource db {
 // ============================================
 
 model Carrier {
-  id        Int      @id @default(autoincrement())
-  code      String   @unique
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
+  code        String   @id
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
 
   services Service[]
 
@@ -29,15 +29,15 @@ model Carrier {
 }
 
 model Service {
-  id        Int      @id @default(autoincrement())
-  carrierId Int      @map("carrier_id")
-  code      String
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
+  carrierCode String   @map("carrier_code")
+  code        String
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  carrier Carrier @relation(fields: [carrierId], references: [id])
+  carrier Carrier @relation(fields: [carrierCode], references: [code])
 
-  @@unique([carrierId, code])
+  @@id([carrierCode, code])
   @@map("services")
   @@schema("reference")
 }
@@ -69,17 +69,17 @@ model Zip3Centroid {
 }
 
 model DeliveryMatrix {
-  id          Int      @id @default(autoincrement())
-  originZip   String   @map("origin_zip")
-  destZip     String   @map("dest_zip")
-  carrierCode String   @map("carrier_code")
-  serviceCode String   @map("service_code")
-  transitDays Int      @map("transit_days")
-  zone        String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  originZip3     String   @map("origin_zip3")
+  destZip3       String   @map("dest_zip3")
+  carrierCode    String   @map("carrier_code")
+  serviceCode    String   @map("service_code")
+  transitDays    Int      @map("transit_days")
+  deliveryScore  Int      @map("delivery_score")
+  zone           String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
-  @@unique([originZip, destZip, carrierCode, serviceCode])
+  @@id([originZip3, destZip3, carrierCode, serviceCode])
   @@map("delivery_matrix")
   @@schema("reference")
 }

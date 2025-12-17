@@ -219,6 +219,17 @@ describe('Database Split - Customer Schema', () => {
   
   test('Customer data isolation (no cross-DB queries)', async () => {
     const custId = generateId(15);
+    const userId = generateId(15);
+    
+    // Create a test user first
+    const user = await prismaPrimary.user.create({
+      data: {
+        id: userId,
+        email: `test-isolation-${Date.now()}@example.com`,
+        hashedPassword: 'test_hash',
+        name: 'Test User'
+      }
+    });
     
     // Create customer in PRIMARY DB
     const customer = await prismaPrimary.customer.create({
@@ -229,16 +240,13 @@ describe('Database Split - Customer Schema', () => {
       }
     });
     
-    // This should work (same DB)
-    const user = await prismaPrimary.user.findFirst();
-    assert.ok(user);
-    
     // Customer and config are both in PRIMARY - can query together
     assert.ok(customer);
     assert.ok(user);
     
     // Cleanup
     await prismaPrimary.customer.delete({ where: { id: custId }});
+    await prismaPrimary.user.delete({ where: { id: userId }});
   });
 
   test('CASCADE delete works for warehouse allocations', async () => {

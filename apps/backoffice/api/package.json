@@ -11,7 +11,7 @@
     "lint": "eslint src --ext .ts",
     "test": "NODE_ENV=test PRIMARY_DATABASE_URL=postgresql://donkey@localhost:5432/handled_test DATA_DATABASE_URL=postgresql://donkey@localhost:5432/handled_test node --import tsx --test tests/*.test.ts",
     "test:watch": "NODE_ENV=test PRIMARY_DATABASE_URL=postgresql://donkey@localhost:5432/handled_test DATA_DATABASE_URL=postgresql://donkey@localhost:5432/handled_test node --import tsx --test --watch tests/*.test.ts",
-    "test:reset": "dropdb --if-exists handled_test && createdb handled_test && PGUSER=donkey PRIMARY_DATABASE_URL=postgresql://localhost:5432/handled_test DATA_DATABASE_URL=postgresql://localhost:5432/handled_test bash ../../database/migrate-all.sh",
+    "test:reset": "dropdb --if-exists handled_test && createdb handled_test && PGUSER=donkey TEST_DATABASE_URL=postgresql://localhost:5432/handled_test bash ../../../database/run-migrations-dev.sh -test && npm run db:generate",
     "db:generate": "prisma generate --config=./prisma/config-primary.ts --schema=./prisma/schema-primary.prisma && prisma generate --config=./prisma/config-data.ts --schema=./prisma/schema-data.prisma && node scripts/fix-prisma-packages.js",
     "db:generate:primary": "prisma generate --config=./prisma/config-primary.ts --schema=./prisma/schema-primary.prisma && node scripts/fix-prisma-packages.js",
     "db:generate:data": "prisma generate --config=./prisma/config-data.ts --schema=./prisma/schema-data.prisma && node scripts/fix-prisma-packages.js",

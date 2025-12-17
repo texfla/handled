@@ -22,7 +22,7 @@ describe('RBAC - Multi-Role Assignment', () => {
     try {
       // Create two roles
       role1 = await createTestRole('Role A', ['view_demographics']);
-      role2 = await createTestRole('Role B', ['import_demographics']);
+      role2 = await createTestRole('Role B', ['manage_demographics']);
       assert.ok(role1);
       assert.ok(role2);
       
@@ -41,8 +41,8 @@ describe('RBAC - Multi-Role Assignment', () => {
       }
       const permissions = Array.from(permissionsSet);
       
-      assert.ok(permissions.includes('view_data'));
-      assert.ok(permissions.includes('import_data'));
+      assert.ok(permissions.includes('view_demographics'));
+      assert.ok(permissions.includes('manage_demographics'));
       
     } finally {
       if (user) {
@@ -95,7 +95,7 @@ describe('RBAC - Multi-Role Assignment', () => {
     
     try {
       // Create role
-      role = await createTestRole('Duplicate Test', ['view_data']);
+      role = await createTestRole('Duplicate Test', ['view_demographics']);
       
       // Create user with role
       user = await createTestUser(`duplicate_${Date.now()}@test.com`, [role.id]);
