@@ -819,6 +819,55 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
       throw error;
     }
   });
+
+  // ============================================
+  // CLIENT SETTINGS
+  // ============================================
+
+  // Update client settings
+  fastify.put('/:id/settings', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const settingsData = request.body as {
+      portal_enabled?: boolean;
+      portal_subdomain?: string;
+      notification_email?: string;
+      timezone?: string;
+    };
+
+    // Verify customer exists and is not deleted
+    const customer = await prismaPrimary.customer.findUnique({
+      where: { id },
+      select: { id: true, deleted: true }
+    });
+
+    if (!customer) {
+      return reply.status(404).send({ error: 'Customer not found' });
+    }
+
+    if (customer.deleted) {
+      return reply.status(404).send({ error: 'Customer has been deleted' });
+    }
+
+    // Upsert settings (create or update)
+    const settings = await prismaPrimary.customerSettings.upsert({
+      where: { customerId: id },
+      update: {
+        portalEnabled: settingsData.portal_enabled,
+        portalSubdomain: settingsData.portal_subdomain,
+        notificationEmail: settingsData.notification_email,
+        timezone: settingsData.timezone,
+      },
+      create: {
+        customerId: id,
+        portalEnabled: settingsData.portal_enabled || false,
+        portalSubdomain: settingsData.portal_subdomain,
+        notificationEmail: settingsData.notification_email,
+        timezone: settingsData.timezone || 'America/Chicago',
+      },
+    });
+
+    return reply.send({ settings });
+  });
 };
 
 
