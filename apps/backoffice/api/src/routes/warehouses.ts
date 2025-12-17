@@ -1,12 +1,13 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { prismaPrimary } from '../db';
+import { checkEvidentaryValue } from '../services/usage-detection.js';
 
 const warehouseSchema = z.object({
   code: z.string().min(1),
   name: z.string().min(1),
   type: z.enum(['owned', 'leased', 'partner']),
-  status: z.enum(['active', 'commissioning', 'offline', 'decommissioned']).default('active'),
+  status: z.enum(['active', 'commissioning', 'offline', 'decommissioned', 'retired']).default('active'),
   address: z.object({
     street1: z.string(),
     street2: z.string().optional(),
@@ -32,6 +33,9 @@ export const warehousesRoutes: FastifyPluginAsync = async (fastify) => {
   // List warehouses
   fastify.get('/', async () => {
     const warehouses = await prismaPrimary.warehouse.findMany({
+      where: {
+        deleted: false,  // Exclude soft-deleted
+      },
       include: {
         manager: {
           select: { id: true, name: true, email: true },
@@ -127,25 +131,71 @@ export const warehousesRoutes: FastifyPluginAsync = async (fastify) => {
     return { warehouse };
   });
 
-  // Delete warehouse
+  // Delete warehouse - Smart delete with lifecycle awareness
   fastify.delete('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
+    const { reason } = (request.body || {}) as { reason?: string };
 
-    // Check if warehouse has active client allocations
-    const allocationsCount = await prismaPrimary.warehouseAllocation.count({
-      where: { companyWarehouseId: id, status: 'active' },
-    });
+    // Check if warehouse has evidentiary value
+    const valueCheck = await checkEvidentaryValue('warehouse', id);
 
-    if (allocationsCount > 0) {
-      return reply.status(400).send({
-        error: 'Cannot delete warehouse with active client allocations',
-        details: `${allocationsCount} active allocations exist`,
+    if (valueCheck.hasValue) {
+      return reply.status(409).send({
+        error: 'Cannot delete warehouse with history',
+        reason: valueCheck.reason,
+        details: valueCheck.details,
+        suggestion: {
+          action: 'retire',
+          message: 'This warehouse has been used in operations. Please retire it instead.',
+          endpoint: `PATCH /api/warehouses/${id}`,
+          payload: { 
+            status: 'retired',
+            retiredReason: reason || 'Warehouse no longer in use'
+          }
+        }
       });
     }
 
-    await prismaPrimary.warehouse.delete({ where: { id } });
+    // Safe to soft-delete
+    await prismaPrimary.warehouse.update({
+      where: { id },
+      data: {
+        deleted: true,
+        deletedAt: new Date(),
+        deletedBy: (request as any).user?.id || null,
+        deletedReason: reason || 'Never used - safe to purge'
+      }
+    });
 
     return reply.status(204).send();
+  });
+
+  // Retire warehouse - Preserve forever
+  fastify.post('/:id/retire', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { reason } = request.body as { reason: string };
+
+    if (!reason || reason.trim().length < 10) {
+      return reply.status(400).send({
+        error: 'Retirement reason required',
+        message: 'Please provide a detailed reason for retirement (minimum 10 characters)'
+      });
+    }
+
+    const warehouse =     await prismaPrimary.warehouse.update({
+      where: { id },
+      data: {
+        status: 'retired',
+        retiredAt: new Date(),
+        retiredBy: (request as any).user?.id || null,
+        retiredReason: reason.trim()
+      }
+    });
+
+    return reply.send({ 
+      message: 'Warehouse retired successfully',
+      warehouse 
+    });
   });
 };
 

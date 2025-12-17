@@ -37,6 +37,20 @@ CREATE TABLE customer.customers (
     CHECK (status IN ('prospect', 'setup', 'active', 'paused', 'terminated')),
   setup_progress JSONB DEFAULT '{}',
   
+  -- Lifecycle management
+  deleted BOOLEAN DEFAULT false,
+  deleted_at TIMESTAMPTZ,
+  deleted_by TEXT REFERENCES config.users(id),
+  deleted_reason TEXT,
+  retired_at TIMESTAMPTZ,
+  retired_by TEXT REFERENCES config.users(id),
+  retired_reason TEXT,
+  is_test_data BOOLEAN DEFAULT false,
+  
+  -- Client company information
+  address JSONB,
+  internal_notes TEXT,
+  
   -- Audit
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -44,6 +58,16 @@ CREATE TABLE customer.customers (
 
 CREATE INDEX idx_customers_status ON customer.customers(status);
 CREATE INDEX idx_customers_slug ON customer.customers(slug);
+CREATE INDEX idx_customers_deleted ON customer.customers(deleted) WHERE deleted = false;
+CREATE INDEX idx_customers_lifecycle ON customer.customers(status, deleted, retired_at);
+CREATE INDEX idx_customers_test_data ON customer.customers(is_test_data) WHERE is_test_data = true;
+
+-- Constraint: Cannot be both deleted and terminated
+ALTER TABLE customer.customers ADD CONSTRAINT check_deleted_or_terminated
+  CHECK (
+    (deleted = false) OR 
+    (deleted = true AND status IN ('prospect', 'setup', 'active', 'paused'))
+  );
 
 CREATE TRIGGER update_customers_updated_at
   BEFORE UPDATE ON customer.customers
@@ -53,6 +77,8 @@ CREATE TRIGGER update_customers_updated_at
 COMMENT ON TABLE customer.customers IS 'Client companies we serve';
 COMMENT ON COLUMN customer.customers.status IS 'Client lifecycle: prospect, setup, active, paused, terminated';
 COMMENT ON COLUMN customer.customers.setup_progress IS 'JSONB tracking onboarding wizard completion';
+COMMENT ON COLUMN customer.customers.address IS 'Client company address (JSON: street1, street2, city, state, zip, country)';
+COMMENT ON COLUMN customer.customers.internal_notes IS 'Internal staff notes about this client (not visible to client)';
 
 -- ============================================
 -- WAREHOUSE ALLOCATIONS (client space at YOUR warehouses)
@@ -73,6 +99,12 @@ CREATE TABLE customer.warehouse_allocations (
   
   notes TEXT,
   
+  -- Lifecycle management
+  deleted BOOLEAN DEFAULT false,
+  deleted_at TIMESTAMPTZ,
+  deleted_by TEXT REFERENCES config.users(id),
+  deleted_reason TEXT,
+  
   -- Audit
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -84,6 +116,7 @@ CREATE TABLE customer.warehouse_allocations (
 CREATE INDEX idx_warehouse_allocations_customer ON customer.warehouse_allocations(customer_id);
 CREATE INDEX idx_warehouse_allocations_warehouse ON customer.warehouse_allocations(company_warehouse_id);
 CREATE INDEX idx_warehouse_allocations_status ON customer.warehouse_allocations(status);
+CREATE INDEX idx_warehouse_allocations_deleted ON customer.warehouse_allocations(deleted) WHERE deleted = false;
 
 CREATE TRIGGER update_warehouse_allocations_updated_at
   BEFORE UPDATE ON customer.warehouse_allocations
@@ -117,6 +150,12 @@ CREATE TABLE customer.facilities (
   
   notes TEXT,
   
+  -- Lifecycle management
+  deleted BOOLEAN DEFAULT false,
+  deleted_at TIMESTAMPTZ,
+  deleted_by TEXT REFERENCES config.users(id),
+  deleted_reason TEXT,
+  
   -- Audit
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -125,6 +164,7 @@ CREATE TABLE customer.facilities (
 CREATE INDEX idx_facilities_customer ON customer.facilities(customer_id);
 CREATE INDEX idx_facilities_source ON customer.facilities(is_source) WHERE is_source = TRUE;
 CREATE INDEX idx_facilities_dest ON customer.facilities(is_destination) WHERE is_destination = TRUE;
+CREATE INDEX idx_facilities_deleted ON customer.facilities(deleted) WHERE deleted = false;
 
 CREATE TRIGGER update_facilities_updated_at
   BEFORE UPDATE ON customer.facilities
@@ -161,6 +201,12 @@ CREATE TABLE customer.contacts (
   
   notes TEXT,
   
+  -- Lifecycle management
+  deleted BOOLEAN DEFAULT false,
+  deleted_at TIMESTAMPTZ,
+  deleted_by TEXT REFERENCES config.users(id),
+  deleted_reason TEXT,
+  
   -- Audit
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -169,6 +215,7 @@ CREATE TABLE customer.contacts (
 CREATE INDEX idx_contacts_customer ON customer.contacts(customer_id);
 CREATE INDEX idx_contacts_primary ON customer.contacts(is_primary) WHERE is_primary = TRUE;
 CREATE INDEX idx_contacts_active ON customer.contacts(active) WHERE active = TRUE;
+CREATE INDEX idx_contacts_deleted ON customer.contacts(deleted) WHERE deleted = false;
 
 CREATE TRIGGER update_contacts_updated_at
   BEFORE UPDATE ON customer.contacts
@@ -177,6 +224,35 @@ CREATE TRIGGER update_contacts_updated_at
 
 COMMENT ON TABLE customer.contacts IS 'Client team members and points of contact';
 COMMENT ON COLUMN customer.contacts.role IS 'Contact role: operations, billing, executive, technical, general';
+
+-- ============================================
+-- CONTACT LOG (communication history)
+-- ============================================
+
+CREATE TABLE customer.contact_log (
+  id TEXT PRIMARY KEY DEFAULT ('log_' || gen_random_uuid()),
+  customer_id TEXT NOT NULL REFERENCES customer.customers(id) ON DELETE CASCADE,
+  contact_id TEXT REFERENCES customer.contacts(id) ON DELETE SET NULL,
+  logged_by_user_id TEXT NOT NULL REFERENCES config.users(id) ON DELETE RESTRICT,
+  contact_type TEXT NOT NULL CHECK (contact_type IN ('call', 'email', 'meeting', 'note', 'other')),
+  subject TEXT,
+  notes TEXT,
+  occurred_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE customer.contact_log IS 'Communication history and notes for client interactions';
+
+CREATE INDEX idx_contact_log_customer ON customer.contact_log(customer_id);
+CREATE INDEX idx_contact_log_contact ON customer.contact_log(contact_id);
+CREATE INDEX idx_contact_log_occurred ON customer.contact_log(occurred_at DESC);
+CREATE INDEX idx_contact_log_type ON customer.contact_log(contact_type);
+
+CREATE TRIGGER contact_log_updated_at
+  BEFORE UPDATE ON customer.contact_log
+  FOR EACH ROW
+  EXECUTE FUNCTION customer.update_updated_at();
 
 -- ============================================
 -- CONTRACTS (pricing agreements)
@@ -203,6 +279,11 @@ CREATE TABLE customer.contracts (
   payment_terms TEXT,  -- 'Net 30', 'Net 15', 'Prepaid'
   
   notes TEXT,
+  
+  -- Lifecycle management (contracts are never deleted, only archived)
+  archived_at TIMESTAMPTZ,
+  archived_by TEXT REFERENCES config.users(id),
+  archived_reason TEXT,
   
   -- Audit
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -308,6 +389,8 @@ UNION ALL
 SELECT 'customer.facilities', COUNT(*) FROM customer.facilities
 UNION ALL
 SELECT 'customer.contacts', COUNT(*) FROM customer.contacts
+UNION ALL
+SELECT 'customer.contact_log', COUNT(*) FROM customer.contact_log
 UNION ALL
 SELECT 'customer.contracts', COUNT(*) FROM customer.contracts
 UNION ALL

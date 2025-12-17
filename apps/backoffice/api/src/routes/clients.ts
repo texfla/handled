@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { prismaPrimary } from '../db';
+import { checkEvidentaryValue } from '../services/usage-detection.js';
 
 const organizationSchema = z.object({
   name: z.string().min(1),
@@ -93,7 +94,10 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
     const { status } = request.query as { status?: string };
     
     const clients = await prismaPrimary.customer.findMany({
-      where: status ? { status } : undefined,
+      where: { 
+        deleted: false,  // Exclude soft-deleted
+        ...(status && { status })
+      },
       include: {
         _count: {
           select: {
@@ -185,6 +189,72 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     return { client };
+  });
+
+  // Delete client - Smart delete with lifecycle awareness
+  fastify.delete('/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { reason } = (request.body || {}) as { reason?: string };
+
+    const valueCheck = await checkEvidentaryValue('customer', id);
+
+    if (valueCheck.hasValue) {
+      return reply.status(409).send({
+        error: 'Cannot delete customer with history',
+        reason: valueCheck.reason,
+        details: valueCheck.details,
+        suggestion: {
+          action: 'terminate',
+          message: 'This customer has business history. Please terminate the relationship instead.',
+          endpoint: `PATCH /api/clients/${id}`,
+          payload: { 
+            status: 'terminated',
+            retiredReason: reason || 'Customer relationship ended'
+          }
+        }
+      });
+    }
+
+    // Safe to soft-delete
+    await prismaPrimary.customer.update({
+      where: { id },
+      data: {
+        deleted: true,
+        deletedAt: new Date(),
+        deletedBy: (request as any).user?.id || null,
+        deletedReason: reason || 'Test/abandoned customer - safe to purge'
+      }
+    });
+
+    return reply.status(204).send();
+  });
+
+  // Terminate customer relationship - Preserve forever
+  fastify.post('/:id/terminate', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { reason } = request.body as { reason: string };
+
+    if (!reason || reason.trim().length < 10) {
+      return reply.status(400).send({
+        error: 'Termination reason required',
+        message: 'Please provide a detailed reason for termination (minimum 10 characters)'
+      });
+    }
+
+    const customer =     await prismaPrimary.customer.update({
+      where: { id },
+      data: {
+        status: 'terminated',
+        retiredAt: new Date(),
+        retiredBy: (request as any).user?.id || null,
+        retiredReason: reason.trim()
+      }
+    });
+
+    return reply.send({ 
+      message: 'Customer relationship terminated successfully',
+      customer 
+    });
   });
 
   // ============================================
@@ -447,14 +517,38 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
     return { contact };
   });
 
-  // Delete/deactivate contact
+  // Delete contact - Smart delete with lifecycle awareness
   fastify.delete('/:id/contacts/:contactId', async (request, reply) => {
     const { contactId } = request.params as { id: string; contactId: string };
+    const { reason } = (request.body || {}) as { reason?: string };
 
-    // Soft delete by marking as inactive
+    // Check if contact has evidentiary value
+    const valueCheck = await checkEvidentaryValue('contact', contactId);
+
+    if (valueCheck.hasValue) {
+      // Contact has communication history - mark as inactive instead of delete
+      await prismaPrimary.contact.update({
+        where: { id: contactId },
+        data: {
+          active: false,  // Retire contact, don't delete
+        }
+      });
+      
+      return reply.send({ 
+        message: 'Contact marked as inactive (has communication history)',
+        action: 'deactivated'
+      });
+    }
+
+    // No history - safe to soft-delete
     await prismaPrimary.contact.update({
       where: { id: contactId },
-      data: { active: false },
+      data: {
+        deleted: true,
+        deletedAt: new Date(),
+        deletedBy: (request as any).user?.id || null,
+        deletedReason: reason || 'No communication history - safe to purge'
+      }
     });
 
     return reply.status(204).send();
@@ -502,6 +596,58 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     return reply.status(201).send({ contract });
+  });
+
+  // Archive contract
+  fastify.post('/:customerId/contracts/:contractId/archive', async (request, reply) => {
+    const { contractId } = request.params as { customerId: string; contractId: string };
+    const { reason } = request.body as { reason: string };
+
+    if (!reason || reason.trim().length < 10) {
+      return reply.status(400).send({
+        error: 'Archive reason required',
+        message: 'Please provide a detailed reason for archival (minimum 10 characters)'
+      });
+    }
+
+    const contract = await prismaPrimary.contract.findUnique({
+      where: { id: contractId },
+      select: { status: true, archivedAt: true }
+    });
+
+    if (!contract) {
+      return reply.status(404).send({ error: 'Contract not found' });
+    }
+
+    if (contract.archivedAt) {
+      return reply.status(400).send({
+        error: 'Contract already archived',
+        archivedAt: contract.archivedAt
+      });
+    }
+
+    if (contract.status === 'active') {
+      return reply.status(400).send({
+        error: 'Cannot archive active contract',
+        message: 'Terminate or expire the contract first',
+        currentStatus: contract.status
+      });
+    }
+
+    // Archive contract (never deleted - legal requirement)
+    await prismaPrimary.contract.update({
+      where: { id: contractId },
+      data: {
+        archivedAt: new Date(),
+        archivedBy: (request as any).user?.id || 'system',
+        archivedReason: reason.trim()
+      }
+    });
+
+    return reply.send({ 
+      message: 'Contract archived successfully',
+      note: 'Contracts are never deleted, preserved forever for legal compliance'
+    });
   });
 
   // ============================================

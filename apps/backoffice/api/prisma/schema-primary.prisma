@@ -26,6 +26,12 @@ model Role {
   isSystem    Boolean  @default(false) @map("is_system")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Lifecycle management (roles only retire, never delete)
+  retired        Boolean   @default(false)
+  retiredAt      DateTime? @map("retired_at")
+  retiredBy      String?   @map("retired_by")
+  retiredReason  String?   @map("retired_reason")
 
   userRoles       UserRole[]
   rolePermissions RolePermission[]
@@ -83,12 +89,27 @@ model User {
   disabled       Boolean   @default(false)
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
+  
+  // Lifecycle management (deleted for test accounts, disabled for real users)
+  deleted        Boolean   @default(false)
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+  deletedReason  String?   @map("deleted_reason")
 
   userRoles          UserRole[]
   sessions           Session[]
   integrationRuns    IntegrationRun[]
   managedWarehouses  Warehouse[]
-  contactLogs        ContactLog[]     @relation("LoggedByUser")
+  contactLogs        ContactLog[]          @relation("LoggedByUser")
+  
+  // Lifecycle audit trail relations
+  deletedCustomers   Customer[]            @relation("CustomerDeletedBy")
+  retiredCustomers   Customer[]            @relation("CustomerRetiredBy")
+  deletedWarehouses  Warehouse[]           @relation("WarehouseDeletedBy")
+  retiredWarehouses  Warehouse[]           @relation("WarehouseRetiredBy")
+  deletedContacts    Contact[]             @relation("ContactDeletedBy")
+  deletedAllocations WarehouseAllocation[] @relation("AllocationDeletedBy")
+  deletedFacilities  CustomerFacility[]    @relation("FacilityDeletedBy")
 
   @@map("users")
   @@schema("config")
@@ -143,10 +164,21 @@ model Warehouse {
   notes           String?
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  // Lifecycle management
+  deleted        Boolean   @default(false)
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+  deletedReason  String?   @map("deleted_reason")
+  retiredAt      DateTime? @map("retired_at")
+  retiredBy      String?   @map("retired_by")
+  retiredReason  String?   @map("retired_reason")
 
   manager              User?                 @relation(fields: [managerId], references: [id])
   zones                WarehouseZone[]
   warehouseAllocations WarehouseAllocation[]
+  deletedByUser        User?                 @relation("WarehouseDeletedBy", fields: [deletedBy], references: [id])
+  retiredByUser        User?                 @relation("WarehouseRetiredBy", fields: [retiredBy], references: [id])
 
   @@map("warehouses")
   @@schema("company")
@@ -187,6 +219,16 @@ model Customer {
   internalNotes  String?  @map("internal_notes")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
+  
+  // Lifecycle management
+  deleted        Boolean   @default(false)
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+  deletedReason  String?   @map("deleted_reason")
+  retiredAt      DateTime? @map("retired_at")
+  retiredBy      String?   @map("retired_by")
+  retiredReason  String?   @map("retired_reason")
+  isTestData     Boolean   @default(false) @map("is_test_data")
 
   warehouseAllocations WarehouseAllocation[]
   facilities           CustomerFacility[]
@@ -194,6 +236,8 @@ model Customer {
   contracts            Contract[]
   settings             CustomerSettings?
   contactLog           ContactLog[]
+  deletedByUser        User?                 @relation("CustomerDeletedBy", fields: [deletedBy], references: [id])
+  retiredByUser        User?                 @relation("CustomerRetiredBy", fields: [retiredBy], references: [id])
 
   @@map("customers")
   @@schema("customer")
@@ -211,9 +255,16 @@ model WarehouseAllocation {
   notes               String?
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
+  
+  // Lifecycle management
+  deleted        Boolean   @default(false)
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+  deletedReason  String?   @map("deleted_reason")
 
-  customer  Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  warehouse Warehouse @relation(fields: [companyWarehouseId], references: [id], onDelete: Restrict)
+  customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  warehouse     Warehouse @relation(fields: [companyWarehouseId], references: [id], onDelete: Restrict)
+  deletedByUser User?     @relation("AllocationDeletedBy", fields: [deletedBy], references: [id])
 
   @@unique([customerId, companyWarehouseId])
   @@map("warehouse_allocations")
@@ -234,8 +285,15 @@ model CustomerFacility {
   notes          String?
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
+  
+  // Lifecycle management
+  deleted        Boolean   @default(false)
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+  deletedReason  String?   @map("deleted_reason")
 
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deletedByUser User?    @relation("FacilityDeletedBy", fields: [deletedBy], references: [id])
 
   @@map("facilities")
   @@schema("customer")
@@ -258,9 +316,16 @@ model Contact {
   notes          String?
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
+  
+  // Lifecycle management
+  deleted        Boolean   @default(false)
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+  deletedReason  String?   @map("deleted_reason")
 
-  customer   Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  contactLog ContactLog[]
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contactLog    ContactLog[]
+  deletedByUser User?        @relation("ContactDeletedBy", fields: [deletedBy], references: [id])
 
   @@map("contacts")
   @@schema("customer")
@@ -307,6 +372,11 @@ model Contract {
   notes          String?
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
+  
+  // Lifecycle management (contracts are never deleted, only archived)
+  archivedAt     DateTime? @map("archived_at")
+  archivedBy     String?   @map("archived_by")
+  archivedReason String?   @map("archived_reason")
 
   customer  Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
   rateCards RateCard[]

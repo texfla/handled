@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS company.warehouses (
   code TEXT NOT NULL UNIQUE,  -- 'DFW-01', 'LAX-02'
   name TEXT NOT NULL,          -- 'Dallas Fulfillment Center'
   type TEXT NOT NULL CHECK (type IN ('owned', 'leased', 'partner')),
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'commissioning', 'offline', 'decommissioned')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'commissioning', 'offline', 'decommissioned', 'retired')),
   
   -- Location
   address JSONB NOT NULL,  -- { street1, street2, city, state, zip, country, timezone }
@@ -47,6 +47,15 @@ CREATE TABLE IF NOT EXISTS company.warehouses (
   manager_id TEXT REFERENCES config.users(id),
   notes TEXT,
   
+  -- Lifecycle management
+  deleted BOOLEAN DEFAULT false,
+  deleted_at TIMESTAMPTZ,
+  deleted_by TEXT REFERENCES config.users(id),
+  deleted_reason TEXT,
+  retired_at TIMESTAMPTZ,
+  retired_by TEXT REFERENCES config.users(id),
+  retired_reason TEXT,
+  
   -- Audit
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -55,6 +64,15 @@ CREATE TABLE IF NOT EXISTS company.warehouses (
 CREATE INDEX idx_warehouses_code ON company.warehouses(code);
 CREATE INDEX idx_warehouses_status ON company.warehouses(status);
 CREATE INDEX idx_warehouses_manager ON company.warehouses(manager_id);
+CREATE INDEX idx_warehouses_deleted ON company.warehouses(deleted) WHERE deleted = false;
+CREATE INDEX idx_warehouses_lifecycle ON company.warehouses(status, deleted, retired_at);
+
+-- Constraint: Cannot be both deleted and retired
+ALTER TABLE company.warehouses ADD CONSTRAINT IF NOT EXISTS check_deleted_or_retired
+  CHECK (
+    (deleted = false) OR 
+    (deleted = true AND status IN ('active', 'commissioning', 'offline', 'decommissioned'))
+  );
 
 -- Trigger for updated_at
 CREATE TRIGGER update_warehouses_updated_at
@@ -109,4 +127,5 @@ SELECT
   'company.warehouse_zones',
   COUNT(*)
 FROM company.warehouse_zones;
+
 

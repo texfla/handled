@@ -49,11 +49,17 @@ CREATE TABLE IF NOT EXISTS config.users (
     name TEXT NOT NULL,
     disabled BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    -- Lifecycle management (deleted for test accounts, disabled for real users)
+    deleted BOOLEAN DEFAULT false,
+    deleted_at TIMESTAMPTZ,
+    deleted_by TEXT REFERENCES config.users(id),
+    deleted_reason TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON config.users(email);
 CREATE INDEX IF NOT EXISTS idx_users_disabled ON config.users(disabled);
+CREATE INDEX IF NOT EXISTS idx_users_deleted ON config.users(deleted) WHERE deleted = false;
 
 COMMENT ON TABLE config.users IS 'User accounts for Lucia Auth';
 COMMENT ON COLUMN config.users.disabled IS 'Whether the user account is disabled and cannot login';
@@ -84,15 +90,25 @@ CREATE TABLE IF NOT EXISTS config.roles (
     icon VARCHAR(50) NOT NULL DEFAULT 'shield',
     is_system BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    -- Lifecycle management (roles only retire, never delete)
+    retired BOOLEAN DEFAULT false,
+    retired_at TIMESTAMPTZ,
+    retired_by TEXT REFERENCES config.users(id),
+    retired_reason TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_roles_code ON config.roles(code);
+CREATE INDEX IF NOT EXISTS idx_roles_retired ON config.roles(retired) WHERE retired = false;
 
 COMMENT ON TABLE config.roles IS 'User roles for access control';
 COMMENT ON COLUMN config.roles.code IS 'Unique role identifier (e.g., admin, customer_service, 3pl_ops)';
 COMMENT ON COLUMN config.roles.icon IS 'Lucide icon name (e.g., shield, crown, package)';
 COMMENT ON COLUMN config.roles.is_system IS 'System roles cannot be deleted';
+
+-- Constraint: System roles cannot be retired
+ALTER TABLE config.roles ADD CONSTRAINT IF NOT EXISTS check_system_not_retired
+  CHECK (is_system = false OR retired = false);
 
 -- ==================================================
 -- PERMISSIONS TABLE

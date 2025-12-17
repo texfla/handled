@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
@@ -48,6 +48,14 @@ interface Contact {
   title?: string;
   role?: string;
   isPrimary: boolean;
+  active?: boolean;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deleted?: boolean;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
+  deletedReason?: string | null;
 }
 
 interface Contract {
@@ -58,6 +66,14 @@ interface Contract {
   endDate?: string;
   status: string;
   billingCycle?: string;
+  paymentTerms?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
+  archivedReason?: string | null;
+  rateCards?: any[];
 }
 
 interface CustomerFacility {
@@ -93,6 +109,14 @@ interface Client {
   internalNotes?: string;
   createdAt: string;
   updatedAt: string;
+  deleted?: boolean;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
+  deletedReason?: string | null;
+  retiredAt?: string | null;
+  retiredBy?: string | null;
+  retiredReason?: string | null;
+  isTestData?: boolean;
   warehouseAllocations?: WarehouseAllocation[];
   facilities?: CustomerFacility[];
   contacts?: Contact[];
@@ -374,12 +398,14 @@ export function ClientDetailPage() {
   };
 
   // Initialize settings when client loads
-  if (data?.settings && !portalSubdomain) {
-    setPortalEnabled(data.settings.portalEnabled || false);
-    setPortalSubdomain(data.settings.portalSubdomain || '');
-    setNotificationEmail(data.settings.notificationEmail || '');
-    setTimezone(data.settings.timezone || 'America/Chicago');
-  }
+  useEffect(() => {
+    if (data?.settings && !portalSubdomain) {
+      setPortalEnabled(data.settings.portalEnabled || false);
+      setPortalSubdomain(data.settings.portalSubdomain || '');
+      setNotificationEmail(data.settings.notificationEmail || '');
+      setTimezone(data.settings.timezone || 'America/Chicago');
+    }
+  }, [data?.settings, portalSubdomain]);
 
   if (isLoading) {
     return (
