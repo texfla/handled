@@ -773,18 +773,18 @@ export function ClientDetailPage() {
                                 )}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {contact.email || contact.phone}
+                                {contact.email}
                               </div>
                             </div>
                             <div className="flex items-center justify-between mt-1">
                               <div className="text-xs text-muted-foreground">
+                                {contact.role && <span className="capitalize">{contact.role}</span>}
+                                {contact.role && contact.title && ' • '}
                                 {contact.title}
                               </div>
-                              {contact.role && (
-                                <div className="text-xs text-muted-foreground capitalize">
-                                  {contact.role}
-                                </div>
-                              )}
+                              <div className="text-xs text-muted-foreground">
+                                {contact.phone}
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -1282,172 +1282,6 @@ export function ClientDetailPage() {
               </CardContent>
             </Card>
           )}
-
-          {/* Add/Edit Contact Dialog */}
-          <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingContact ? 'Edit' : 'Add'} Contact
-                </DialogTitle>
-                <DialogDescription>
-                  {editingContact ? 'Update' : 'Add'} contact information for this client
-                </DialogDescription>
-              </DialogHeader>
-
-              {error && (
-                <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
-                  {error}
-                </div>
-              )}
-
-              <div className="space-y-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">
-                      First Name <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="firstName"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="John"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">
-                      Last Name <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="lastName"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      placeholder="Doe"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="john.doe@company.com"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="(555) 123-4567"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="contactTitle">Title</Label>
-                  <Input
-                    id="contactTitle"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Operations Manager"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="contactRole">Role</Label>
-                  <Select value={contactRole} onValueChange={setContactRole}>
-                    <SelectTrigger id="contactRole">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="operations">Operations</SelectItem>
-                      <SelectItem value="billing">Billing</SelectItem>
-                      <SelectItem value="executive">Executive</SelectItem>
-                      <SelectItem value="technical">Technical</SelectItem>
-                      <SelectItem value="general">General</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="contactPrimary"
-                    checked={contactIsPrimary}
-                    onCheckedChange={(checked) => setContactIsPrimary(checked as boolean)}
-                  />
-                  <Label htmlFor="contactPrimary" className="text-sm cursor-pointer">
-                    Set as primary contact
-                  </Label>
-                </div>
-              </div>
-
-              <DialogFooter className="flex justify-between items-center">
-                {editingContact && canManageClients && (
-                  <AlertDialog onOpenChange={() => setDeleteContactConfirmed(false)}>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" className="mr-auto" type="button">
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Contact?</AlertDialogTitle>
-                        <AlertDialogDescription className="space-y-3">
-                          <p>Remove {editingContact.firstName} {editingContact.lastName} from {client.name}?</p>
-                          <p className="text-sm">This action cannot be undone.</p>
-                          <div className="flex items-start gap-2 border rounded p-3 bg-muted/50">
-                            <input
-                              type="checkbox"
-                              id="confirm-delete-contact"
-                              checked={deleteContactConfirmed}
-                              onChange={(e) => setDeleteContactConfirmed(e.target.checked)}
-                              className="mt-1 h-4 w-4 rounded"
-                            />
-                            <label htmlFor="confirm-delete-contact" className="text-sm cursor-pointer">
-                              I understand this contact will be permanently deleted
-                            </label>
-                          </div>
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDeleteContactConfirmed(false)}>
-                          Cancel
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                          disabled={!deleteContactConfirmed || deleteContactMutation.isPending}
-                          onClick={() => editingContact && deleteContactMutation.mutate(editingContact.id)}
-                          className="bg-destructive hover:bg-destructive/90"
-                        >
-                          {deleteContactMutation.isPending ? 'Deleting...' : 'Delete'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={closeContactDialog}>
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleSaveContact}
-                    disabled={createContactMutation.isPending || updateContactMutation.isPending}
-                  >
-                    {(createContactMutation.isPending || updateContactMutation.isPending) && (
-                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    )}
-                    {editingContact ? 'Save' : 'Add'} Contact
-                  </Button>
-                </div>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </TabsContent>
 
         {/* Tab 4: Contracts */}
@@ -1611,6 +1445,172 @@ export function ClientDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Add/Edit Contact Dialog */}
+      <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingContact ? 'Edit' : 'Add'} Contact
+            </DialogTitle>
+            <DialogDescription>
+              {editingContact ? 'Update' : 'Add'} contact information for this client
+            </DialogDescription>
+          </DialogHeader>
+
+          {error && (
+            <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">
+                  First Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="firstName"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="John"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">
+                  Last Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="lastName"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Doe"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="john.doe@company.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="(555) 123-4567"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="contactTitle">Title</Label>
+              <Input
+                id="contactTitle"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Operations Manager"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="contactRole">Role</Label>
+              <Select value={contactRole} onValueChange={setContactRole}>
+                <SelectTrigger id="contactRole">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="operations">Operations</SelectItem>
+                  <SelectItem value="billing">Billing</SelectItem>
+                  <SelectItem value="executive">Executive</SelectItem>
+                  <SelectItem value="technical">Technical</SelectItem>
+                  <SelectItem value="general">General</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="contactPrimary"
+                checked={contactIsPrimary}
+                onCheckedChange={(checked) => setContactIsPrimary(checked as boolean)}
+              />
+              <Label htmlFor="contactPrimary" className="text-sm cursor-pointer">
+                Set as primary contact
+              </Label>
+            </div>
+          </div>
+
+          <DialogFooter className="flex justify-between items-center">
+            {editingContact && canManageClients && (
+              <AlertDialog onOpenChange={() => setDeleteContactConfirmed(false)}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="mr-auto" type="button">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Contact?</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-3">
+                      <p>Remove {editingContact.firstName} {editingContact.lastName} from {client.name}?</p>
+                      <p className="text-sm">This action cannot be undone.</p>
+                      <div className="flex items-start gap-2 border rounded p-3 bg-muted/50">
+                        <input
+                          type="checkbox"
+                          id="confirm-delete-contact"
+                          checked={deleteContactConfirmed}
+                          onChange={(e) => setDeleteContactConfirmed(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded"
+                        />
+                        <label htmlFor="confirm-delete-contact" className="text-sm cursor-pointer">
+                          I understand this contact will be permanently deleted
+                        </label>
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setDeleteContactConfirmed(false)}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={!deleteContactConfirmed || deleteContactMutation.isPending}
+                      onClick={() => editingContact && deleteContactMutation.mutate(editingContact.id)}
+                      className="bg-destructive hover:bg-destructive/90"
+                    >
+                      {deleteContactMutation.isPending ? 'Deleting...' : 'Delete'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={closeContactDialog}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSaveContact}
+                disabled={createContactMutation.isPending || updateContactMutation.isPending}
+              >
+                {(createContactMutation.isPending || updateContactMutation.isPending) && (
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                )}
+                {editingContact ? 'Save' : 'Add'} Contact
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add/Edit Allocation Dialog */}
       <Dialog open={allocationDialogOpen} onOpenChange={setAllocationDialogOpen}>
