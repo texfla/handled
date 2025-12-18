@@ -161,3 +161,4 @@ Migrations run in this order:
 
 This order ensures dependencies are satisfied (e.g., `customer.facilities` depends on `company.warehouses`).
 
+
