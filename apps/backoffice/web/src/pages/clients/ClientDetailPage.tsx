@@ -148,10 +148,14 @@ export function ClientDetailPage() {
   // Dialog state
   const [allocationDialogOpen, setAllocationDialogOpen] = useState(false);
   const [editingAllocation, setEditingAllocation] = useState<WarehouseAllocation | null>(null);
+  const [facilityDialogOpen, setFacilityDialogOpen] = useState(false);
+  const [editingFacility, setEditingFacility] = useState<CustomerFacility | null>(null);
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const isSelectingRef = useRef(false);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [deleteAllocationConfirmed, setDeleteAllocationConfirmed] = useState(false);
+  const [deleteFacilityConfirmed, setDeleteFacilityConfirmed] = useState(false);
   const [error, setError] = useState('');
 
   // Allocation form state
@@ -160,6 +164,18 @@ export function ClientDetailPage() {
   const [sqft, setSqft] = useState('');
   const [zone, setZone] = useState('');
   const [isPrimary, setIsPrimary] = useState(false);
+
+  // Facility form state
+  const [facilityName, setFacilityName] = useState('');
+  const [facilityType, setFacilityType] = useState('');
+  const [facilityStreet1, setFacilityStreet1] = useState('');
+  const [facilityStreet2, setFacilityStreet2] = useState('');
+  const [facilityCity, setFacilityCity] = useState('');
+  const [facilityState, setFacilityState] = useState('');
+  const [facilityZip, setFacilityZip] = useState('');
+  const [facilityCountry, setFacilityCountry] = useState('US');
+  const [isSource, setIsSource] = useState(false);
+  const [isDestination, setIsDestination] = useState(false);
 
   // Contact form state
   const [firstName, setFirstName] = useState('');
@@ -172,7 +188,6 @@ export function ClientDetailPage() {
   
   // Delete confirmation state
   const [deleteContactConfirmed, setDeleteContactConfirmed] = useState(false);
-  const [deleteAllocationConfirmed, setDeleteAllocationConfirmed] = useState(false);
 
   // Settings state
   const [portalEnabled, setPortalEnabled] = useState(false);
@@ -226,6 +241,38 @@ export function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['warehouses'] });
       closeAllocationDialog();
       setDeleteAllocationConfirmed(false);
+    },
+  });
+
+  const createFacilityMutation = useMutation({
+    mutationFn: (data: any) => api.post(`/api/clients/${id}/facilities`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['client', id] });
+      closeFacilityDialog();
+    },
+    onError: (error: any) => {
+      setError(error.response?.data?.error || 'Failed to create facility');
+    },
+  });
+
+  const updateFacilityMutation = useMutation({
+    mutationFn: ({ facilityId, data }: { facilityId: string; data: any }) =>
+      api.put(`/api/clients/${id}/facilities/${facilityId}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['client', id] });
+      closeFacilityDialog();
+    },
+    onError: (error: any) => {
+      setError(error.response?.data?.error || 'Failed to update facility');
+    },
+  });
+
+  const deleteFacilityMutation = useMutation({
+    mutationFn: (facilityId: string) => api.delete(`/api/clients/${id}/facilities/${facilityId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['client', id] });
+      closeFacilityDialog();
+      setDeleteFacilityConfirmed(false);
     },
   });
 
@@ -296,6 +343,54 @@ export function ClientDetailPage() {
     setDeleteAllocationConfirmed(false);
   };
 
+  const openAddFacility = () => {
+    setEditingFacility(null);
+    setFacilityName('');
+    setFacilityType('');
+    setFacilityStreet1('');
+    setFacilityStreet2('');
+    setFacilityCity('');
+    setFacilityState('');
+    setFacilityZip('');
+    setFacilityCountry('US');
+    setIsSource(false);
+    setIsDestination(false);
+    setError('');
+    setFacilityDialogOpen(true);
+  };
+
+  const openEditFacility = (facility: CustomerFacility) => {
+    setEditingFacility(facility);
+    setFacilityName(facility.name);
+    setFacilityType(facility.facilityType || '');
+    setFacilityStreet1(facility.address.street1);
+    setFacilityStreet2(facility.address.street2 || '');
+    setFacilityCity(facility.address.city);
+    setFacilityState(facility.address.state);
+    setFacilityZip(facility.address.zip);
+    setFacilityCountry(facility.address.country);
+    setIsSource(facility.isSource);
+    setIsDestination(facility.isDestination);
+    setError('');
+    setFacilityDialogOpen(true);
+  };
+
+  const closeFacilityDialog = () => {
+    setFacilityDialogOpen(false);
+    setEditingFacility(null);
+    setFacilityName('');
+    setFacilityType('');
+    setFacilityStreet1('');
+    setFacilityStreet2('');
+    setFacilityCity('');
+    setFacilityState('');
+    setFacilityZip('');
+    setFacilityCountry('US');
+    setIsSource(false);
+    setIsDestination(false);
+    setError('');
+  };
+
   const handleSaveAllocation = () => {
     if (!selectedWarehouseId) {
       setError('Please select a warehouse');
@@ -320,6 +415,42 @@ export function ClientDetailPage() {
       });
     } else {
       createAllocationMutation.mutate(allocationData);
+    }
+  };
+
+  const handleSaveFacility = () => {
+    if (!facilityName.trim()) {
+      setError('Facility name is required');
+      return;
+    }
+
+    if (!facilityStreet1.trim() || !facilityCity.trim() || !facilityState.trim() || !facilityZip.trim()) {
+      setError('Complete address is required');
+      return;
+    }
+
+    const facilityData = {
+      name: facilityName.trim(),
+      facility_type: facilityType || undefined,
+      address: {
+        street1: facilityStreet1.trim(),
+        street2: facilityStreet2.trim() || undefined,
+        city: facilityCity.trim(),
+        state: facilityState.trim(),
+        zip: facilityZip.trim(),
+        country: facilityCountry,
+      },
+      is_source: isSource,
+      is_destination: isDestination,
+    };
+
+    if (editingFacility) {
+      updateFacilityMutation.mutate({
+        facilityId: editingFacility.id,
+        data: facilityData
+      });
+    } else {
+      createFacilityMutation.mutate(facilityData);
     }
   };
 
@@ -444,7 +575,7 @@ export function ClientDetailPage() {
         <div>
           <h1 className="text-2xl font-bold">{client.name}</h1>
         </div>
-        
+
         <Button variant="outline" size="sm">
           <Edit className="h-4 w-4 mr-2" />
           Edit
@@ -456,15 +587,15 @@ export function ClientDetailPage() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="allocations">
-            Warehouse Allocations ({client.warehouseAllocations?.length || 0})
+            Operations
           </TabsTrigger>
           <TabsTrigger value="contacts">
-            Contacts ({client.contacts?.length || 0})
+            Communications
           </TabsTrigger>
           <TabsTrigger value="contracts">
             Contracts ({client.contracts?.length || 0})
           </TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="settings">Account Setup</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Overview */}
@@ -579,10 +710,54 @@ export function ClientDetailPage() {
 
             {/* Primary Contact */}
             <Card>
-              <CardHeader>
+              <CardHeader className="py-3 flex-row items-center justify-between space-y-0">
                 <CardTitle>Primary Contact</CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  const primaryContact = client.contacts?.find(c => c.isPrimary);
+                  if (primaryContact) {
+                    openEditContact(primaryContact);
+                  } else {
+                    openAddContact();
+                  }
+                }}>
+                  <Plus className="h-4 w-4" />
+                </Button>
               </CardHeader>
-              <CardContent>
+              <CardContent
+                className="cursor-pointer hover:bg-muted/30 transition-colors"
+                onMouseDown={(e) => {
+                  mouseDownPos.current = { x: e.clientX, y: e.clientY };
+                  isSelectingRef.current = false;
+                }}
+                onMouseMove={(e) => {
+                  if (mouseDownPos.current && e.buttons === 1) {
+                    const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+                    const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+                    if (dx > 5 || dy > 5) {
+                      isSelectingRef.current = true;
+                    }
+                  }
+                }}
+                onMouseUp={() => {
+                  mouseDownPos.current = null;
+                }}
+                onMouseLeave={() => {
+                  mouseDownPos.current = null;
+                  isSelectingRef.current = false;
+                }}
+                onClick={() => {
+                  if (!isSelectingRef.current && !window.getSelection()?.toString()) {
+                    const primaryContact = client.contacts?.find(c => c.isPrimary);
+                    if (primaryContact) {
+                      openEditContact(primaryContact);
+                    } else {
+                      openAddContact();
+                    }
+                  }
+                  mouseDownPos.current = null;
+                  isSelectingRef.current = false;
+                }}
+              >
                 {(() => {
                   const primaryContact = client.contacts?.find(c => c.isPrimary);
                   if (!primaryContact) {
@@ -590,35 +765,37 @@ export function ClientDetailPage() {
                       <div className="text-center py-6 text-muted-foreground">
                         <UsersIcon className="mx-auto h-8 w-8 mb-2" />
                         <p className="text-sm">No primary contact set</p>
+                        <p className="text-xs mt-1">Click to add a primary contact</p>
                       </div>
                     );
                   }
                   return (
-                    <div className="space-y-1.5">
-                      <div>
-                        <p className="font-medium">
+                    <div className="space-y-2">
+                      {/* Top row: Name and Email */}
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-primary hover:underline cursor-pointer">
                           {primaryContact.firstName} {primaryContact.lastName}
-                        </p>
-                        {primaryContact.title && (
-                          <p className="text-sm text-muted-foreground mt-0.5">{primaryContact.title}</p>
+                        </span>
+                        {primaryContact.email && (
+                          <span className="text-sm text-muted-foreground">
+                            {primaryContact.email}
+                          </span>
                         )}
                       </div>
-                      {primaryContact.email && (
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-muted-foreground" />
-                          <a href={`mailto:${primaryContact.email}`} className="text-sm text-primary hover:underline">
-                            {primaryContact.email}
-                          </a>
-                        </div>
-                      )}
-                      {primaryContact.phone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">
+
+                      {/* Bottom row: Title and Phone */}
+                      <div className="flex items-center justify-between">
+                        {primaryContact.title && (
+                          <span className="text-sm text-muted-foreground">
+                            {primaryContact.title}
+                          </span>
+                        )}
+                        {primaryContact.phone && (
+                          <span className="text-sm text-muted-foreground">
                             {primaryContact.phone}
                           </span>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   );
                 })()}
@@ -632,31 +809,90 @@ export function ClientDetailPage() {
             <div className="md:col-span-2 space-y-4">
               <Card>
                 <CardHeader className="py-3 flex-row items-center justify-between space-y-0">
-                  <CardTitle>Warehouse Allocations</CardTitle>
+                  <CardTitle>Warehouse Allocations ({client.warehouseAllocations?.length || 0})</CardTitle>
                   <Button variant="ghost" className="h-auto p-0 hover:bg-transparent" onClick={openAddAllocation}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-0">
                   {client.warehouseAllocations && client.warehouseAllocations.length > 0 ? (
-                    <div className="space-y-2">
-                      {(client.warehouseAllocations || []).map((alloc: WarehouseAllocation) => (
-                        <div key={alloc.id} className="flex items-start justify-between py-2 border-b last:border-0">
-                          <div className="flex-1">
-                            <div className="font-medium text-sm flex items-center gap-2">
-                              {alloc.warehouse.code}
-                              {alloc.isPrimary && (
-                                <Badge variant="outline" className="text-xs">Primary</Badge>
-                              )}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {alloc.spaceAllocated?.pallets ? `${alloc.spaceAllocated.pallets} pallets` : '—'}
-                              {alloc.zoneAssignment && ` • ${alloc.zoneAssignment}`}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <table className="w-full">
+                      <tbody>
+                        {(client.warehouseAllocations || []).map((alloc: WarehouseAllocation) => (
+                          <tr
+                            key={alloc.id}
+                            className="border-b hover:bg-muted/30 cursor-pointer transition-colors"
+                            onMouseDown={(e) => {
+                              mouseDownPos.current = { x: e.clientX, y: e.clientY };
+                              isSelectingRef.current = false;
+                            }}
+                            onMouseMove={(e) => {
+                              if (mouseDownPos.current && e.buttons === 1) {
+                                const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+                                const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+                                if (dx > 5 || dy > 5) {
+                                  isSelectingRef.current = true;
+                                }
+                              }
+                            }}
+                            onMouseUp={() => {
+                              mouseDownPos.current = null;
+                            }}
+                            onMouseLeave={() => {
+                              mouseDownPos.current = null;
+                              isSelectingRef.current = false;
+                            }}
+                            onClick={() => {
+                              if (!isSelectingRef.current && !window.getSelection()?.toString()) {
+                                setEditingAllocation(alloc);
+                                setSelectedWarehouseId(alloc.warehouse.id);
+                                setPallets(alloc.spaceAllocated?.pallets?.toString() || '');
+                                setSqft(alloc.spaceAllocated?.sqft?.toString() || '');
+                                setZone(alloc.zoneAssignment || '');
+                                setIsPrimary(alloc.isPrimary);
+                                setAllocationDialogOpen(true);
+                              }
+                              mouseDownPos.current = null;
+                              isSelectingRef.current = false;
+                            }}
+                          >
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  {canManageClients ? (
+                                    <div className="font-medium text-primary hover:underline">{alloc.warehouse.code}</div>
+                                  ) : (
+                                    <div className="font-medium">{alloc.warehouse.code}</div>
+                                  )}
+                                  {alloc.isPrimary && (
+                                    <Badge variant="outline" className="text-xs">Primary</Badge>
+                                  )}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {(alloc.spaceAllocated?.pallets || alloc.spaceAllocated?.sqft) ? (
+                                    <>
+                                      {alloc.spaceAllocated?.pallets && `${alloc.spaceAllocated.pallets.toLocaleString()} pallets`}
+                                      {alloc.spaceAllocated?.pallets && alloc.spaceAllocated?.sqft && ' • '}
+                                      {alloc.spaceAllocated?.sqft && `${alloc.spaceAllocated.sqft.toLocaleString()} sqft`}
+                                    </>
+                                  ) : '—'}
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between mt-1">
+                                <div className="text-sm text-muted-foreground">
+                                  {alloc.warehouse.name}
+                                </div>
+                                {alloc.zoneAssignment && (
+                                  <div className="text-xs text-muted-foreground">
+                                    Zone: {alloc.zoneAssignment}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   ) : (
                     <div className="text-center py-6 text-muted-foreground">
                       <Warehouse className="mx-auto h-6 w-6 mb-2" />
@@ -669,25 +905,74 @@ export function ClientDetailPage() {
               {/* Customer Facilities */}
               <Card>
                 <CardHeader className="py-3 flex-row items-center justify-between space-y-0">
-                  <CardTitle>Customer Facilities</CardTitle>
-                  <Button variant="ghost" className="h-auto p-0 hover:bg-transparent">
+                  <CardTitle>Customer Facilities ({client.facilities?.length || 0})</CardTitle>
+                  <Button variant="ghost" size="sm" onClick={openAddFacility}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-0">
                   {client.facilities && client.facilities.length > 0 ? (
-                    <div className="space-y-2">
-                      {(client.facilities || []).map((facility: CustomerFacility) => (
-                        <div key={facility.id} className="py-2 border-b last:border-0">
-                          <div className="font-medium text-sm">{facility.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {facility.address?.city}, {facility.address?.state}
-                            {facility.isSource && ' • Source'}
-                            {facility.isDestination && ' • Destination'}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <table className="w-full">
+                      <tbody>
+                        {(client.facilities || []).map((facility: CustomerFacility) => (
+                          <tr
+                            key={facility.id}
+                            className="border-b hover:bg-muted/30 cursor-pointer transition-colors"
+                            onMouseDown={(e) => {
+                              mouseDownPos.current = { x: e.clientX, y: e.clientY };
+                              isSelectingRef.current = false;
+                            }}
+                            onMouseMove={(e) => {
+                              if (mouseDownPos.current && e.buttons === 1) {
+                                const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+                                const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+                                if (dx > 5 || dy > 5) {
+                                  isSelectingRef.current = true;
+                                }
+                              }
+                            }}
+                            onMouseUp={() => {
+                              mouseDownPos.current = null;
+                            }}
+                            onMouseLeave={() => {
+                              mouseDownPos.current = null;
+                              isSelectingRef.current = false;
+                            }}
+                            onClick={() => {
+                              if (!isSelectingRef.current && !window.getSelection()?.toString()) {
+                                openEditFacility(facility);
+                              }
+                              mouseDownPos.current = null;
+                              isSelectingRef.current = false;
+                            }}
+                          >
+                            <td className="px-4 py-3">
+                              <div className="font-medium text-sm flex items-center gap-2">
+                                {canManageClients ? (
+                                  <div className="font-medium text-primary hover:underline">{facility.name}</div>
+                                ) : (
+                                  <div className="font-medium">{facility.name}</div>
+                                )}
+                                {facility.facilityType && (
+                                  <Badge variant="outline" className="text-xs capitalize">
+                                    {facility.facilityType}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {facility.address.city}, {facility.address.state}
+                                {(facility.isSource || facility.isDestination) && (
+                                  <span className="ml-2">
+                                    {facility.isSource && '• Source '}
+                                    {facility.isDestination && '• Destination'}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   ) : (
                     <div className="text-center py-6 text-muted-foreground">
                       <Building className="mx-auto h-6 w-6 mb-2" />
@@ -765,10 +1050,10 @@ export function ClientDetailPage() {
           </Card>
         </TabsContent>
 
-        {/* Tab 2: Warehouse Allocations */}
+        {/* Tab 2: Operations */}
         <TabsContent value="allocations" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Warehouse Allocations</h2>
+            <h2 className="text-lg font-semibold">Operations</h2>
             <Button onClick={openAddAllocation}>
               <Plus className="h-4 w-4 mr-2" />
               Add Allocation
@@ -882,184 +1167,12 @@ export function ClientDetailPage() {
               </CardContent>
             </Card>
           )}
-
-          {/* Add/Edit Allocation Dialog */}
-          <Dialog open={allocationDialogOpen} onOpenChange={setAllocationDialogOpen}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingAllocation ? 'Edit' : 'Add'} Warehouse Allocation
-                </DialogTitle>
-                <DialogDescription>
-                  Allocate space at one of your warehouses for this client
-                </DialogDescription>
-              </DialogHeader>
-
-              {error && (
-                <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
-                  {error}
-                </div>
-              )}
-
-              <div className="space-y-4 py-4">
-                {/* Warehouse Selector */}
-                <div className="space-y-2">
-                  <Label htmlFor="warehouse">
-                    Warehouse <span className="text-destructive">*</span>
-                  </Label>
-                  <Select value={selectedWarehouseId} onValueChange={setSelectedWarehouseId}>
-                    <SelectTrigger id="warehouse">
-                      <SelectValue placeholder="Select warehouse" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {warehouses.map((wh: any) => {
-                        // Check if this warehouse is already allocated (excluding current allocation when editing)
-                        const isAllocated = client.warehouseAllocations?.some(
-                          alloc => alloc.companyWarehouseId === wh.id && 
-                                   (!editingAllocation || alloc.id !== editingAllocation.id)
-                        );
-                        
-                        return (
-                          <SelectItem 
-                            key={wh.id} 
-                            value={wh.id}
-                            disabled={isAllocated}
-                          >
-                            {wh.code} - {wh.name}
-                            {wh.capacity?.usable_pallets && (
-                              <span className="text-xs text-muted-foreground ml-2">
-                                ({wh.capacity.usable_pallets} pallets)
-                              </span>
-                            )}
-                            {isAllocated && (
-                              <span className="text-xs text-muted-foreground ml-2">
-                                • Already allocated
-                              </span>
-                            )}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Space Allocation */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="pallets">Pallets</Label>
-                    <Input
-                      id="pallets"
-                      type="number"
-                      min="0"
-                      value={pallets}
-                      onChange={(e) => setPallets(e.target.value)}
-                      placeholder="500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sqft">Square Feet</Label>
-                    <Input
-                      id="sqft"
-                      type="number"
-                      min="0"
-                      value={sqft}
-                      onChange={(e) => setSqft(e.target.value)}
-                      placeholder="5000"
-                    />
-                  </div>
-                </div>
-
-                {/* Zone Assignment */}
-                <div className="space-y-2">
-                  <Label htmlFor="zone">Zone Assignment</Label>
-                  <Input
-                    id="zone"
-                    value={zone}
-                    onChange={(e) => setZone(e.target.value)}
-                    placeholder="A1-A50 (optional)"
-                  />
-                </div>
-
-                {/* Primary */}
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="primary"
-                    checked={isPrimary}
-                    onCheckedChange={(checked) => setIsPrimary(checked as boolean)}
-                  />
-                  <Label htmlFor="primary" className="text-sm cursor-pointer">
-                    Set as primary warehouse for this client
-                  </Label>
-                </div>
-              </div>
-
-              <DialogFooter className="flex justify-between items-center">
-                {editingAllocation && canManageClients && (
-                  <AlertDialog onOpenChange={() => setDeleteAllocationConfirmed(false)}>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" className="mr-auto" type="button">
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Remove Allocation?</AlertDialogTitle>
-                        <AlertDialogDescription className="space-y-3">
-                          <p>Remove {client.name}'s allocation at {editingAllocation.warehouse.code}?</p>
-                          <p className="text-sm">This will free up the allocated space.</p>
-                          <div className="flex items-start gap-2 border rounded p-3 bg-muted/50">
-                            <input
-                              type="checkbox"
-                              id="confirm-delete-allocation"
-                              checked={deleteAllocationConfirmed}
-                              onChange={(e) => setDeleteAllocationConfirmed(e.target.checked)}
-                              className="mt-1 h-4 w-4 rounded"
-                            />
-                            <label htmlFor="confirm-delete-allocation" className="text-sm cursor-pointer">
-                              I understand this allocation will be permanently removed
-                            </label>
-                          </div>
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDeleteAllocationConfirmed(false)}>
-                          Cancel
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                          disabled={!deleteAllocationConfirmed || deleteAllocationMutation.isPending}
-                          onClick={() => editingAllocation && deleteAllocationMutation.mutate(editingAllocation.id)}
-                          className="bg-destructive hover:bg-destructive/90"
-                        >
-                          {deleteAllocationMutation.isPending ? 'Removing...' : 'Remove'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={closeAllocationDialog}>
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleSaveAllocation}
-                    disabled={createAllocationMutation.isPending || updateAllocationMutation.isPending}
-                  >
-                    {(createAllocationMutation.isPending || updateAllocationMutation.isPending) && (
-                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    )}
-                    {editingAllocation ? 'Save' : 'Add'} Allocation
-                  </Button>
-                </div>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </TabsContent>
 
-        {/* Tab 3: Contacts */}
+        {/* Tab 3: Communications */}
         <TabsContent value="contacts" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Contacts</h2>
+            <h2 className="text-lg font-semibold">Communications</h2>
             <Button onClick={openAddContact}>
               <Plus className="h-4 w-4 mr-2" />
               Add Contact
@@ -1389,11 +1502,11 @@ export function ClientDetailPage() {
           )}
         </TabsContent>
 
-        {/* Tab 5: Settings */}
+        {/* Tab 5: Account Setup */}
         <TabsContent value="settings" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Client Settings</CardTitle>
+              <CardTitle>Account Setup</CardTitle>
               <CardDescription>
                 Configure portal access, notifications, and preferences
               </CardDescription>
@@ -1491,6 +1604,366 @@ export function ClientDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Add/Edit Allocation Dialog */}
+      <Dialog open={allocationDialogOpen} onOpenChange={setAllocationDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingAllocation ? 'Edit' : 'Add'} Warehouse Allocation
+            </DialogTitle>
+            <DialogDescription>
+              Allocate space at one of your warehouses for this client
+            </DialogDescription>
+          </DialogHeader>
+
+          {error && (
+            <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-4 py-4">
+            {/* Warehouse Selector */}
+            <div className="space-y-2">
+              <Label htmlFor="warehouse">
+                Warehouse <span className="text-destructive">*</span>
+              </Label>
+              <Select value={selectedWarehouseId} onValueChange={setSelectedWarehouseId}>
+                <SelectTrigger id="warehouse">
+                  <SelectValue placeholder="Select warehouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  {warehouses.map((wh: any) => {
+                    // Check if this warehouse is already allocated (excluding current allocation when editing)
+                    const isAllocated = client.warehouseAllocations?.some(
+                      alloc => alloc.companyWarehouseId === wh.id && 
+                               (!editingAllocation || alloc.id !== editingAllocation.id)
+                    );
+                    
+                    return (
+                      <SelectItem 
+                        key={wh.id} 
+                        value={wh.id}
+                        disabled={isAllocated}
+                      >
+                        {wh.code} - {wh.name}
+                        {wh.capacity?.usable_pallets && (
+                          <span className="text-xs text-muted-foreground ml-2">
+                            ({wh.capacity.usable_pallets} pallets)
+                          </span>
+                        )}
+                        {isAllocated && (
+                          <span className="text-xs text-muted-foreground ml-2">
+                            • Already allocated
+                          </span>
+                        )}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Space Allocation */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="pallets">Pallets</Label>
+                <Input
+                  id="pallets"
+                  type="number"
+                  min="0"
+                  value={pallets}
+                  onChange={(e) => setPallets(e.target.value)}
+                  placeholder="500"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sqft">Square Feet</Label>
+                <Input
+                  id="sqft"
+                  type="number"
+                  min="0"
+                  value={sqft}
+                  onChange={(e) => setSqft(e.target.value)}
+                  placeholder="5000"
+                />
+              </div>
+            </div>
+
+            {/* Zone Assignment */}
+            <div className="space-y-2">
+              <Label htmlFor="zone">Zone Assignment</Label>
+              <Input
+                id="zone"
+                value={zone}
+                onChange={(e) => setZone(e.target.value)}
+                placeholder="A1-A50 (optional)"
+              />
+            </div>
+
+            {/* Primary */}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="primary"
+                checked={isPrimary}
+                onCheckedChange={(checked) => setIsPrimary(checked as boolean)}
+              />
+              <Label htmlFor="primary" className="text-sm cursor-pointer">
+                Set as primary warehouse for this client
+              </Label>
+            </div>
+          </div>
+
+          <DialogFooter className="flex justify-between items-center">
+            {editingAllocation && canManageClients && (
+              <AlertDialog onOpenChange={() => setDeleteAllocationConfirmed(false)}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="mr-auto" type="button">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remove Allocation?</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-3">
+                      <p>Remove {client.name}'s allocation at {editingAllocation.warehouse.code}?</p>
+                      <p className="text-sm">This will free up the allocated space.</p>
+                      <div className="flex items-start gap-2 border rounded p-3 bg-muted/50">
+                        <input
+                          type="checkbox"
+                          id="confirm-delete-allocation"
+                          checked={deleteAllocationConfirmed}
+                          onChange={(e) => setDeleteAllocationConfirmed(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded"
+                        />
+                        <label htmlFor="confirm-delete-allocation" className="text-sm cursor-pointer">
+                          I understand this allocation will be permanently removed
+                        </label>
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setDeleteAllocationConfirmed(false)}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={!deleteAllocationConfirmed || deleteAllocationMutation.isPending}
+                      onClick={() => editingAllocation && deleteAllocationMutation.mutate(editingAllocation.id)}
+                      className="bg-destructive hover:bg-destructive/90"
+                    >
+                      {deleteAllocationMutation.isPending ? 'Removing...' : 'Remove'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={closeAllocationDialog}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSaveAllocation}
+                disabled={createAllocationMutation.isPending || updateAllocationMutation.isPending}
+              >
+                {(createAllocationMutation.isPending || updateAllocationMutation.isPending) && (
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                )}
+                {editingAllocation ? 'Save' : 'Add'} Allocation
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Edit Facility Dialog */}
+      <Dialog open={facilityDialogOpen} onOpenChange={setFacilityDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingFacility ? 'Edit' : 'Add'} Facility
+            </DialogTitle>
+            <DialogDescription>
+              {editingFacility ? 'Update facility details' : 'Add a new facility for this client'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {error && (
+            <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-4 py-4">
+            {/* Facility Name */}
+            <div className="space-y-2">
+              <Label htmlFor="facility-name">
+                Facility Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="facility-name"
+                value={facilityName}
+                onChange={(e) => setFacilityName(e.target.value)}
+                placeholder="Main Warehouse"
+              />
+            </div>
+
+            {/* Facility Type */}
+            <div className="space-y-2">
+              <Label htmlFor="facility-type">Facility Type</Label>
+              <Select value={facilityType} onValueChange={setFacilityType}>
+                <SelectTrigger id="facility-type">
+                  <SelectValue placeholder="Select type (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="warehouse">Warehouse</SelectItem>
+                  <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                  <SelectItem value="retail">Retail</SelectItem>
+                  <SelectItem value="office">Office</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Address */}
+            <div className="space-y-4">
+              <Label>Address</Label>
+
+              <div className="space-y-2">
+                <Input
+                  placeholder="Street Address"
+                  value={facilityStreet1}
+                  onChange={(e) => setFacilityStreet1(e.target.value)}
+                />
+                <Input
+                  placeholder="Street Address 2 (optional)"
+                  value={facilityStreet2}
+                  onChange={(e) => setFacilityStreet2(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  placeholder="City"
+                  value={facilityCity}
+                  onChange={(e) => setFacilityCity(e.target.value)}
+                />
+                <Input
+                  placeholder="State"
+                  value={facilityState}
+                  onChange={(e) => setFacilityState(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  placeholder="ZIP Code"
+                  value={facilityZip}
+                  onChange={(e) => setFacilityZip(e.target.value)}
+                />
+                <Select value={facilityCountry} onValueChange={setFacilityCountry}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="US">United States</SelectItem>
+                    <SelectItem value="CA">Canada</SelectItem>
+                    <SelectItem value="MX">Mexico</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Source/Destination */}
+            <div className="space-y-3">
+              <Label>Facility Role</Label>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="is-source"
+                  checked={isSource}
+                  onCheckedChange={(checked) => setIsSource(checked as boolean)}
+                />
+                <Label htmlFor="is-source" className="text-sm cursor-pointer">
+                  Source facility (ships from here)
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="is-destination"
+                  checked={isDestination}
+                  onCheckedChange={(checked) => setIsDestination(checked as boolean)}
+                />
+                <Label htmlFor="is-destination" className="text-sm cursor-pointer">
+                  Destination facility (ships to here)
+                </Label>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex justify-between items-center">
+            {editingFacility && canManageClients && (
+              <AlertDialog onOpenChange={() => setDeleteFacilityConfirmed(false)}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="mr-auto" type="button">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remove Facility?</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-3">
+                      <p>Remove {editingFacility.name}?</p>
+                      <p className="text-sm">This will permanently delete this facility.</p>
+                      <div className="flex items-start gap-2 border rounded p-3 bg-muted/50">
+                        <input
+                          type="checkbox"
+                          id="confirm-delete-facility"
+                          checked={deleteFacilityConfirmed}
+                          onChange={(e) => setDeleteFacilityConfirmed(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded"
+                        />
+                        <label htmlFor="confirm-delete-facility" className="text-sm cursor-pointer">
+                          I understand this facility will be permanently removed
+                        </label>
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setDeleteFacilityConfirmed(false)}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={!deleteFacilityConfirmed || deleteFacilityMutation.isPending}
+                      onClick={() => editingFacility && deleteFacilityMutation.mutate(editingFacility.id)}
+                      className="bg-destructive hover:bg-destructive/90"
+                    >
+                      {deleteFacilityMutation.isPending ? 'Removing...' : 'Remove'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={closeFacilityDialog}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveFacility}
+                disabled={createFacilityMutation.isPending || updateFacilityMutation.isPending}
+              >
+                {(createFacilityMutation.isPending || updateFacilityMutation.isPending) && (
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                )}
+                {editingFacility ? 'Save' : 'Add'} Facility
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

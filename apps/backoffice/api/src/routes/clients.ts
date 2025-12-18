@@ -457,6 +457,37 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send({ facility });
   });
 
+  // Update customer facility
+  fastify.put('/:id/facilities/:facilityId', async (request, reply) => {
+    const { id, facilityId } = request.params as { id: string; facilityId: string };
+    const body = customerFacilitySchema.parse(request.body);
+
+    const facility = await prismaPrimary.customerFacility.update({
+      where: { id: facilityId, customerId: id },
+      data: {
+        name: body.name,
+        facilityType: body.facility_type || null,
+        address: body.address as any,
+        isSource: body.is_source || false,
+        isDestination: body.is_destination || false,
+        notes: body.notes || null,
+      },
+    });
+
+    return reply.send({ facility });
+  });
+
+  // Delete customer facility
+  fastify.delete('/:id/facilities/:facilityId', async (request, reply) => {
+    const { id, facilityId } = request.params as { id: string; facilityId: string };
+
+    await prismaPrimary.customerFacility.delete({
+      where: { id: facilityId, customerId: id },
+    });
+
+    return reply.status(204).send();
+  });
+
   // ============================================
   // CONTACTS
   // ============================================

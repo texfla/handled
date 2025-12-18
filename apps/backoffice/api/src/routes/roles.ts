@@ -79,9 +79,6 @@ export async function roleRoutes(fastify: FastifyInstance) {
     { preHandler: requirePermission(PERMISSIONS.VIEW_ROLES) },
     async (_request, reply) => {
       const roles = await prismaPrimary.role.findMany({
-        where: {
-          retired: false,  // Exclude retired roles
-        },
         include: {
           _count: {
             select: { userRoles: true }
@@ -493,12 +490,11 @@ export async function roleRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // DELETE /api/roles/:id - Retire role (never actually delete)
+  // DELETE /api/roles/:id - Delete role
   fastify.delete<{ Params: RoleParams }>('/:id',
     { preHandler: requirePermission(PERMISSIONS.MANAGE_ROLES) },
     async (request, reply) => {
       const roleId = parseInt(request.params.id, 10);
-      const { reason } = (request.body || {}) as { reason?: string };
 
       if (isNaN(roleId)) {
         return reply.status(400).send({ error: 'Invalid role ID' });
@@ -506,7 +502,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
       const role = await prismaPrimary.role.findUnique({
         where: { id: roleId },
-        include: { _count: { select: { userRoles: true } } }
+        include: { _count: { select: { userRoles: true }}}
       });
 
       if (!role) {
@@ -514,35 +510,20 @@ export async function roleRoutes(fastify: FastifyInstance) {
       }
 
       if (role.isSystem) {
-        return reply.status(400).send({
-          error: 'Cannot retire system role',
-          message: 'System roles are permanent and cannot be modified'
-        });
+        return reply.status(400).send({ error: 'Cannot delete system role' });
       }
 
       if (role._count.userRoles > 0) {
-        return reply.status(409).send({
-          error: 'Cannot retire role with active users',
-          message: `This role is assigned to ${role._count.userRoles} user(s). Remove all assignments first.`,
+        return reply.status(400).send({
+          error: 'Cannot delete role with assigned users',
+          details: `This role is assigned to ${role._count.userRoles} user${role._count.userRoles === 1 ? '' : 's'}. Remove the role from all users first.`,
           userCount: role._count.userRoles
         });
       }
 
-      // No active users - retire the role (preserve forever, never delete)
-      await prismaPrimary.role.update({
-        where: { id: roleId },
-        data: {
-          retired: true,
-          retiredAt: new Date(),
-          retiredBy: (request as any).user?.id || null,
-          retiredReason: reason || 'Role no longer needed'
-        }
-      });
+      await prismaPrimary.role.delete({ where: { id: roleId } });
 
-      return reply.send({ 
-        message: 'Role retired successfully (preserved for audit trail)',
-        note: 'Roles are never deleted, only retired'
-      });
+      return reply.send({ message: 'Role deleted successfully' });
     }
   );
 }

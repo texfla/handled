@@ -126,14 +126,11 @@ describe('Database Split - Customer Schema', () => {
       data: { 
         id: custId,
         name: 'Test 3PL Company',
-        slug: 'test-3pl-' + Date.now(),
-        deleted: false,
-        isTestData: true  // Mark as test data
+        slug: 'test-3pl-' + Date.now()
       }
     });
     assert.ok(customer);
     assert.strictEqual(customer.name, 'Test 3PL Company');
-    assert.strictEqual(customer.deleted, false);
     
     // Read
     const found = await prismaPrimary.customer.findUnique({
@@ -149,28 +146,16 @@ describe('Database Split - Customer Schema', () => {
     });
     assert.strictEqual(updated.name, 'Updated 3PL Company');
     
-    // Soft Delete (lifecycle pattern)
-    const softDeleted = await prismaPrimary.customer.update({
-      where: { id: custId },
-      data: { 
-        deleted: true,
-        deletedAt: new Date(),
-        deletedReason: 'Test cleanup'
-      }
-    });
-    assert.strictEqual(softDeleted.deleted, true);
-    
-    // Verify soft deletion - record still exists but marked deleted
-    const deletedRecord = await prismaPrimary.customer.findUnique({
-      where: { id: custId }
-    });
-    assert.ok(deletedRecord);
-    assert.strictEqual(deletedRecord?.deleted, true);
-    
-    // Hard delete for cleanup (only works because isTestData: true)
+    // Delete
     await prismaPrimary.customer.delete({
       where: { id: custId }
     });
+    
+    // Verify deletion
+    const deleted = await prismaPrimary.customer.findUnique({
+      where: { id: custId }
+    });
+    assert.strictEqual(deleted, null);
   });
   
   test('WarehouseAllocation CRUD works with customer relation', async () => {
@@ -182,9 +167,7 @@ describe('Database Split - Customer Schema', () => {
       data: { 
         id: custId,
         name: '3PL Co',
-        slug: '3pl-co-' + Date.now(),
-        deleted: false,
-        isTestData: true
+        slug: '3pl-co-' + Date.now()
       }
     });
     
@@ -200,8 +183,7 @@ describe('Database Split - Customer Schema', () => {
         status: 'active',
         address: { street1: '123 Warehouse Ave', city: 'New York', state: 'NY', zip: '10001', country: 'US' },
         timezone: 'America/New_York',
-        capacity: { usable_pallets: 1000 },
-        deleted: false
+        capacity: { usable_pallets: 1000 }
       }
     });
     
@@ -254,9 +236,7 @@ describe('Database Split - Customer Schema', () => {
       data: { 
         id: custId,
         name: 'Isolation Test',
-        slug: 'test-iso-' + Date.now(),
-        deleted: false,
-        isTestData: true
+        slug: 'test-iso-' + Date.now()
       }
     });
     
@@ -278,9 +258,7 @@ describe('Database Split - Customer Schema', () => {
       data: { 
         id: custId,
         name: 'Delete Test Org',
-        slug: 'delete-test-' + Date.now(),
-        deleted: false,
-        isTestData: true
+        slug: 'delete-test-' + Date.now()
       }
     });
     
@@ -295,8 +273,7 @@ describe('Database Split - Customer Schema', () => {
         status: 'active',
         address: { street1: '999 Delete St', city: 'Test', state: 'NY', zip: '10001', country: 'US' },
         timezone: 'America/New_York',
-        capacity: { usable_pallets: 100 },
-        deleted: false
+        capacity: { usable_pallets: 100 }
       }
     });
     
@@ -305,13 +282,11 @@ describe('Database Split - Customer Schema', () => {
         id: allocationId,
         customerId: customer.id,
         companyWarehouseId: warehouseId,
-        status: 'active',
-        deleted: false
+        status: 'active'
       }
     });
     
     // Delete customer (should cascade to warehouse allocation)
-    // Test data can be hard-deleted (isTestData: true)
     await prismaPrimary.customer.delete({ where: { id: customer.id }});
     
     // Verify warehouse allocation is also deleted
@@ -319,129 +294,6 @@ describe('Database Split - Customer Schema', () => {
       where: { id: allocationId }
     });
     assert.strictEqual(allocation, null);
-    
-    // Cleanup warehouse
-    await prismaPrimary.warehouse.delete({ where: { id: warehouseId }});
-  });
-});
-
-describe('Database Split - Lifecycle Management', () => {
-  test('Customer soft delete sets lifecycle columns', async () => {
-    const custId = generateId(15);
-    
-    // Create test customer
-    const customer = await prismaPrimary.customer.create({
-      data: { 
-        id: custId,
-        name: 'Lifecycle Test Customer',
-        slug: 'lifecycle-test-' + Date.now(),
-        deleted: false,
-        isTestData: true
-      }
-    });
-    
-    // Soft delete with lifecycle tracking
-    const deleted = await prismaPrimary.customer.update({
-      where: { id: custId },
-      data: {
-        deleted: true,
-        deletedAt: new Date(),
-        deletedReason: 'Test cleanup'
-      }
-    });
-    
-    assert.strictEqual(deleted.deleted, true);
-    assert.ok(deleted.deletedAt);
-    assert.strictEqual(deleted.deletedReason, 'Test cleanup');
-    
-    // Cleanup
-    await prismaPrimary.customer.delete({ where: { id: custId }});
-  });
-
-  test('Warehouse retirement sets lifecycle columns', async () => {
-    const warehouseId = 'wh_retire_' + Date.now();
-    
-    // Create test warehouse
-    const warehouse = await prismaPrimary.warehouse.create({
-      data: {
-        id: warehouseId,
-        code: 'RETIRE-01',
-        name: 'Retirement Test Warehouse',
-        type: 'owned',
-        status: 'active',
-        address: { street1: '123 Test St', city: 'Test', state: 'NY', zip: '10001', country: 'US' },
-        timezone: 'America/New_York',
-        deleted: false
-      }
-    });
-    
-    // Retire warehouse
-    const retired = await prismaPrimary.warehouse.update({
-      where: { id: warehouseId },
-      data: {
-        status: 'retired',
-        retiredAt: new Date(),
-        retiredReason: 'Test retirement'
-      }
-    });
-    
-    assert.strictEqual(retired.status, 'retired');
-    assert.ok(retired.retiredAt);
-    assert.strictEqual(retired.retiredReason, 'Test retirement');
-    
-    // Cleanup
-    await prismaPrimary.warehouse.delete({ where: { id: warehouseId }});
-  });
-
-  test('Test data flag allows deletion even with allocations', async () => {
-    const custId = generateId(15);
-    const warehouseId = 'wh_test_data_' + Date.now();
-    const allocationId = generateId(15);
-    
-    // Create test customer marked as test data
-    const customer = await prismaPrimary.customer.create({
-      data: { 
-        id: custId,
-        name: 'Test Data Customer',
-        slug: 'test-data-' + Date.now(),
-        deleted: false,
-        isTestData: true  // This allows deletion
-      }
-    });
-    
-    // Create warehouse
-    await prismaPrimary.warehouse.create({
-      data: {
-        id: warehouseId,
-        code: 'TESTDATA-01',
-        name: 'Test Data Warehouse',
-        type: 'owned',
-        status: 'active',
-        address: { street1: '123 Test St', city: 'Test', state: 'NY', zip: '10001', country: 'US' },
-        timezone: 'America/New_York',
-        deleted: false
-      }
-    });
-    
-    // Create allocation
-    await prismaPrimary.warehouseAllocation.create({
-      data: {
-        id: allocationId,
-        customerId: custId,
-        companyWarehouseId: warehouseId,
-        status: 'active',
-        deleted: false
-      }
-    });
-    
-    // Delete customer - should succeed because isTestData: true
-    await prismaPrimary.customer.delete({ where: { id: custId }});
-    
-    // Verify customer is deleted (cascade should delete allocation too)
-    const deletedCustomer = await prismaPrimary.customer.findUnique({
-      where: { id: custId }
-    });
-    assert.strictEqual(deletedCustomer, null);
     
     // Cleanup warehouse
     await prismaPrimary.warehouse.delete({ where: { id: warehouseId }});
