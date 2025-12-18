@@ -600,77 +600,6 @@ export function ClientDetailPage() {
 
         {/* Tab 1: Overview */}
         <TabsContent value="overview" className="space-y-6">
-          {/* Quick Stats */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Warehouse className="h-4 w-4" />
-                  Warehouses
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">
-                  {client.warehouseAllocations?.length || 0}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Active allocations
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Building className="h-4 w-4" />
-                  Facilities
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">
-                  {client.facilities?.length || 0}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Customer locations
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <UsersIcon className="h-4 w-4" />
-                  Contacts
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">
-                  {client.contacts?.length || 0}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Team members
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Contracts
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">
-                  {client.contracts?.length || 0}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Active agreements
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
           {/* Client Details & Primary Contact */}
           <div className="grid gap-4 md:grid-cols-2">
             {/* Client Details */}
@@ -678,10 +607,10 @@ export function ClientDetailPage() {
               <CardHeader>
                 <CardTitle>Client Details</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-1">
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-muted-foreground">Name:</span>
-                  <span className="font-medium text-base">{client.name}</span>
+                  <span className="font-medium text-sm">{client.name}</span>
                   <Badge variant={STATUS_COLORS[client.status] as any}>
                     {client.status}
                   </Badge>
@@ -694,8 +623,12 @@ export function ClientDetailPage() {
                   <span className="text-sm text-muted-foreground">Origin Date:</span>
                   <span className="text-sm">{new Date(client.createdAt).toLocaleDateString('en-US')}</span>
                 </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground">Agreements:</span>
+                  <span className="text-sm">{client.contracts?.length || 0} Contracts</span>
+                </div>
                 {client.address && (
-                  <div className="pt-2">
+                  <div className="pt-1">
                     <p className="text-sm text-muted-foreground">Address</p>
                     <p className="text-sm">
                       {(client.address as any).street1}
