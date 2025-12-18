@@ -13,7 +13,7 @@ import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { ArrowLeft, Edit, Plus, Trash2, Warehouse, Users as UsersIcon, FileText, MapPin, BarChart3, Mail, Phone, Building } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Trash2, Warehouse, Users as UsersIcon, FileText, MapPin, BarChart3, Building } from 'lucide-react';
 
 interface WarehouseAllocation {
   id: string;
@@ -678,19 +678,24 @@ export function ClientDetailPage() {
               <CardHeader>
                 <CardTitle>Client Details</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-1.5">
+              <CardContent className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <p className="font-medium text-lg">{client.name}</p>
+                  <span className="text-sm text-muted-foreground">Name:</span>
+                  <span className="font-medium text-base">{client.name}</span>
                   <Badge variant={STATUS_COLORS[client.status] as any}>
                     {client.status}
                   </Badge>
                 </div>
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Client ID:</span>{' '}
-                  <span className="font-mono">{client.slug}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground">Client ID:</span>
+                  <span className="font-mono text-sm">{client.slug}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground">Origin Date:</span>
+                  <span className="text-sm">{new Date(client.createdAt).toLocaleDateString('en-US')}</span>
                 </div>
                 {client.address && (
-                  <div className="pt-1">
+                  <div className="pt-2">
                     <p className="text-sm text-muted-foreground">Address</p>
                     <p className="text-sm">
                       {(client.address as any).street1}
@@ -701,104 +706,97 @@ export function ClientDetailPage() {
                     </p>
                   </div>
                 )}
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Client Since:</span>{' '}
-                  {new Date(client.createdAt).toLocaleDateString()}
-                </div>
               </CardContent>
             </Card>
 
             {/* Primary Contact */}
             <Card>
               <CardHeader className="py-3 flex-row items-center justify-between space-y-0">
-                <CardTitle>Primary Contact</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => {
-                  const primaryContact = client.contacts?.find(c => c.isPrimary);
-                  if (primaryContact) {
-                    openEditContact(primaryContact);
-                  } else {
-                    openAddContact();
-                  }
-                }}>
+                <CardTitle className="flex items-center gap-2">
+                  <UsersIcon className="h-4 w-4" />
+                  Contacts ({client.contacts?.length || 0})
+                </CardTitle>
+                <Button variant="ghost" className="h-auto p-0 hover:bg-transparent" onClick={openAddContact}>
                   <Plus className="h-4 w-4" />
                 </Button>
               </CardHeader>
-              <CardContent
-                className="cursor-pointer hover:bg-muted/30 transition-colors"
-                onMouseDown={(e) => {
-                  mouseDownPos.current = { x: e.clientX, y: e.clientY };
-                  isSelectingRef.current = false;
-                }}
-                onMouseMove={(e) => {
-                  if (mouseDownPos.current && e.buttons === 1) {
-                    const dx = Math.abs(e.clientX - mouseDownPos.current.x);
-                    const dy = Math.abs(e.clientY - mouseDownPos.current.y);
-                    if (dx > 5 || dy > 5) {
-                      isSelectingRef.current = true;
-                    }
-                  }
-                }}
-                onMouseUp={() => {
-                  mouseDownPos.current = null;
-                }}
-                onMouseLeave={() => {
-                  mouseDownPos.current = null;
-                  isSelectingRef.current = false;
-                }}
-                onClick={() => {
-                  if (!isSelectingRef.current && !window.getSelection()?.toString()) {
-                    const primaryContact = client.contacts?.find(c => c.isPrimary);
-                    if (primaryContact) {
-                      openEditContact(primaryContact);
-                    } else {
-                      openAddContact();
-                    }
-                  }
-                  mouseDownPos.current = null;
-                  isSelectingRef.current = false;
-                }}
-              >
-                {(() => {
-                  const primaryContact = client.contacts?.find(c => c.isPrimary);
-                  if (!primaryContact) {
-                    return (
-                      <div className="text-center py-6 text-muted-foreground">
-                        <UsersIcon className="mx-auto h-8 w-8 mb-2" />
-                        <p className="text-sm">No primary contact set</p>
-                        <p className="text-xs mt-1">Click to add a primary contact</p>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className="space-y-2">
-                      {/* Top row: Name and Email */}
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-primary hover:underline cursor-pointer">
-                          {primaryContact.firstName} {primaryContact.lastName}
-                        </span>
-                        {primaryContact.email && (
-                          <span className="text-sm text-muted-foreground">
-                            {primaryContact.email}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Bottom row: Title and Phone */}
-                      <div className="flex items-center justify-between">
-                        {primaryContact.title && (
-                          <span className="text-sm text-muted-foreground">
-                            {primaryContact.title}
-                          </span>
-                        )}
-                        {primaryContact.phone && (
-                          <span className="text-sm text-muted-foreground">
-                            {primaryContact.phone}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
+              <CardContent className="p-0">
+                {client.contacts && client.contacts.length > 0 ? (
+                  <table className="w-full">
+                    <tbody>
+                      {(client.contacts || []).map((contact: Contact) => (
+                        <tr
+                          key={contact.id}
+                          className="border-b hover:bg-muted/30 cursor-pointer transition-colors"
+                          onMouseDown={(e) => {
+                            mouseDownPos.current = { x: e.clientX, y: e.clientY };
+                            isSelectingRef.current = false;
+                          }}
+                          onMouseMove={(e) => {
+                            if (mouseDownPos.current && e.buttons === 1) {
+                              const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+                              const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+                              if (dx > 5 || dy > 5) {
+                                isSelectingRef.current = true;
+                              }
+                            }
+                          }}
+                          onMouseUp={() => {
+                            mouseDownPos.current = null;
+                          }}
+                          onMouseLeave={() => {
+                            mouseDownPos.current = null;
+                            isSelectingRef.current = false;
+                          }}
+                          onClick={() => {
+                            if (!isSelectingRef.current && !window.getSelection()?.toString()) {
+                              openEditContact(contact);
+                            }
+                            mouseDownPos.current = null;
+                            isSelectingRef.current = false;
+                          }}
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {canManageClients ? (
+                                  <div className="font-medium text-sm text-primary hover:underline">
+                                    {contact.firstName} {contact.lastName}
+                                  </div>
+                                ) : (
+                                  <div className="font-medium text-sm">
+                                    {contact.firstName} {contact.lastName}
+                                  </div>
+                                )}
+                                {contact.isPrimary && (
+                                  <Badge variant="outline" className="text-xs">Primary</Badge>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {contact.email || contact.phone}
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between mt-1">
+                              <div className="text-xs text-muted-foreground">
+                                {contact.title}
+                              </div>
+                              {contact.role && (
+                                <div className="text-xs text-muted-foreground capitalize">
+                                  {contact.role}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <UsersIcon className="mx-auto h-6 w-6 mb-2" />
+                    <p className="text-xs">No contacts</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -809,7 +807,10 @@ export function ClientDetailPage() {
             <div className="md:col-span-2 space-y-4">
               <Card>
                 <CardHeader className="py-3 flex-row items-center justify-between space-y-0">
-                  <CardTitle>Warehouse Allocations ({client.warehouseAllocations?.length || 0})</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                  <Warehouse className="h-4 w-4" />
+                  Warehouse Allocations ({client.warehouseAllocations?.length || 0})
+                </CardTitle>
                   <Button variant="ghost" className="h-auto p-0 hover:bg-transparent" onClick={openAddAllocation}>
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -860,15 +861,15 @@ export function ClientDetailPage() {
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                   {canManageClients ? (
-                                    <div className="font-medium text-primary hover:underline">{alloc.warehouse.code}</div>
+                                    <div className="font-medium text-sm text-primary hover:underline">{alloc.warehouse.code}</div>
                                   ) : (
-                                    <div className="font-medium">{alloc.warehouse.code}</div>
+                                    <div className="font-medium text-sm">{alloc.warehouse.code}</div>
                                   )}
                                   {alloc.isPrimary && (
                                     <Badge variant="outline" className="text-xs">Primary</Badge>
                                   )}
                                 </div>
-                                <div className="text-sm text-muted-foreground">
+                                <div className="text-xs text-muted-foreground">
                                   {(alloc.spaceAllocated?.pallets || alloc.spaceAllocated?.sqft) ? (
                                     <>
                                       {alloc.spaceAllocated?.pallets && `${alloc.spaceAllocated.pallets.toLocaleString()} pallets`}
@@ -879,7 +880,7 @@ export function ClientDetailPage() {
                                 </div>
                               </div>
                               <div className="flex items-center justify-between mt-1">
-                                <div className="text-sm text-muted-foreground">
+                                <div className="text-xs text-muted-foreground">
                                   {alloc.warehouse.name}
                                 </div>
                                 {alloc.zoneAssignment && (
@@ -905,7 +906,10 @@ export function ClientDetailPage() {
               {/* Customer Facilities */}
               <Card>
                 <CardHeader className="py-3 flex-row items-center justify-between space-y-0">
-                  <CardTitle>Customer Facilities ({client.facilities?.length || 0})</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building className="h-4 w-4" />
+                    Customer Facilities ({client.facilities?.length || 0})
+                  </CardTitle>
                   <Button variant="ghost" size="sm" onClick={openAddFacility}>
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -959,13 +963,16 @@ export function ClientDetailPage() {
                                   </Badge>
                                 )}
                               </div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {facility.address.city}, {facility.address.state}
+                              <div className="flex items-center justify-between mt-1">
+                                <div className="text-xs text-muted-foreground">
+                                  {facility.address.city}, {facility.address.state}
+                                </div>
                                 {(facility.isSource || facility.isDestination) && (
-                                  <span className="ml-2">
-                                    {facility.isSource && '• Source '}
-                                    {facility.isDestination && '• Destination'}
-                                  </span>
+                                  <div className="text-xs text-muted-foreground">
+                                    {facility.isSource && 'Source'}
+                                    {facility.isSource && facility.isDestination && ', '}
+                                    {facility.isDestination && 'Destination'}
+                                  </div>
                                 )}
                               </div>
                             </td>
