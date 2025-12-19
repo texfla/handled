@@ -593,7 +593,10 @@ export function ClientDetailPage() {
             Communications
           </TabsTrigger>
           <TabsTrigger value="contracts">
-            Contracts ({client.contracts?.length || 0})
+            Billing
+          </TabsTrigger>
+          <TabsTrigger value="integrations">
+            Integrations
           </TabsTrigger>
           <TabsTrigger value="settings">Account Setup</TabsTrigger>
         </TabsList>
@@ -1276,7 +1279,25 @@ export function ClientDetailPage() {
           )}
         </TabsContent>
 
-        {/* Tab 5: Account Setup */}
+        {/* Tab 5: Integrations */}
+        <TabsContent value="integrations" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold">Integrations</h2>
+          </div>
+
+          <Card>
+            <CardContent className="py-12 text-center">
+              <div className="text-center text-muted-foreground">
+                <h3 className="mt-4 text-lg font-semibold">Coming Soon</h3>
+                <p className="mt-2 text-sm">
+                  Integration settings will be available here
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 6: Account Setup */}
         <TabsContent value="settings" className="space-y-4">
           <Card>
             <CardHeader>

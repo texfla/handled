@@ -13,7 +13,7 @@ fi
 
 # Configuration (use env vars if available, otherwise use defaults)
 BACKUP_DIR="/var/backups/handled/data"
-DB_NAME="${DATA_DB_NAME:-handled}"
+DB_NAME="${DATA_DB_NAME:-handled_dev}"
 DB_USER="${DATA_DB_USER:-handled_user}"
 DB_HOST="${DATA_DB_HOST:-localhost}"
 DB_PORT="${DATA_DB_PORT:-5432}"

@@ -1,6 +1,6 @@
 # Database Migrations - Three-Concerns Pattern
 
-**Baseline established:** 2024-12-14
+**Baseline established:** 2025-12-14
 
 This directory contains the consolidated database migration system using the **three-concerns pattern** with schema-based folders.
 
