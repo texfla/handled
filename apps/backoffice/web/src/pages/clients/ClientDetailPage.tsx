@@ -971,11 +971,77 @@ export function ClientDetailPage() {
                   <CardTitle>Location & Coverage Map</CardTitle>
                 </CardHeader>
                 <CardContent className="px-2 pt-2 pb-0">
-                  {mapWarehouses.length > 0 ? (
-                    <WebGLCoverageMap
-                      warehouses={mapWarehouses}
-                      deliveryGoal={2}
-                    />
+                {mapWarehouses.length > 0 ? (
+    <>
+      {/* Add this above the WebGLCoverageMap */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '1rem',
+        fontSize: '0.875rem',
+        color: '#1f2937'
+      }}>
+        <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Transit Days:</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              background: '#22c55e',
+              border: '1px solid rgba(0,0,0,0.15)'
+            }} />
+            <span style={{ fontSize: '0.85rem' }}>1</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              background: '#84cc16',
+              border: '1px solid rgba(0,0,0,0.15)'
+            }} />
+            <span style={{ fontSize: '0.85rem' }}>2</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              background: '#eab308',
+              border: '1px solid rgba(0,0,0,0.15)'
+            }} />
+            <span style={{ fontSize: '0.85rem' }}>3</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              background: '#f97316',
+              border: '1px solid rgba(0,0,0,0.15)'
+            }} />
+            <span style={{ fontSize: '0.85rem' }}>4</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              background: '#ef4444',
+              border: '1px solid rgba(0,0,0,0.15)'
+            }} />
+            <span style={{ fontSize: '0.85rem' }}>5+</span>
+          </div>
+        </div>
+      </div>
+      
+      <WebGLCoverageMap
+        warehouses={mapWarehouses}
+        deliveryGoal={2}
+      />
+    </>
                   ) : (
                     <div className="h-[300px] relative bg-muted/20 rounded-lg border-2 border-dashed flex items-center justify-center">
                       <div className="text-center">

@@ -58,13 +58,6 @@ const DELIVERY_GOAL_SCHEMES = {
       4: 'orange' as ColorKey,
       5: 'red' as ColorKey,
     },
-    legend: [
-      { colorKey: 'darkGreen' as ColorKey, label: '1 day' },
-      { colorKey: 'lightGreen' as ColorKey, label: '2 day' },
-      { colorKey: 'yellow' as ColorKey, label: '3 day' },
-      { colorKey: 'orange' as ColorKey, label: '4 day' },
-      { colorKey: 'red' as ColorKey, label: '5+ day' },
-    ],
   },
   3: {
     colorMapping: {
@@ -74,12 +67,6 @@ const DELIVERY_GOAL_SCHEMES = {
       4: 'yellow' as ColorKey,
       5: 'red' as ColorKey,
     },
-    legend: [
-      { colorKey: 'darkGreen' as ColorKey, label: '1-2 day' },
-      { colorKey: 'lightGreen' as ColorKey, label: '3 day' },
-      { colorKey: 'yellow' as ColorKey, label: '4 day' },
-      { colorKey: 'red' as ColorKey, label: '5+ day' },
-    ],
   },
 } as const;
 
@@ -92,12 +79,6 @@ function getColorForDays(days: number, goal: DeliveryGoal) {
   return COLOR_PALETTE[colorKey];
 }
 
-function getLegendItems(goal: DeliveryGoal) {
-  return DELIVERY_GOAL_SCHEMES[goal].legend.map(item => ({
-    ...COLOR_PALETTE[item.colorKey],
-    label: item.label,
-  }));
-}
 
 function isPointInPolygon(point: [number, number], polygon: any): boolean {
   const [lng, lat] = point;
@@ -769,7 +750,7 @@ export default function WebGLCoverageMap({
     return (
       <div
         ref={containerRef}
-        className="w-full aspect-[1.35] max-h-[600px] md:aspect-[16/9] flex items-center justify-center p-8 text-center text-muted-foreground"
+        className="w-full aspect-[1.35] md:aspect-[16/9] flex items-center justify-center p-8 text-center text-muted-foreground"
         style={{
           isolation: 'isolate'
         }}
@@ -782,11 +763,11 @@ export default function WebGLCoverageMap({
   return (
     <div
       ref={containerRef}
-      className={`w-full aspect-[1.35] max-h-[600px] md:aspect-[16/9] ${className || ''}`}
+      className={`w-full aspect-[1.35] md:aspect-[16/9] ${className || ''}`}
       style={{
         isolation: 'isolate'
       }}
-    >
+    > 
       {/* WebGL Map */}
       <div style={{ 
         width: '100%', 
@@ -890,77 +871,6 @@ export default function WebGLCoverageMap({
               );
             })()}
 
-            {/* Legend */}
-            {containerWidth <= 650 ? (
-              <div style={{ 
-                position: 'absolute',
-                bottom: '8px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                display: 'flex', 
-                alignItems: 'center',
-                gap: '0.4rem',
-                fontSize: '0.7rem',
-                padding: '0.3rem 0.5rem',
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                border: '1px solid #d1d5db',
-                borderRadius: '4px',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                pointerEvents: 'none',
-                zIndex: 10,
-                color: '#1f2937',
-                whiteSpace: 'nowrap'
-              }}>
-                <span style={{ fontWeight: 600, fontSize: '0.65rem' }}>Days:</span>
-                {getLegendItems(deliveryGoal).map((item, idx) => (
-                  <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <span style={{ 
-                      width: '8px', 
-                      height: '8px', 
-                      borderRadius: '50%', 
-                      background: item.hex,
-                      border: '1px solid rgba(0,0,0,0.15)',
-                      display: 'inline-block'
-                    }} />
-                    <span style={{ fontSize: '0.65rem' }}>{item.label.replace(' day', '')}</span>
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <div style={{ 
-                position: 'absolute',
-                top: '66%',
-                right: '12px',
-                transform: 'translateY(-66%)',
-                display: 'flex', 
-                flexDirection: 'column',
-                gap: '0.35rem',
-                fontSize: '0.75rem',
-                padding: '0.75rem 0.85rem',
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                border: '1px solid #d1d5db',
-                borderRadius: '4px',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                pointerEvents: 'none',
-                zIndex: 10,
-                color: '#1f2937'
-              }}>
-                <div style={{ fontWeight: 600, marginBottom: '0.2rem', fontSize: '0.7rem' }}>Delivery:</div>
-                {getLegendItems(deliveryGoal).map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <div style={{ 
-                      width: '10px', 
-                      height: '10px', 
-                      borderRadius: '50%', 
-                      background: item.hex,
-                      border: '1px solid rgba(0,0,0,0.15)',
-                      flexShrink: 0
-                    }} />
-                    <span style={{ fontSize: '0.7rem' }}>{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </>
         ) : (
           <div style={{ 
