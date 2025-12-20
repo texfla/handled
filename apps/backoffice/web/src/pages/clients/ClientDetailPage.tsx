@@ -160,6 +160,9 @@ export function ClientDetailPage() {
   const [editingAllocation, setEditingAllocation] = useState<WarehouseAllocation | null>(null);
   const [facilityDialogOpen, setFacilityDialogOpen] = useState(false);
   const [editingFacility, setEditingFacility] = useState<CustomerFacility | null>(null);
+
+  // Delivery goal selection
+  const [deliveryGoal, setDeliveryGoal] = useState<2 | 3>(2);
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const isSelectingRef = useRef(false);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
@@ -884,7 +887,7 @@ export function ClientDetailPage() {
                     <Building className="h-4 w-4" />
                     Customer Facilities ({client.facilities?.length || 0})
                   </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={openAddFacility}>
+                  <Button variant="ghost" className="h-auto p-0 hover:bg-transparent" onClick={openAddFacility}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </CardHeader>
@@ -967,8 +970,33 @@ export function ClientDetailPage() {
             {/* Coverage Map */}
             <div className="md:col-span-3">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
                   <CardTitle>Location & Coverage Map</CardTitle>
+                  <div className="flex items-center gap-3 text-sm">
+                
+                    <div className="flex rounded-md border border-gray-200 p-0.5">
+                      <button
+                        onClick={() => setDeliveryGoal(2)}
+                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                          deliveryGoal === 2
+                            ? 'bg-blue-600 text-white'
+                            : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        2 day
+                      </button>
+                      <button
+                        onClick={() => setDeliveryGoal(3)}
+                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                          deliveryGoal === 3
+                            ? 'bg-blue-600 text-white'
+                            : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        3 day
+                      </button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="px-2 pt-2 pb-0">
                 {mapWarehouses.length > 0 ? (
@@ -1039,7 +1067,7 @@ export function ClientDetailPage() {
       
       <WebGLCoverageMap
         warehouses={mapWarehouses}
-        deliveryGoal={2}
+        deliveryGoal={deliveryGoal}
       />
     </>
                   ) : (

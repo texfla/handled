@@ -24,6 +24,6 @@ export default defineConfig({
       },
     },
   },
-  logLevel: 'warn', // Only show warnings and errors, not debug info
+  logLevel: 'silent', // Suppress ALL Vite logs including connection messages
 });
 

@@ -2,7 +2,7 @@
  * WebGL Coverage Map - GPU-accelerated version using deck.gl
  * Adapted from warehouse-optimizer-demo for handled backoffice
  */
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
 import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
 import { OrthographicView } from '@deck.gl/core';
@@ -180,9 +180,6 @@ export default function WebGLCoverageMap({
       .translate([dimensions.width / 2, verticalPosition]);
   }, [dimensions, containerWidth]);
   
-  const aspectRatio = useMemo(() => {
-    return containerWidth <= 650 ? 1.35 : BASE_WIDTH / BASE_HEIGHT;
-  }, [containerWidth]);
 
   // Animation clock
   useEffect(() => {
@@ -201,29 +198,37 @@ export default function WebGLCoverageMap({
     };
   }, []);
 
-  // Responsive sizing
+  // Responsive sizing - update dimensions when window resizes
+  const updateDimensions = useCallback(() => {
+    if (!containerRef.current) return;
+
+    const currentWidth = containerRef.current.clientWidth;
+    const currentHeight = containerRef.current.clientHeight;
+    setContainerWidth(currentWidth);
+
+    // Use actual container dimensions (CSS aspect-ratio sets them)
+    const width = Math.min(currentWidth, BASE_WIDTH);
+    const height = Math.min(currentHeight, BASE_HEIGHT);
+    const scale = (width / BASE_WIDTH) * BASE_SCALE;
+
+    setDimensions({ width, height, scale });
+  }, []);
+
   useEffect(() => {
-    const updateDimensions = () => {
-      if (!containerRef.current) return;
-
-      const currentWidth = containerRef.current.clientWidth;
-      const currentHeight = containerRef.current.clientHeight;
-      setContainerWidth(currentWidth);
-
-      // Use actual container dimensions (CSS aspect-ratio sets them)
-      const width = Math.min(currentWidth, BASE_WIDTH);
-      const height = Math.min(currentHeight, BASE_HEIGHT);
-      const scale = (width / BASE_WIDTH) * BASE_SCALE;
-
-      setDimensions({ width, height, scale });
-    };
-
     // Initial sizing with small delay to ensure container is laid out
     const timeoutId = setTimeout(updateDimensions, 0);
 
+    // Use window resize for primary updates
+    const handleWindowResize = () => {
+      updateDimensions();
+    };
+
+    // Also listen to container resize as backup
     const resizeObserver = new ResizeObserver(() => {
       updateDimensions();
     });
+
+    window.addEventListener('resize', handleWindowResize);
 
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current);
@@ -231,9 +236,10 @@ export default function WebGLCoverageMap({
 
     return () => {
       clearTimeout(timeoutId);
+      window.removeEventListener('resize', handleWindowResize);
       resizeObserver.disconnect();
     };
-  }, []);
+  }, [updateDimensions]);
 
   // Load states TopoJSON
   useEffect(() => {
@@ -276,13 +282,9 @@ export default function WebGLCoverageMap({
       return;
     }
 
-    console.log('WebGLCoverageMap: Calculating coverage for warehouses:', warehouses);
 
     MapDataService.loadZoneMatrix()
       .then(zoneMatrix => {
-        console.log('WebGLCoverageMap: Zone matrix loaded');
-        console.log('  Origins:', zoneMatrix.origins?.length || 'N/A');
-        console.log('  Destinations:', zoneMatrix.destinations?.length || 'N/A');
         
         const coverage: DestinationCoverage[] = [];
 
@@ -317,11 +319,10 @@ export default function WebGLCoverageMap({
           }
         });
 
-        console.log('WebGLCoverageMap: Coverage calculated, zones:', coverage.length);
         setCoverageData(coverage);
       })
       .catch(err => console.error('WebGLCoverageMap: Failed to calculate coverage:', err));
-  }, [warehouses, effectiveZip3Reference]);
+  }, [warehouses, effectiveZip3Reference, deliveryGoal]);
 
   // Pre-project states GeoJSON
   const projectedStatesGeoJson = useMemo(() => {
@@ -443,7 +444,6 @@ export default function WebGLCoverageMap({
           const ref = effectiveZip3Reference[wh.zip3];
           lng = ref.lng;
           lat = ref.lat;
-          console.log(`WebGLCoverageMap: Looked up coordinates for warehouse ${wh.zip3}:`, { lat, lng });
         }
         
         if (!lng || !lat) {
@@ -750,7 +750,7 @@ export default function WebGLCoverageMap({
     return (
       <div
         ref={containerRef}
-        className="w-full aspect-[1.35] md:aspect-[16/9] flex items-center justify-center p-8 text-center text-muted-foreground"
+        className="w-full aspect-[16/9] flex items-center justify-center p-8 text-center text-muted-foreground"
         style={{
           isolation: 'isolate'
         }}
@@ -763,7 +763,7 @@ export default function WebGLCoverageMap({
   return (
     <div
       ref={containerRef}
-      className={`w-full aspect-[1.35] md:aspect-[16/9] ${className || ''}`}
+      className={`w-full aspect-[16/9] ${className || ''}`}
       style={{
         isolation: 'isolate'
       }}
@@ -771,10 +771,9 @@ export default function WebGLCoverageMap({
       {/* WebGL Map */}
       <div style={{ 
         width: '100%', 
-        height: 'auto', 
+        height: 'auto',
         overflow: 'hidden',
-        position: 'relative',
-        aspectRatio: aspectRatio.toString()
+        position: 'relative'
       }}>
         {webglError ? (
           <div style={{ 
