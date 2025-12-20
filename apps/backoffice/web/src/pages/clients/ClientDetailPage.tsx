@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Checkbox } from '../../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { ArrowLeft, Edit, Plus, Trash2, Warehouse, Users as UsersIcon, FileText, MapPin, BarChart3, Building } from 'lucide-react';
+import WebGLCoverageMap from '@/components/map/WebGLCoverageMap';
 
 interface WarehouseAllocation {
   id: string;
@@ -23,6 +24,15 @@ interface WarehouseAllocation {
     id: string;
     code: string;
     name: string;
+    address?: {
+      street1?: string;
+      street2?: string;
+      city?: string;
+      state?: string;
+      zip?: string;
+      country?: string;
+      timezone?: string;
+    };
     capacity?: {
       usable_pallets?: number;
     };
@@ -538,6 +548,34 @@ export function ClientDetailPage() {
     }
   }, [data?.settings, portalSubdomain]);
 
+  // Transform warehouse allocations for map (must be before conditional returns)
+  const mapWarehouses = useMemo(() => {
+    if (!data?.warehouseAllocations || data.warehouseAllocations.length === 0) {
+      return [];
+    }
+
+    // Extract zip3 from warehouse address
+    return data.warehouseAllocations
+      .map((alloc) => {
+        const zip = alloc.warehouse.address?.zip;
+        if (!zip) {
+          console.warn(`Warehouse ${alloc.warehouse.code} missing address.zip`);
+          return null;
+        }
+
+        // Extract first 3 digits of ZIP code
+        const zip3 = zip.substring(0, 3);
+
+        return {
+          zip3,
+          // Coordinates will be looked up from zip3-reference.json by the map component
+          isRequired: alloc.isPrimary,
+          populationCovered: 0, // Will be calculated by the map component
+        };
+      })
+      .filter((wh): wh is NonNullable<typeof wh> => wh !== null);
+  }, [data?.warehouseAllocations]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -932,43 +970,24 @@ export function ClientDetailPage() {
                 <CardHeader>
                   <CardTitle>Location & Coverage Map</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="h-[300px] relative bg-muted/20 rounded-lg border-2 border-dashed flex items-center justify-center">
-                    <div className="text-center">
-                      <MapPin className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
-                      <p className="text-sm font-medium">Interactive Coverage Map</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Coming soon - will show warehouse pins and delivery zones
-                      </p>
-                    </div>
-                    
-                    {/* Legend */}
-                    <div className="absolute bottom-4 left-4 bg-background/95 backdrop-blur p-3 rounded-lg border shadow-lg">
-                      <div className="space-y-2 text-xs">
-                        <div className="font-medium mb-2">Legend</div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                          <span>Your Warehouses</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                          <span>Customer Facilities</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-green-200 dark:bg-green-800 opacity-50"></div>
-                          <span>1-Day Zone</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-blue-200 dark:bg-blue-800 opacity-50"></div>
-                          <span>2-Day Zone</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-gray-200 dark:bg-gray-700 opacity-50"></div>
-                          <span>3+ Days</span>
-                        </div>
+                <CardContent className="px-2 pt-2 pb-0">
+                  {mapWarehouses.length > 0 ? (
+                    <WebGLCoverageMap
+                      warehouses={mapWarehouses}
+                      deliveryGoal={2}
+                       height={500}
+                    />
+                  ) : (
+                    <div className="h-[300px] relative bg-muted/20 rounded-lg border-2 border-dashed flex items-center justify-center">
+                      <div className="text-center">
+                        <MapPin className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
+                        <p className="text-sm font-medium">No Warehouse Allocations</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Add warehouse allocations to see the coverage map
+                        </p>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

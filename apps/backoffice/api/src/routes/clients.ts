@@ -124,7 +124,7 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
         warehouseAllocations: {
           include: {
             warehouse: {
-              select: { id: true, code: true, name: true },
+              select: { id: true, code: true, name: true, address: true },
             },
           },
         },
