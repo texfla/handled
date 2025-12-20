@@ -1,35 +1,39 @@
 # Deck.gl Mapping Solution Implementation Plan
 
 ## Overview
-Implement a high-performance, interactive mapping component for 3PL logistics using deck.gl 9.2.5. This reusable React component will visualize warehouse coverage areas, ZIP3 boundaries, and support drag-and-drop warehouse relocation with real-time transit time calculations.
+Implement a high-performance, interactive mapping component for 3PL logistics using the proven deck.gl 8.9.36 approach from the working warehouse-optimizer-demo. This will adapt the tested implementation to work within the handled monorepo structure, visualizing warehouse coverage areas, ZIP3 boundaries, and supporting drag-and-drop warehouse relocation.
 
 ## Architecture Goals
 - **Performance**: GPU-accelerated rendering with WebGL
 - **Flexibility**: Reusable component for multiple 3PL logistics use cases
 - **Interactivity**: Hover tooltips, drag & drop, display mode controls
 - **Data Integration**: Support for shapefiles (ZIP3 boundaries) and location data
+- **Proven Approach**: Copy working implementation from warehouse-optimizer-demo
 - **Visual Excellence**: Match the aesthetic of https://www.radioactivebanana.com/projects/wh_optimizer/
 
 ## Phase 1: Dependencies & Setup ✅
 
-### Update `apps/backoffice/web/package.json`
+### Update `apps/backoffice/web/package.json` (Copy from working demo)
 ```json
 {
   "dependencies": {
-    "@deck.gl/core": "^9.2.5",
-    "@deck.gl/layers": "^9.2.5",
-    "@deck.gl/react": "^9.2.5",
-    "d3-geo": "^3.1.1",
-    "topojson-client": "^3.1.1"
+    "@deck.gl/core": "^8.9.36",
+    "@deck.gl/layers": "^8.9.36",
+    "@deck.gl/react": "^8.9.36",
+    "deck.gl": "^8.9.36",
+    "d3-geo": "^3.1.0",
+    "d3-scale": "^4.0.2",
+    "topojson-client": "^3.1.0"
   },
   "devDependencies": {
-    "@types/d3-geo": "^3.1.1",
+    "@types/d3-geo": "^3.1.0",
+    "@types/d3-scale": "^4.0.9",
     "@types/topojson-client": "^3.1.5"
   }
 }
 ```
 
-### Update Vite Configuration (`apps/backoffice/web/vite.config.ts`)
+### Update Vite Configuration (`apps/backoffice/web/vite.config.ts`) (Copy from working demo)
 ```typescript
 export default defineConfig({
   plugins: [react()],
@@ -38,40 +42,34 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  optimizeDeps: {
-    include: ['@deck.gl/core', '@deck.gl/layers', '@deck.gl/react']
-  },
   define: {
     global: 'globalThis',
   },
 });
 ```
 
-## Phase 2: File Structure & Types ✅
+## Phase 2: Copy Working Implementation
 
-Create this directory structure in `apps/backoffice/web/src/components/`:
+### Adapt warehouse-optimizer-demo/src/components/WebGLCoverageMap.tsx
+
+Copy the proven WebGLCoverageMap.tsx implementation and adapt it for the handled monorepo:
+
+**Key adaptations needed:**
+- Update import paths to match handled structure
+- Modify data loading to use handled API endpoints
+- Adapt warehouse/facility data structures
+- Update component props to match handled data models
+- Integrate with handled UI components (shadcn/ui)
+
+**File structure (adapted from working demo):**
 ```
 apps/backoffice/web/src/components/
 ├── map/
-│   ├── DeckGLMap.tsx              # Main component
-│   ├── DeckGLMap.module.css       # Component styles
-│   ├── layers/
-│   │   ├── StateBackgroundLayer.ts
-│   │   ├── ZipBoundaryLayer.ts
-│   │   └── WarehouseMarkerLayer.ts
-│   ├── hooks/
-│   │   ├── useMapInstance.ts
-│   │   ├── useMapLayers.ts
-│   │   └── useMapInteractions.ts
-│   ├── utils/
-│   │   ├── map-helpers.ts
-│   │   └── projection-utils.ts
-│   └── types/
-│       └── map.types.ts
-├── ui/
-│   ├── map-legend.tsx            # Legend component
-│   └── map-controls.tsx          # Display mode controls
-└── index.ts                      # Export all components
+│   ├── WebGLCoverageMap.tsx       # Adapted from working demo
+│   ├── types.ts                   # Adapted type definitions
+│   └── utils/
+│       └── map-helpers.ts         # Adapted utilities
+└── index.ts                      # Export the adapted component
 ```
 
 ### Type Definitions (`apps/backoffice/web/src/components/map/types/map.types.ts`)
@@ -121,222 +119,31 @@ export interface DeckGLMapProps {
 }
 ```
 
-## Phase 3: Core Implementation ✅
+## Phase 3: Adapt Core Implementation
 
-### Color Palette (`apps/backoffice/web/src/components/map/utils/map-helpers.ts`)
-```typescript
-export const COLOR_PALETTE = {
-  darkGreen: { hex: '#22c55e', rgb: [34, 197, 94] },
-  lightGreen: { hex: '#84cc16', rgb: [132, 204, 22] },
-  yellow: { hex: '#eab308', rgb: [234, 179, 8] },
-  orange: { hex: '#f97316', rgb: [249, 115, 22] },
-  red: { hex: '#ef4444', rgb: [239, 68, 68] },
-  gray: { hex: '#e5e7eb', rgb: [229, 231, 235] },
-} as const;
+### Copy and Adapt WebGLCoverageMap.tsx
 
-export const DELIVERY_GOAL_SCHEMES = {
-  2: {
-    name: '2-Day Goal',
-    goal: 2,
-    colorMapping: {
-      1: 'darkGreen',
-      2: 'lightGreen',
-      3: 'yellow',
-      4: 'orange',
-      5: 'red',
-    },
-  },
-  3: {
-    name: '3-Day Goal',
-    goal: 3,
-    colorMapping: {
-      1: 'darkGreen',
-      2: 'darkGreen',
-      3: 'lightGreen',
-      4: 'yellow',
-      5: 'red',
-    },
-  },
-} as const;
-```
+**Key adaptations from working demo:**
+- Change import paths to match handled monorepo structure
+- Update data loading to use handled API patterns
+- Modify warehouse/facility data structures to match handled models
+- Adapt component props for handled data requirements
+- Update responsive logic to match handled UI patterns
 
-### Projection Utils (`apps/backoffice/web/src/components/map/utils/projection-utils.ts`)
-```typescript
-import { geoAlbersUsa } from 'd3-geo';
+### Implementation Approach:
+1. **Copy** the working WebGLCoverageMap.tsx as starting point
+2. **Adapt imports** to use handled paths and components
+3. **Modify data structures** to work with handled warehouse/facility models
+4. **Update API calls** to use handled backend endpoints
+5. **Integrate styling** with shadcn/ui components
 
-export function createAlbersProjection(width: number, height: number, scale: number) {
-  // Position map based on screen width (matching your existing logic)
-  const verticalPosition = width <= 650
-    ? height * 0.42
-    : height / 2 + 20;
-
-  return geoAlbersUsa()
-    .scale(scale)
-    .translate([width / 2, verticalPosition]);
-}
-```
-
-### State Background Layer (`apps/backoffice/web/src/components/map/layers/StateBackgroundLayer.ts`)
-```typescript
-import { GeoJsonLayer } from '@deck.gl/layers';
-import type { GeoJsonLayerProps } from '@deck.gl/layers';
-
-interface StateBackgroundLayerProps extends Omit<GeoJsonLayerProps, 'data'> {
-  data: any;
-  hoveredState?: string;
-}
-
-export function StateBackgroundLayer({ data, hoveredState, ...props }: StateBackgroundLayerProps) {
-  return new GeoJsonLayer({
-    id: 'states-background',
-    data,
-    filled: true,
-    stroked: true,
-    getFillColor: (d: any) => {
-      const stateName = d.properties?.name;
-      const isHovered = hoveredState === stateName;
-      return isHovered ? [200, 205, 210, 255] : [229, 231, 235, 255];
-    },
-    getLineColor: (d: any) => {
-      const stateName = d.properties?.name;
-      const isHovered = hoveredState === stateName;
-      return isHovered ? [100, 100, 100, 255] : [200, 200, 200, 180];
-    },
-    getLineWidth: (d: any) => {
-      const stateName = d.properties?.name;
-      const isHovered = hoveredState === stateName;
-      return isHovered ? 2 : 0.5;
-    },
-    lineWidthUnits: 'pixels',
-    pickable: true,
-    updateTriggers: {
-      getFillColor: [hoveredState],
-      getLineColor: [hoveredState],
-      getLineWidth: [hoveredState],
-    },
-    ...props,
-  });
-}
-```
-
-## Phase 4: Main Component Implementation ✅
-
-### DeckGLMap.tsx (Core Component)
-```typescript
-import { useMemo, useState, useEffect, useRef } from 'react';
-import DeckGL from '@deck.gl/react';
-import { OrthographicView } from '@deck.gl/core';
-import { StateBackgroundLayer } from './layers/StateBackgroundLayer';
-import { ZipBoundaryLayer } from './layers/ZipBoundaryLayer';
-import { WarehouseMarkerLayer } from './layers/WarehouseMarkerLayer';
-import { createAlbersProjection } from './utils/projection-utils';
-import type { DeckGLMapProps } from './types/map.types';
-import './DeckGLMap.module.css';
-
-const statesUrl = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
-const zip3Url = '/data/zip3-boundaries.json'; // Place in apps/backoffice/web/public/data/
-
-export default function DeckGLMap({
-  coverageData,
-  warehouses,
-  deliveryGoal,
-  displayMode = 'shaded',
-  zip3Reference,
-  onWarehouseMove,
-  className,
-}: DeckGLMapProps) {
-  const [statesGeoJson, setStatesGeoJson] = useState<any>(null);
-  const [zip3GeoJson, setZip3GeoJson] = useState<any>(null);
-  const [dimensions, setDimensions] = useState({ width: 960, height: 540, scale: 1100 });
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Responsive sizing logic (matching your existing implementation)
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (!containerRef.current) return;
-      const currentWidth = containerRef.current.clientWidth;
-      const aspectRatio = currentWidth <= 650 ? 1.35 : 960 / 540;
-      const width = Math.min(currentWidth, 960);
-      const height = width / aspectRatio;
-      const scale = (width / 960) * 1100;
-      setDimensions({ width, height, scale });
-    };
-
-    updateDimensions();
-    const resizeObserver = new ResizeObserver(updateDimensions);
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-    return () => resizeObserver.disconnect();
-  }, []);
-
-  // Load GeoJSON data
-  useEffect(() => {
-    Promise.all([
-      fetch(statesUrl).then(r => r.json()),
-      fetch(zip3Url).then(r => r.json())
-    ]).then(([statesTopo, zip3Data]) => {
-      // Convert TopoJSON to GeoJSON
-      const { feature } = await import('topojson-client');
-      const statesGeo = feature(statesTopo, statesTopo.objects.states);
-      setStatesGeoJson(statesGeo);
-      setZip3GeoJson(zip3Data);
-    });
-  }, []);
-
-  const layers = useMemo(() => {
-    const layerArray = [];
-
-    if (statesGeoJson) {
-      layerArray.push(StateBackgroundLayer({ data: statesGeoJson }));
-    }
-
-    if (zip3GeoJson && coverageData.length > 0) {
-      layerArray.push(ZipBoundaryLayer({
-        data: zip3GeoJson,
-        coverageData,
-        displayMode,
-        deliveryGoal
-      }));
-    }
-
-    if (warehouses.length > 0) {
-      layerArray.push(WarehouseMarkerLayer({
-        data: warehouses,
-        onWarehouseMove
-      }));
-    }
-
-    return layerArray;
-  }, [statesGeoJson, zip3GeoJson, coverageData, warehouses, displayMode, deliveryGoal]);
-
-  const projection = useMemo(() =>
-    createAlbersProjection(dimensions.width, dimensions.height, dimensions.scale),
-    [dimensions]
-  );
-
-  const initialViewState = useMemo(() => ({
-    ortho: {
-      target: [dimensions.width / 2, dimensions.height / 2 + 20, 0],
-      zoom: 0,
-    }
-  }), [dimensions]);
-
-  return (
-    <div ref={containerRef} className={className}>
-      <DeckGL
-        initialViewState={initialViewState}
-        controller={false}
-        layers={layers}
-        views={[new OrthographicView({ id: 'ortho', controller: false, flipY: true })]}
-        width={dimensions.width}
-        height={dimensions.height}
-        getCursor={({ isHovering }) => isHovering ? 'pointer' : 'default'}
-      />
-    </div>
-  );
-}
-```
+### Working Demo Key Features to Preserve:
+- ✅ OrthographicView with flipY: true
+- ✅ Pre-projection using geoAlbersUsa()
+- ✅ Responsive sizing logic
+- ✅ Color schemes and transit time mapping
+- ✅ Hover interactions and tooltips
+- ✅ Drag-and-drop warehouse positioning
 
 ## Phase 5: Data Setup & Integration
 
@@ -421,44 +228,41 @@ export { MapControls } from './ui/map-controls';
 
 ## Implementation Phases Summary
 
-### Phase 1: Foundation ✅
-- [x] Project dependencies and configuration
-- [x] Basic component structure and types
-- [x] Geographic projection utilities
-- [x] Color schemes and legends
+### Phase 1: Dependencies & Setup ✅
+- [x] Downgrade to proven deck.gl 8.9.36 (from broken 9.2.5)
+- [x] Add missing packages (deck.gl, d3-scale)
+- [x] Update Vite config to match working demo
 
-### Phase 2: Core Rendering ✅
-- [x] State background layer
-- [x] Basic DeckGL setup
-- [x] Component integration
+### Phase 2: Copy Working Implementation ✅
+- [x] Copy WebGLCoverageMap.tsx from warehouse-optimizer-demo
+- [x] Adapt import paths for handled monorepo structure
+- [x] Update file organization to match handled patterns
 
-### Phase 3: ZIP3 Boundaries (Next)
-- [ ] ZipBoundaryLayer implementation
-- [ ] Transit time coloring logic
-- [ ] Display mode controls
+### Phase 3: Adapt for Handled Data Models (Next)
+- [ ] Modify component props to match handled warehouse/facility structures
+- [ ] Update data loading to use handled API endpoints
+- [ ] Adapt responsive logic for handled UI patterns
+- [ ] Integrate with shadcn/ui components
 
-### Phase 4: Warehouse Features
-- [ ] WarehouseMarkerLayer with animations
-- [ ] Drag & drop interactions
-- [ ] Position update callbacks
+### Phase 4: Integration & Testing
+- [ ] Embed in NewClientDetailPage.tsx
+- [ ] Test with real client warehouse/facility data
+- [ ] Verify Albers projection shows Alaska/Hawaii correctly
+- [ ] Confirm drag-and-drop functionality works
 
 ### Phase 5: Polish & Optimization
-- [ ] Hover tooltips and legends
-- [ ] Performance optimizations
+- [ ] Add hover tooltips and legends
+- [ ] Performance testing with large datasets
 - [ ] Error handling and fallbacks
-
-### Phase 6: API Integration
-- [ ] Connect to real coverage data
-- [ ] Warehouse CRUD operations
-- [ ] Real-time updates
+- [ ] Cross-browser compatibility
 
 ## Success Criteria
-- [ ] Matches visual design of reference implementation
-- [ ] Smooth 60fps performance with 10k+ ZIP3 areas
-- [ ] Intuitive drag & drop interactions
-- [ ] Responsive across device sizes
-- [ ] Type-safe TypeScript implementation
-- [ ] Reusable across multiple pages
+- [ ] **Working Map**: No WebGL device errors (unlike previous 9.2.5 attempt)
+- [ ] **Proper Albers Projection**: Alaska and Hawaii positioned correctly
+- [ ] **Handled Data Integration**: Works with real warehouse/facility data
+- [ ] **Proven Performance**: Matches working demo's 60fps performance
+- [ ] **Responsive Design**: Adapts to handled UI patterns
+- [ ] **Drag & Drop**: Functional warehouse relocation
 
 ## Data Sources
 
@@ -504,24 +308,22 @@ export { MapControls } from './ui/map-controls';
 - Performance benchmarks
 - Cross-browser compatibility
 
-## Timeline
+## Timeline (Adapted Approach)
 
-- **Phase 1**: 30 minutes (dependencies)
-- **Phase 2**: 1 hour (file structure)
-- **Phase 3**: 2-3 hours (core types & utils)
-- **Phase 4**: 3-4 hours (main component & layers)
-- **Phase 5**: 1 hour (integration)
-- **Phase 6**: 1-2 hours (data setup)
-- **Phase 7**: 2-3 hours (testing & refinement)
+- **Phase 1**: 15 minutes (update dependencies to working versions)
+- **Phase 2**: 30 minutes (copy and organize working demo files)
+- **Phase 3**: 2-3 hours (adapt for handled data models and APIs)
+- **Phase 4**: 1-2 hours (integrate into NewClientDetailPage)
+- **Phase 5**: 2-3 hours (testing, polishing, and optimization)
 
-**Total: 10-14 hours** for a production-ready implementation!
+**Total: 6-9 hours** - Significantly faster by copying proven implementation!
 
 ## Risks & Mitigations
 
-- **WebGL Compatibility**: Provide canvas fallback
-- **Large Datasets**: Implement progressive loading
-- **Browser Performance**: GPU acceleration with deck.gl
-- **Data Loading**: Error boundaries and loading states
+- **Version Compatibility**: Using proven 8.9.36 eliminates WebGL device errors from 9.2.5
+- **Data Model Changes**: Working demo structure reduces adaptation complexity
+- **Integration Issues**: Copying proven code minimizes unexpected bugs
+- **Performance**: Established patterns from working demo ensure good performance
 
 ## Future Enhancements
 
