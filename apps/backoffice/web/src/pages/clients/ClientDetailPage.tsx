@@ -975,7 +975,6 @@ export function ClientDetailPage() {
                     <WebGLCoverageMap
                       warehouses={mapWarehouses}
                       deliveryGoal={2}
-                       height={500}
                     />
                   ) : (
                     <div className="h-[300px] relative bg-muted/20 rounded-lg border-2 border-dashed flex items-center justify-center">

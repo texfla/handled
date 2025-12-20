@@ -56,5 +56,5 @@ export interface WebGLCoverageMapProps {
   deliveryGoal?: 2 | 3;
   zip3Reference?: Zip3ReferenceMap;
   onWarehouseMove?: (oldZip3: string, newZip3: string) => void;
-  height?: number;
+  className?: string;
 }

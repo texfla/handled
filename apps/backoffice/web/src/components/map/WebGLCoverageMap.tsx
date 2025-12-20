@@ -164,12 +164,12 @@ function findZip3ForDropPosition(
   return nearestZip3;
 }
 
-export default function WebGLCoverageMap({ 
-  warehouses, 
-  deliveryGoal = 2, 
+export default function WebGLCoverageMap({
+  warehouses,
+  deliveryGoal = 2,
   zip3Reference,
   onWarehouseMove,
-  height = 500
+  className
 }: WebGLCoverageMapProps) {
   const [statesGeoJson, setStatesGeoJson] = useState<any>(null);
   const [zip3GeoJson, setZip3GeoJson] = useState<any>(null);
@@ -224,16 +224,16 @@ export default function WebGLCoverageMap({
   useEffect(() => {
     const updateDimensions = () => {
       if (!containerRef.current) return;
-      
+
       const currentWidth = containerRef.current.clientWidth;
+      const currentHeight = containerRef.current.clientHeight;
       setContainerWidth(currentWidth);
-      
-      const aspectRatio = currentWidth <= 650 ? 1.35 : BASE_WIDTH / BASE_HEIGHT;
-      
+
+      // Use actual container dimensions (CSS aspect-ratio sets them)
       const width = Math.min(currentWidth, BASE_WIDTH);
-      const height = width / aspectRatio;
+      const height = Math.min(currentHeight, BASE_HEIGHT);
       const scale = (width / BASE_WIDTH) * BASE_SCALE;
-      
+
       setDimensions({ width, height, scale });
     };
 
@@ -767,17 +767,11 @@ export default function WebGLCoverageMap({
   
   if (isDataLoading) {
     return (
-      <div 
+      <div
         ref={containerRef}
-        style={{ 
-          width: '100%', 
-          height: `${height}px`,
-          padding: '2rem', 
-          textAlign: 'center', 
-          color: '#6b7280',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
+        className="w-full aspect-[1.35] max-h-[600px] md:aspect-[16/9] flex items-center justify-center p-8 text-center text-muted-foreground"
+        style={{
+          isolation: 'isolate'
         }}
       >
         Loading map...
@@ -786,14 +780,11 @@ export default function WebGLCoverageMap({
   }
 
   return (
-    <div 
-      ref={containerRef} 
-      style={{ 
-        width: '100%', 
-        height: `${height}px`,
-        margin: '0 auto', 
-        isolation: 'isolate',
-        position: 'relative'
+    <div
+      ref={containerRef}
+      className={`w-full aspect-[1.35] max-h-[600px] md:aspect-[16/9] ${className || ''}`}
+      style={{
+        isolation: 'isolate'
       }}
     >
       {/* WebGL Map */}
