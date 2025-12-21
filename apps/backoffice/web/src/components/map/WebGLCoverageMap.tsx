@@ -1,6 +1,24 @@
 /**
  * WebGL Coverage Map - GPU-accelerated version using deck.gl
  * Adapted from warehouse-optimizer-demo for handled backoffice
+ *
+ * Features:
+ * - Interactive ZIP3 coverage visualization with transit time colors
+ * - Draggable warehouse markers (optional)
+ * - Hover effects and tooltips (optional)
+ * - ZIP3 and state boundary display (optional)
+ * - Smart state boundary highlighting (auto-detects state from ZIP3 hover)
+ * - Enhanced state boundary highlighting on hover
+ * - Real-time coverage calculation based on delivery goals
+ *
+ * Feature Flags (all default to true):
+ * - enableDragging: Allow moving warehouse markers
+ * - enableHover: Show visual feedback on hover
+ * - enableTooltips: Display info popups on hover
+ * - enableZip3Boundaries: Show ZIP3 area boundary lines
+ * - enableStateBoundaries: Show state boundary lines
+ * - enableAnimation: Enable warehouse marker pulsing
+ * - enableLegend: Show transit days legend above map
  */
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
@@ -17,7 +35,6 @@ const zip3Url = `${import.meta.env.BASE_URL}data/zip3-boundaries.json`;
 
 // Base dimensions for scaling calculations
 const BASE_WIDTH = 960;
-const BASE_HEIGHT = 540;
 const BASE_SCALE = 1100;
 
 // State name mapping for tooltips
@@ -150,7 +167,14 @@ export default function WebGLCoverageMap({
   deliveryGoal = 2,
   zip3Reference,
   onWarehouseMove,
-  className
+  className,
+  enableDragging,
+  enableHover,
+  enableTooltips,
+  enableZip3Boundaries,
+  enableStateBoundaries,
+  enableAnimation,
+  enableLegend,
 }: WebGLCoverageMapProps) {
   const [statesGeoJson, setStatesGeoJson] = useState<any>(null);
   const [zip3GeoJson, setZip3GeoJson] = useState<any>(null);
@@ -198,17 +222,19 @@ export default function WebGLCoverageMap({
     };
   }, []);
 
-  // Responsive sizing - update dimensions when window resizes
+  // Fixed sizing - exact canvas dimensions
   const updateDimensions = useCallback(() => {
     if (!containerRef.current) return;
 
     const currentWidth = containerRef.current.clientWidth;
-    const currentHeight = containerRef.current.clientHeight;
     setContainerWidth(currentWidth);
 
-    // Use actual container dimensions (CSS aspect-ratio sets them)
-    const width = Math.min(currentWidth, BASE_WIDTH);
-    const height = Math.min(currentHeight, BASE_HEIGHT);
+    // Set exact canvas dimensions (490×275)
+    const width = 490;
+    const height = 275;
+
+    // Don't set container height - let it auto-size to fit content
+
     const scale = (width / BASE_WIDTH) * BASE_SCALE;
 
     setDimensions({ width, height, scale });
@@ -234,12 +260,12 @@ export default function WebGLCoverageMap({
       resizeObserver.observe(containerRef.current);
     }
 
-    return () => {
-      clearTimeout(timeoutId);
-      window.removeEventListener('resize', handleWindowResize);
-      resizeObserver.disconnect();
-    };
-  }, [updateDimensions]);
+  return () => {
+    clearTimeout(timeoutId);
+    window.removeEventListener('resize', handleWindowResize);
+    resizeObserver.disconnect();
+  };
+}, [updateDimensions]); // updateDimensions now includes enableLegend
 
   // Load states TopoJSON
   useEffect(() => {
@@ -478,7 +504,7 @@ export default function WebGLCoverageMap({
           id: 'states-background',
           data: projectedStatesGeoJson,
           filled: true,
-          stroked: true,
+          stroked: enableStateBoundaries,
           getFillColor: (d: any) => {
             const stateName = d.properties?.name;
             const isHovered = hoveredState === stateName;
@@ -492,9 +518,10 @@ export default function WebGLCoverageMap({
           getLineWidth: (d: any) => {
             const stateName = d.properties?.name;
             const isHovered = hoveredState === stateName;
-            return isHovered ? 2 : 0.5;
+            return isHovered ? 3 : 1.5; // Thicker for easier hover detection
           },
           lineWidthUnits: 'pixels',
+          lineWidthMinPixels: 2, // Minimum 2px width for hover detection
           pickable: true,
           updateTriggers: {
             getFillColor: [hoveredState],
@@ -512,7 +539,7 @@ export default function WebGLCoverageMap({
           id: 'zip3-layer',
           data: projectedGeoJson,
           filled: true,
-          stroked: true,
+          stroked: enableZip3Boundaries,
           getFillColor: (d: any) => {
             const zip3 = d.properties.ZIP3 || d.properties.ZCTA3 || d.properties.GEOID10;
             const coverage = coverageDataMap.get(zip3);
@@ -543,11 +570,11 @@ export default function WebGLCoverageMap({
 
             return [170, 170, 170, 160];
           },
-          getLineWidth: (d: any) => {
+          getLineWidth: enableZip3Boundaries ? (d: any) => {
             const zip3 = d.properties.ZIP3 || d.properties.ZCTA3 || d.properties.GEOID10;
             const isHovered = hoveredZip3 === zip3;
-            return isHovered ? 1.5 : 0.75;
-          },
+            return isHovered ? 2 : 1;
+          } : 0,
           lineWidthUnits: 'pixels',
           pickable: true,
           updateTriggers: {
@@ -575,17 +602,21 @@ export default function WebGLCoverageMap({
           getFillColor: [37, 99, 235, 255],
           getRadius: (d: any) => {
             const baseRadius = d.isRequired ? 7.7 : 6.6;
-            
+
             if (hoveredWarehouse === d.zip3) {
               return baseRadius * 1.3;
             }
-            
-            const coverage = d.populationCovered || 1;
-            const speed = coverage / maxCoverage;
-            const cycleTime = 2000 / speed;
-            const cycle = (animationTime % cycleTime) / cycleTime;
-            const pulseScale = 1 + 0.3 * Math.sin(cycle * Math.PI * 2);
-            return baseRadius * pulseScale;
+
+            if (enableAnimation) {
+              const coverage = d.populationCovered || 1;
+              const speed = coverage / maxCoverage;
+              const cycleTime = 2000 / speed;
+              const cycle = (animationTime % cycleTime) / cycleTime;
+              const pulseScale = 1 + 0.3 * Math.sin(cycle * Math.PI * 2);
+              return baseRadius * pulseScale;
+            }
+
+            return baseRadius; // Static size when animation disabled
           },
           radiusUnits: 'pixels',
           stroked: true,
@@ -594,7 +625,9 @@ export default function WebGLCoverageMap({
           getLineColor: [255, 255, 255, 255],
           pickable: true,
           updateTriggers: {
-            getRadius: [warehouses, animationTime, hoveredWarehouse],
+            getRadius: enableAnimation
+              ? [warehouses, animationTime, hoveredWarehouse]
+              : [warehouses, hoveredWarehouse],
             data: [draggedWarehouse],
           },
         })
@@ -617,6 +650,30 @@ export default function WebGLCoverageMap({
             updateTriggers: {
               getPosition: [dragPosition],
             },
+          })
+        );
+      }
+    }
+
+    // State highlight layer - renders on top when a state is hovered
+    if (hoveredState && projectedStatesGeoJson) {
+      const hoveredFeature = projectedStatesGeoJson.features.find(
+        (f: any) => f.properties.name === hoveredState
+      );
+      if (hoveredFeature) {
+        layersArray.push(
+          new GeoJsonLayer({
+            id: 'state-highlight',
+            data: {
+              type: 'FeatureCollection',
+              features: [hoveredFeature]
+            },
+            filled: false,
+            stroked: true,
+            getLineColor: [100, 100, 100, 120],
+            getLineWidth: 2,
+            lineWidthUnits: 'pixels',
+            pickable: false,
           })
         );
       }
@@ -721,9 +778,16 @@ export default function WebGLCoverageMap({
         setHoveredZip3(zip3);
         setHoveredWarehouse(null);
         setTooltipPosition({ x: info.x, y: info.y });
+
+        // Automatically derive and set state from ZIP3 coverage data
+        const coverage = coverageDataMap.get(zip3);
+        const stateCode = coverage?.state;
+        const stateName = stateCode ? STATE_NAMES[stateCode] : null;
+        setHoveredState(stateName || null);
       } else {
         setHoveredZip3(null);
         setHoveredWarehouse(null);
+        setHoveredState(null);
         setTooltipPosition(null);
       }
     } else {
@@ -763,15 +827,76 @@ export default function WebGLCoverageMap({
   return (
     <div
       ref={containerRef}
-      className={`w-full aspect-[16/9] ${className || ''}`}
+      className={`w-full ${className || ''}`}
       style={{
-        isolation: 'isolate'
+        isolation: 'isolate',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: dimensions.height + 'px'
       }}
-    > 
+    >
+      {enableLegend && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '1rem',
+          fontSize: '0.875rem',
+          color: '#1f2937'
+        }}>
+          <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Transit Days:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {(() => {
+              const scheme = DELIVERY_GOAL_SCHEMES[deliveryGoal];
+              const legendItems: Array<{label: string, color: string}> = [];
+
+              if (deliveryGoal === 3) {
+                // For 3-day delivery: combine 1-2 days
+                legendItems.push({
+                  label: '1-2',
+                  color: COLOR_PALETTE[scheme.colorMapping[1]].hex
+                });
+              } else {
+                // For 2-day delivery: separate 1 and 2 days
+                legendItems.push({
+                  label: '1',
+                  color: COLOR_PALETTE[scheme.colorMapping[1]].hex
+                });
+              }
+
+              // Add remaining days (3, 4, 5+)
+              const remainingDays = deliveryGoal === 3 ? [3, 4, 5] : [2, 3, 4, 5];
+              remainingDays.forEach(day => {
+                const colorKey = scheme.colorMapping[day as keyof typeof scheme.colorMapping];
+                legendItems.push({
+                  label: day === 5 ? '5+' : day.toString(),
+                  color: COLOR_PALETTE[colorKey].hex
+                });
+              });
+
+              return legendItems.map(({label, color}) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{
+                    width: '12px',
+                    height: '12px',
+                    borderRadius: '50%',
+                    background: color,
+                    border: '1px solid rgba(0,0,0,0.15)'
+                  }} />
+                  <span style={{ fontSize: '0.85rem' }}>{label}</span>
+                </div>
+              ));
+            })()}
+          </div>
+        </div>
+      )}
+
       {/* WebGL Map */}
-      <div style={{ 
-        width: '100%', 
-        height: 'auto',
+      <div style={{
+        width: dimensions.width + 'px',
+        height: dimensions.height + 'px',
         overflow: 'hidden',
         position: 'relative'
       }}>
@@ -806,10 +931,11 @@ export default function WebGLCoverageMap({
               style={{ position: 'relative' }}
               width={dimensions.width}
               height={dimensions.height}
-              onHover={handleHover}
-              onDragStart={handleDragStart}
-              onDrag={handleDrag}
-              onDragEnd={handleDragEnd}
+              useDevicePixels={false}
+              onHover={enableHover ? handleHover : undefined}
+              onDragStart={enableDragging ? handleDragStart : undefined}
+              onDrag={enableDragging ? handleDrag : undefined}
+              onDragEnd={enableDragging ? handleDragEnd : undefined}
               onError={(error: any) => {
                 console.error('DeckGL Error:', error);
                 setWebglError(error.message || 'WebGL rendering error');
@@ -818,7 +944,7 @@ export default function WebGLCoverageMap({
             />
             
             {/* Tooltip */}
-            {!draggedWarehouse && hoveredZip3 && tooltipPosition && coverageDataMap.get(hoveredZip3) && (() => {
+            {enableTooltips && !draggedWarehouse && hoveredZip3 && tooltipPosition && coverageDataMap.get(hoveredZip3) && (() => {
               const offset = 35;
               const tooltipWidth = 150;
               const isLeftHalf = tooltipPosition.x < dimensions.width / 2;

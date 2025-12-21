@@ -57,4 +57,13 @@ export interface WebGLCoverageMapProps {
   zip3Reference?: Zip3ReferenceMap;
   onWarehouseMove?: (oldZip3: string, newZip3: string) => void;
   className?: string;
+
+  // Feature flags (required - controlled by parent)
+  enableDragging: boolean;
+  enableHover: boolean;
+  enableTooltips: boolean;
+  enableZip3Boundaries: boolean;
+  enableStateBoundaries: boolean;
+  enableAnimation: boolean;
+  enableLegend: boolean;
 }
