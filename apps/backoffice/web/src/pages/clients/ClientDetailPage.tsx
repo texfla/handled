@@ -660,8 +660,8 @@ export function ClientDetailPage() {
           <div className="grid gap-4 md:grid-cols-2">
             {/* Client Details */}
             <Card>
-              <CardHeader>
-                <CardTitle>Client Details</CardTitle>
+              <CardHeader className="py-1">
+                <CardTitle className="py-2">Client Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1">
                 <div className="flex items-center gap-3">
@@ -700,12 +700,12 @@ export function ClientDetailPage() {
 
             {/* Primary Contact */}
             <Card>
-              <CardHeader className="py-3 flex-row items-center justify-between space-y-0">
-                <CardTitle className="flex items-center gap-2">
+              <CardHeader className="py-1 flex-row items-center justify-between space-y-0">
+                <CardTitle className="flex items-center gap-2 py-2">
                   <UsersIcon className="h-4 w-4" />
                   Contacts ({client.contacts?.length || 0})
                 </CardTitle>
-                <Button variant="ghost" className="h-auto p-0 hover:bg-transparent" onClick={openAddContact}>
+                <Button variant="ghost" className="h-auto p-1 hover:bg-transparent" onClick={openAddContact}>
                   <Plus className="h-4 w-4" />
                 </Button>
               </CardHeader>
@@ -795,12 +795,12 @@ export function ClientDetailPage() {
             {/* Warehouse Allocations & Facilities */}
             <div className="md:col-span-2 space-y-4">
               <Card>
-                <CardHeader className="py-3 flex-row items-center justify-between space-y-0">
-                  <CardTitle className="flex items-center gap-2">
+                <CardHeader className="py-1 flex-row items-center justify-between space-y-0">
+                  <CardTitle className="flex items-center gap-2 py-2">
                   <Warehouse className="h-4 w-4" />
                   Warehouse Allocations ({client.warehouseAllocations?.length || 0})
                 </CardTitle>
-                  <Button variant="ghost" className="h-auto p-0 hover:bg-transparent" onClick={openAddAllocation}>
+                  <Button variant="ghost" className="h-auto p-1 hover:bg-transparent" onClick={openAddAllocation}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </CardHeader>
@@ -894,12 +894,12 @@ export function ClientDetailPage() {
 
               {/* Customer Facilities */}
               <Card>
-                <CardHeader className="py-3 flex-row items-center justify-between space-y-0">
-                  <CardTitle className="flex items-center gap-2">
+                <CardHeader className="py-1 flex-row items-center justify-between space-y-0">
+                  <CardTitle className="flex items-center gap-2 py-2">
                     <Building className="h-4 w-4" />
                     Customer Facilities ({client.facilities?.length || 0})
                   </CardTitle>
-                  <Button variant="ghost" className="h-auto p-0 hover:bg-transparent" onClick={openAddFacility}>
+                  <Button variant="ghost" className="h-auto p-1 hover:bg-transparent" onClick={openAddFacility}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </CardHeader>
@@ -982,14 +982,14 @@ export function ClientDetailPage() {
             {/* Coverage Map */}
             <div className="md:col-span-3">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                  <CardTitle>Location & Coverage Map</CardTitle>
+                <CardHeader className="py-1 flex flex-row items-center justify-between space-y-0">
+                  <CardTitle className="py-2">Location & Coverage Map</CardTitle>
                   <div className="flex items-center gap-3 text-sm">
                 
-                    <div className="flex rounded-md border border-gray-200 p-0.5">
+                    <div className="flex rounded-md border border-gray-200">
                       <button
                         onClick={() => setDeliveryGoal(2)}
-                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                        className={`px-2 py-0.5 text-xs rounded transition-colors ${
                           deliveryGoal === 2
                             ? 'bg-blue-600 text-white'
                             : 'text-gray-600 hover:bg-gray-50'
@@ -999,7 +999,7 @@ export function ClientDetailPage() {
                       </button>
                       <button
                         onClick={() => setDeliveryGoal(3)}
-                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                        className={`px-2 py-0.5 text-xs rounded transition-colors ${
                           deliveryGoal === 3
                             ? 'bg-blue-600 text-white'
                             : 'text-gray-600 hover:bg-gray-50'
@@ -1011,7 +1011,7 @@ export function ClientDetailPage() {
 
                     <button
                       onClick={() => setShowMapSettings(!showMapSettings)}
-                      className="p-1 hover:bg-gray-100 rounded ml-2"
+                      className="px-1 hover:bg-gray-100 rounded ml-2"
                       title="Map Settings"
                     >
                       <Settings className="h-4 w-4" />
