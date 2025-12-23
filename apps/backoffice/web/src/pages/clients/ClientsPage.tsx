@@ -7,7 +7,7 @@ import { Card, CardContent } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Badge } from '../../components/ui/badge';
-import { Plus, Search, Building2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Search, Building2 } from 'lucide-react';
 import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions';
 
 interface Client {
@@ -46,7 +46,6 @@ export function ClientsPage() {
   const canManageClients = hasPermission(PERMISSIONS.MANAGE_CLIENTS);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [useNewDetailView, setUseNewDetailView] = useState(false);
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const isSelectingRef = useRef(false);
 
@@ -86,22 +85,6 @@ export function ClientsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">New Detail View</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setUseNewDetailView(!useNewDetailView)}
-              className="gap-2"
-            >
-              {useNewDetailView ? (
-                <ToggleRight className="h-4 w-4 text-primary" />
-              ) : (
-                <ToggleLeft className="h-4 w-4 text-muted-foreground" />
-              )}
-              {useNewDetailView ? 'On' : 'Off'}
-            </Button>
-          </div>
           <Button onClick={() => navigate('/clients/onboard')}>
             <Plus className="h-4 w-4 mr-2" />
             Add Client
@@ -198,8 +181,7 @@ export function ClientsPage() {
                     }}
                     onClick={() => {
                       if (!isSelectingRef.current && !window.getSelection()?.toString()) {
-                        const path = useNewDetailView ? `/clients/new-detail/${client.id}` : `/clients/${client.id}`;
-                        navigate(path);
+                        navigate(`/clients/${client.id}`);
                       }
                       mouseDownPos.current = null;
                       isSelectingRef.current = false;

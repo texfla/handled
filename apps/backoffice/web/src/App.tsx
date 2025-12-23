@@ -17,7 +17,6 @@ import { WarehouseDetailPage } from './pages/warehouses/WarehouseDetailPage';
 // Clients
 import { ClientsPage } from './pages/clients/ClientsPage';
 import { ClientDetailPage } from './pages/clients/ClientDetailPage';
-import { NewClientDetailPage } from './pages/clients/NewClientDetailPage';
 import { ClientOnboardingWizard } from './pages/clients/ClientOnboardingWizard';
 
 // Profile
@@ -70,7 +69,6 @@ export default function App() {
         {/* Clients */}
         <Route path="clients">
           <Route index element={<ClientsPage />} />
-          <Route path="new-detail/:id" element={<NewClientDetailPage />} />
           <Route path="onboard" element={<ClientOnboardingWizard />} />
           <Route path=":id" element={<ClientDetailPage />} />
         </Route>
