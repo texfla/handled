@@ -13,7 +13,9 @@ interface IntegrationResponse {
 
 export async function integrationRoutes(fastify: FastifyInstance) {
   // List all integrations
-  fastify.get('/', async () => {
+  fastify.get('/',{
+    schema: { tags: ['Integrations'] }
+  },  async () => {
     return {
       integrations: integrations.map((i): IntegrationResponse => ({
         id: i.id,
@@ -26,7 +28,9 @@ export async function integrationRoutes(fastify: FastifyInstance) {
   });
 
   // List integrations grouped by category
-  fastify.get('/by-category', async () => {
+  fastify.get('/by-category', {
+    schema: { tags: ['Integrations'] }
+  }, async () => {
     const result: Record<string, IntegrationResponse[]> = {};
 
     for (const [category, items] of Object.entries(integrationsByCategory)) {
@@ -43,7 +47,9 @@ export async function integrationRoutes(fastify: FastifyInstance) {
   });
 
   // Get single integration details
-  fastify.get('/:id', async (request, reply) => {
+  fastify.get('/:id', {
+    schema: { tags: ['Integrations'] }
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const integration = getIntegration(id);
     
@@ -63,7 +69,9 @@ export async function integrationRoutes(fastify: FastifyInstance) {
   });
 
   // Get run history for an integration
-  fastify.get('/:id/runs', async (request) => {
+  fastify.get('/:id/runs', {
+    schema: { tags: ['Integrations'] }
+  }, async (request) => {
     const { id } = request.params as { id: string };
     
     const runs = await prismaPrimary.integrationRun.findMany({

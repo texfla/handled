@@ -226,6 +226,7 @@ export const navigation: NavSection[] = [
     children: [
       { id: 'users', label: 'Users & Roles', href: '/admin/users', implemented: true, requiredAnyPermission: ['view_users', 'manage_users'] },
       { id: 'roles', label: 'Role Permissions', href: '/admin/roles', implemented: true, requiredAnyPermission: ['view_roles', 'manage_roles'] },
+      { id: 'api-docs', label: 'API Documentation', href: '/admin/api-docs', implemented: true, requiredAnyPermission: ['view_users', 'manage_users'] },
       { id: 'company', label: 'Company Settings', href: '/admin/company', implemented: false },
       { id: 'billing-rules', label: 'Billing Rules', href: '/admin/billing-rules', implemented: false },
       { id: 'notifications', label: 'Notifications', href: '/admin/notifications', implemented: false },

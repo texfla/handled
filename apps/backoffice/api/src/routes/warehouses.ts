@@ -30,7 +30,9 @@ const warehouseSchema = z.object({
 
 export const warehousesRoutes: FastifyPluginAsync = async (fastify) => {
   // List warehouses
-  fastify.get('/', async () => {
+  fastify.get('/', {
+    schema: { tags: ['Warehouses'] }
+  }, async () => {
     const warehouses = await prismaPrimary.warehouse.findMany({
       include: {
         manager: {
@@ -52,7 +54,9 @@ export const warehousesRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Get warehouse by ID
-  fastify.get('/:id', async (request, reply) => {
+  fastify.get('/:id', {
+    schema: { tags: ['Warehouses'] }
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     
     const warehouse = await prismaPrimary.warehouse.findUnique({
@@ -80,7 +84,9 @@ export const warehousesRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Create warehouse
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', {
+    schema: { tags: ['Warehouses'] }
+  }, async (request, reply) => {
     const body = warehouseSchema.parse(request.body);
     
     const warehouse = await prismaPrimary.warehouse.create({
@@ -103,7 +109,9 @@ export const warehousesRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Update warehouse
-  fastify.put('/:id', async (request) => {
+  fastify.put('/:id', {
+    schema: { tags: ['Warehouses'] }
+  }, async (request) => {
     const { id } = request.params as { id: string };
     const body = warehouseSchema.partial().parse(request.body);
 
@@ -128,7 +136,9 @@ export const warehousesRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Delete warehouse
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', {
+    schema: { tags: ['Warehouses'] }
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
     // Check if warehouse has active client allocations

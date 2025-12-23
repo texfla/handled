@@ -48,12 +48,16 @@ const availableExports: ExportMetadata[] = [
 
 export async function exportRoutes(fastify: FastifyInstance) {
   // List available exports
-  fastify.get('/', async () => {
+  fastify.get('/', {
+    schema: { tags: ['Exports'] }
+  }, async () => {
     return availableExports;
   });
 
   // Generate and download zip3-reference.json
-  fastify.get('/zip3-reference', async (_, reply) => {
+  fastify.get('/zip3-reference', {
+    schema: { tags: ['Exports'] }
+  }, async (_, reply) => {
     const { info, logTiming } = await import('../lib/logger.js');
     try {
       info('Generating zip3-reference.json...');
@@ -78,7 +82,9 @@ export async function exportRoutes(fastify: FastifyInstance) {
   });
 
   // Generate and download zone-matrix.json
-  fastify.get('/zone-matrix', async (_, reply) => {
+  fastify.get('/zone-matrix', {
+    schema: { tags: ['Exports'] }
+  }, async (_, reply) => {
     const { info, logTiming } = await import('../lib/logger.js');
     try {
       info('Generating zone-matrix.json...');
@@ -103,7 +109,9 @@ export async function exportRoutes(fastify: FastifyInstance) {
   });
 
   // Generate and download zone-matrix-ups.json (UPS only)
-  fastify.get('/zone-matrix-ups', async (_, reply) => {
+  fastify.get('/zone-matrix-ups', {
+    schema: { tags: ['Exports'] }
+  }, async (_, reply) => {
     const { info, logTiming } = await import('../lib/logger.js');
     try {
       info('Generating zone-matrix-ups.json...');
@@ -128,7 +136,9 @@ export async function exportRoutes(fastify: FastifyInstance) {
   });
 
   // Generate and download zone-matrix-usps.json (USPS only)
-  fastify.get('/zone-matrix-usps', async (_, reply) => {
+  fastify.get('/zone-matrix-usps', {
+    schema: { tags: ['Exports'] }
+  }, async (_, reply) => {
     const { info, logTiming } = await import('../lib/logger.js');
     try {
       info('Generating zone-matrix-usps.json...');

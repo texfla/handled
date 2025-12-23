@@ -28,6 +28,7 @@ import { ActivityLogPage } from './pages/profile/ActivityLogPage';
 // Admin
 import { UsersPage } from './pages/admin/UsersPage';
 import { RolesPage } from './pages/admin/RolesPage';
+import { ApiDocsPage } from './pages/admin/ApiDocsPage';
 import { StyleGuidePage } from './pages/admin/StyleGuidePage';
 
 // Placeholders
@@ -134,6 +135,7 @@ export default function App() {
           <Route index element={<Navigate to="/admin/users" replace />} />
           <Route path="users" element={<UsersPage />} />
           <Route path="roles" element={<RolesPage />} />
+          <Route path="api-docs" element={<ApiDocsPage />} />
           <Route path="company" element={<ComingSoonPage />} />
           <Route path="warehouse" element={<ComingSoonPage />} />
           <Route path="billing-rules" element={<ComingSoonPage />} />

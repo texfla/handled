@@ -19,7 +19,9 @@ const registerSchema = z.object({
 
 export async function authRoutes(fastify: FastifyInstance) {
   // Login
-  fastify.post('/login', async (request, reply) => {
+  fastify.post('/login', {
+    schema: { tags: ['Auth'] }
+  }, async (request, reply) => {
     const body = loginSchema.parse(request.body);
 
     const user = await prismaPrimary.user.findUnique({
@@ -86,7 +88,9 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Register (admin only in production, open in dev)
-  fastify.post('/register', async (request, reply) => {
+  fastify.post('/register', {
+    schema: { tags: ['Auth'] }
+  }, async (request, reply) => {
     const body = registerSchema.parse(request.body);
 
     const existingUser = await prismaPrimary.user.findUnique({
@@ -161,7 +165,9 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Logout
-  fastify.post('/logout', async (request, reply) => {
+  fastify.post('/logout', {
+    schema: { tags: ['Auth'] }
+  }, async (request, reply) => {
     const sessionId = lucia.readSessionCookie(request.headers.cookie ?? '');
     
     if (sessionId) {
@@ -176,7 +182,9 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Get current user
-  fastify.get('/me', async (request, reply) => {
+  fastify.get('/me', {
+    schema: { tags: ['Auth'] }
+  }, async (request, reply) => {
     const sessionId = lucia.readSessionCookie(request.headers.cookie ?? '');
     
     if (!sessionId) {
@@ -254,7 +262,9 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Update profile
-  fastify.put('/profile', async (request, reply) => {
+  fastify.put('/profile', {
+    schema: { tags: ['Auth'] }
+  }, async (request, reply) => {
     const sessionId = lucia.readSessionCookie(request.headers.cookie ?? '');
     
     if (!sessionId) {
@@ -305,7 +315,9 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Change password
-  fastify.post('/change-password', async (request, reply) => {
+  fastify.post('/change-password', {
+    schema: { tags: ['Auth'] }
+  }, async (request, reply) => {
     const sessionId = lucia.readSessionCookie(request.headers.cookie ?? '');
     
     if (!sessionId) {

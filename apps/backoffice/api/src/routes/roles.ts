@@ -38,7 +38,9 @@ interface UpdateRoleMetadataBody {
 
 export async function roleRoutes(fastify: FastifyInstance) {
   // GET /api/permissions - List all available permissions (no auth required for dropdown)
-  fastify.get('/permissions', async (_request, reply) => {
+  fastify.get('/permissions', {
+    schema: { tags: ['Roles'] }
+  }, async (_request, reply) => {
     const permissions = await prismaPrimary.permission.findMany({
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
     });
@@ -76,7 +78,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
   // GET /api/roles - List all roles
   // CHANGED: Check for view_roles (with implications) instead of manage_roles
   fastify.get('/',
-    { preHandler: requirePermission(PERMISSIONS.VIEW_ROLES) },
+    { schema: { tags: ['Roles'] },preHandler: requirePermission(PERMISSIONS.VIEW_ROLES) },
     async (_request, reply) => {
       const roles = await prismaPrimary.role.findMany({
         include: {
@@ -111,7 +113,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
   // GET /api/roles/:id/users - Get users with this role
   // IMPORTANT: Define BEFORE generic GET /:id to avoid route conflicts
   fastify.get<{ Params: RoleParams }>('/:id/users',
-    { preHandler: requirePermission(PERMISSIONS.VIEW_ROLES) },
+    { schema: { tags: ['Roles'] },preHandler: requirePermission(PERMISSIONS.VIEW_ROLES) },
     async (request, reply) => {
       const roleId = parseInt(request.params.id, 10);
 
@@ -138,9 +140,10 @@ export async function roleRoutes(fastify: FastifyInstance) {
   );
 
   // GET /api/roles/:id - Get single role
-  fastify.get<{ Params: RoleParams }>('/:id',
-    { preHandler: requirePermission(PERMISSIONS.VIEW_ROLES) },
-    async (request, reply) => {
+  fastify.get<{ Params: RoleParams }>('/:id', {
+    schema: { tags: ['Roles'] },
+    preHandler: requirePermission(PERMISSIONS.VIEW_ROLES)
+  }, async (request, reply) => {
       const roleId = parseInt(request.params.id, 10);
       
       if (isNaN(roleId)) {
@@ -189,7 +192,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
   // GET /api/roles/:id/permissions - Get role permissions
   fastify.get<{ Params: RoleParams }>('/:id/permissions',
-    { preHandler: requirePermission(PERMISSIONS.VIEW_ROLES) },
+    { schema: { tags: ['Roles'] },preHandler: requirePermission(PERMISSIONS.VIEW_ROLES) },
     async (request, reply) => {
       const roleId = parseInt(request.params.id, 10);
       
@@ -214,7 +217,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
   // Requires manage_roles (not view_roles)
   fastify.put<{ Params: RoleParams; Body: UpdatePermissionsBody }>(
     '/:id/permissions',
-    { preHandler: requirePermission(PERMISSIONS.MANAGE_ROLES) },
+    { schema: { tags: ['Roles'] },preHandler: requirePermission(PERMISSIONS.MANAGE_ROLES) },
     async (request, reply) => {
       const roleId = parseInt(request.params.id, 10);
       const { permissions } = request.body;
@@ -295,9 +298,10 @@ export async function roleRoutes(fastify: FastifyInstance) {
   );
 
   // POST /api/roles - Create new role
-  fastify.post<{ Body: CreateRoleBody }>('/',
-    { preHandler: requirePermission(PERMISSIONS.MANAGE_ROLES) },
-    async (request, reply) => {
+  fastify.post<{ Body: CreateRoleBody }>('/', {
+    schema: { tags: ['Roles'] },
+    preHandler: requirePermission(PERMISSIONS.MANAGE_ROLES)
+  }, async (request, reply) => {
       const { name, description, icon, permissions } = request.body;
 
       // Validate name
@@ -432,7 +436,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
   // PUT /api/roles/:id/metadata - Update role metadata (description/icon only)
   fastify.put<{ Params: RoleParams; Body: UpdateRoleMetadataBody }>(
     '/:id/metadata',
-    { preHandler: requirePermission(PERMISSIONS.MANAGE_ROLES) },
+    { schema: { tags: ['Roles'] },preHandler: requirePermission(PERMISSIONS.MANAGE_ROLES) },
     async (request, reply) => {
       const roleId = parseInt(request.params.id, 10);
       const { description, icon } = request.body;
@@ -492,7 +496,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/roles/:id - Delete role
   fastify.delete<{ Params: RoleParams }>('/:id',
-    { preHandler: requirePermission(PERMISSIONS.MANAGE_ROLES) },
+    { schema: { tags: ['Roles'] },preHandler: requirePermission(PERMISSIONS.MANAGE_ROLES) },
     async (request, reply) => {
       const roleId = parseInt(request.params.id, 10);
 

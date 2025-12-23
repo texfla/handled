@@ -8,7 +8,9 @@ import { transformService } from '../services/transform.js';
 
 export async function transformationRoutes(fastify: FastifyInstance) {
   // List all transformations
-  fastify.get('/', async () => {
+  fastify.get('/', {
+    schema: { tags: ['Transformations'] }
+  }, async () => {
     const transformations = getAllTransformations();
     return transformations.map((t) => ({
       id: t.id,
@@ -21,7 +23,9 @@ export async function transformationRoutes(fastify: FastifyInstance) {
   });
 
   // Run a specific transformation
-  fastify.post('/:id/run', async (request, reply) => {
+  fastify.post('/:id/run', {
+    schema: { tags: ['Transformations'] }
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     
     const transformation = getTransformation(id);
@@ -34,7 +38,9 @@ export async function transformationRoutes(fastify: FastifyInstance) {
   });
 
   // Run all transformations
-  fastify.post('/run-all', async () => {
+  fastify.post('/run-all', {
+    schema: { tags: ['Transformations'] }
+  }, async () => {
     const transformations = getAllTransformations();
     const results = await transformService.runTransformations(transformations);
     

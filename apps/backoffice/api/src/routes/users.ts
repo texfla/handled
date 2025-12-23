@@ -4,7 +4,9 @@ import { checkEvidentaryValue } from '../services/usage-detection.js';
 
 export const usersRoutes: FastifyPluginAsync = async (fastify) => {
   // DELETE /api/users/:id - Smart delete for users
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', {
+    schema: { tags: ['Users'] }  // ← Creates "Roles" header
+  },async (request, reply) => {
     const { id } = request.params as { id: string };
     const { reason } = (request.body || {}) as { reason?: string };
 

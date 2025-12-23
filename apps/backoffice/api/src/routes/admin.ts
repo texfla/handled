@@ -37,7 +37,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', requirePermission(PERMISSIONS.MANAGE_USERS));
 
   // GET /api/admin/users - List all users
-  fastify.get('/users', async (_request, reply) => {
+  fastify.get('/users', {
+    schema: { tags: ['Users'] }
+  }, async (_request, reply) => {
     const users = await prismaPrimary.user.findMany({
       include: {
         userRoles: {
@@ -68,7 +70,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
   });
 
   // GET /api/admin/users/:id - Get single user
-  fastify.get<{ Params: UserParams }>('/users/:id', async (request, reply) => {
+  fastify.get<{ Params: UserParams }>('/users/:id', {
+    schema: { tags: ['Users'] }
+  }, async (request, reply) => {
     const { id } = request.params;
     
     const user = await prismaPrimary.user.findUnique({
@@ -104,7 +108,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/admin/users - Create new user
-  fastify.post<{ Body: CreateUserBody }>('/users', async (request, reply) => {
+  fastify.post<{ Body: CreateUserBody }>('/users', {
+    schema: { tags: ['Users'] }
+  }, async (request, reply) => {
     const { email, password, name, roleIds } = request.body;
 
     // Validate roleIds
@@ -162,7 +168,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
   });
 
   // PUT /api/admin/users/:id - Update user
-  fastify.put<{ Params: UserParams; Body: UpdateUserBody }>('/users/:id', async (request, reply) => {
+  fastify.put<{ Params: UserParams; Body: UpdateUserBody }>('/users/:id', {
+    schema: { tags: ['Users'] }
+  }, async (request, reply) => {
     const { id } = request.params;
     const { email, name, roleIds, disabled } = request.body;
 
@@ -220,7 +228,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/admin/users/:id/reset-password - Reset user password
-  fastify.post<{ Params: UserParams; Body: ResetPasswordBody }>('/users/:id/reset-password', async (request, reply) => {
+  fastify.post<{ Params: UserParams; Body: ResetPasswordBody }>('/users/:id/reset-password', {
+    schema: { tags: ['Users'] }
+  }, async (request, reply) => {
     const { id } = request.params;
     const { newPassword } = request.body;
 
@@ -265,7 +275,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/admin/users/:id/disable - Disable user
-  fastify.post<{ Params: UserParams }>('/users/:id/disable', async (request, reply) => {
+  fastify.post<{ Params: UserParams }>('/users/:id/disable', {
+    schema: { tags: ['Users'] }
+  }, async (request, reply) => {
     const { id } = request.params;
 
     // Prevent self-disable
@@ -318,7 +330,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/admin/users/:id/enable - Enable user
-  fastify.post<{ Params: UserParams }>('/users/:id/enable', async (request, reply) => {
+  fastify.post<{ Params: UserParams }>('/users/:id/enable', {
+    schema: { tags: ['Users'] }
+  }, async (request, reply) => {
     const { id } = request.params;
 
     const user = await prismaPrimary.user.update({
@@ -350,7 +364,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
   });
 
   // DELETE /api/admin/users/:id - Delete user
-  fastify.delete<{ Params: UserParams }>('/users/:id', async (request, reply) => {
+  fastify.delete<{ Params: UserParams }>('/users/:id', {
+    schema: { tags: ['Users'] }
+  }, async (request, reply) => {
     const { id } = request.params;
 
     // Prevent self-delete
@@ -390,7 +406,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.post<{
     Params: UserParams;
     Body: AssignRolesBody;
-  }>('/users/:id/roles', async (request, reply) => {
+  }>('/users/:id/roles', {
+    schema: { tags: ['Users'] }
+  }, async (request, reply) => {
     const { id } = request.params;
     const { roleIds } = request.body;
 

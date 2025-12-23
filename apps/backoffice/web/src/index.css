@@ -93,3 +93,16 @@
   }
 }
 
+/* Swagger UI Custom Styling - Hide default header */
+.swagger-ui .topbar {
+  display: none !important;
+}
+
+.swagger-ui .info .title {
+  display: none !important;
+}
+
+.swagger-ui .scheme-container {
+  display: none !important;
+}
+

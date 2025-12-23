@@ -78,7 +78,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // Check slug availability
-  fastify.get('/check-slug/:slug', async (request, reply) => {
+  fastify.get('/check-slug/:slug', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { slug } = request.params as { slug: string };
     
     const existing = await prismaPrimary.customer.findUnique({
@@ -90,7 +92,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // List clients
-  fastify.get('/', async (request) => {
+  fastify.get('/', {
+    schema: { tags: ['Clients'] }
+  }, async (request) => {
     const { status } = request.query as { status?: string };
     
     const clients = await prismaPrimary.customer.findMany({
@@ -115,7 +119,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Get client by ID
-  fastify.get('/:id', async (request, reply) => {
+  fastify.get('/:id', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
     const client = await prismaPrimary.customer.findUnique({
@@ -152,7 +158,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Create client
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const body = organizationSchema.parse(request.body);
 
     try {
@@ -179,7 +187,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Update client
-  fastify.put('/:id', async (request) => {
+  fastify.put('/:id', {
+    schema: { tags: ['Clients'] }
+  }, async (request) => {
     const { id } = request.params as { id: string };
     const body = organizationSchema.partial().parse(request.body);
 
@@ -192,7 +202,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Delete client - Smart delete with lifecycle awareness
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { reason } = (request.body || {}) as { reason?: string };
 
@@ -230,7 +242,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Terminate customer relationship - Preserve forever
-  fastify.post('/:id/terminate', async (request, reply) => {
+  fastify.post('/:id/terminate', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { reason } = request.body as { reason: string };
 
@@ -262,7 +276,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // List client warehouse allocations
-  fastify.get('/:id/warehouse-allocations', async (request) => {
+  fastify.get('/:id/warehouse-allocations', {
+    schema: { tags: ['Clients'] }
+  }, async (request) => {
     const { id } = request.params as { id: string };
 
     const allocations = await prismaPrimary.warehouseAllocation.findMany({
@@ -278,7 +294,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Create warehouse allocation with capacity validation
-  fastify.post('/:id/warehouse-allocations', async (request, reply) => {
+  fastify.post('/:id/warehouse-allocations', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = warehouseAllocationSchema.parse(request.body);
 
@@ -334,7 +352,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Update warehouse allocation
-  fastify.put('/:id/warehouse-allocations/:allocationId', async (request, reply) => {
+  fastify.put('/:id/warehouse-allocations/:allocationId', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { allocationId } = request.params as { id: string; allocationId: string };
     const body = warehouseAllocationSchema.partial().parse(request.body);
 
@@ -414,7 +434,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Delete warehouse allocation
-  fastify.delete('/:id/warehouse-allocations/:allocationId', async (request, reply) => {
+  fastify.delete('/:id/warehouse-allocations/:allocationId', {
+    schema: { tags: ['Clients'] }  // ← Creates "Roles" header
+  },async (request, reply) => {
     const { allocationId } = request.params as { id: string; allocationId: string };
 
     await prismaPrimary.warehouseAllocation.delete({ where: { id: allocationId } });
@@ -427,7 +449,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // List customer facilities
-  fastify.get('/:id/facilities', async (request) => {
+  fastify.get('/:id/facilities', {
+    schema: { tags: ['Clients'] }
+  }, async (request) => {
     const { id } = request.params as { id: string };
 
     const facilities = await prismaPrimary.customerFacility.findMany({
@@ -438,7 +462,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Create customer facility
-  fastify.post('/:id/facilities', async (request, reply) => {
+  fastify.post('/:id/facilities', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = customerFacilitySchema.parse(request.body);
 
@@ -458,7 +484,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Update customer facility
-  fastify.put('/:id/facilities/:facilityId', async (request, reply) => {
+  fastify.put('/:id/facilities/:facilityId', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { id, facilityId } = request.params as { id: string; facilityId: string };
     const body = customerFacilitySchema.parse(request.body);
 
@@ -478,7 +506,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Delete customer facility
-  fastify.delete('/:id/facilities/:facilityId', async (request, reply) => {
+  fastify.delete('/:id/facilities/:facilityId', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { id, facilityId } = request.params as { id: string; facilityId: string };
 
     await prismaPrimary.customerFacility.delete({
@@ -493,7 +523,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // List contacts
-  fastify.get('/:id/contacts', async (request) => {
+  fastify.get('/:id/contacts', {
+    schema: { tags: ['Clients'] }
+  }, async (request) => {
     const { id } = request.params as { id: string };
 
     const contacts = await prismaPrimary.contact.findMany({
@@ -505,7 +537,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Create contact
-  fastify.post('/:id/contacts', async (request, reply) => {
+  fastify.post('/:id/contacts', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = contactSchema.parse(request.body);
 
@@ -527,7 +561,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Update contact
-  fastify.put('/:id/contacts/:contactId', async (request) => {
+  fastify.put('/:id/contacts/:contactId', {
+    schema: { tags: ['Clients'] }
+  }, async (request) => {
     const { contactId } = request.params as { id: string; contactId: string };
     const body = contactSchema.partial().parse(request.body);
 
@@ -549,7 +585,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Delete contact - Smart delete with lifecycle awareness
-  fastify.delete('/:id/contacts/:contactId', async (request, reply) => {
+  fastify.delete('/:id/contacts/:contactId', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { contactId } = request.params as { id: string; contactId: string };
     const { reason } = (request.body || {}) as { reason?: string };
 
@@ -590,7 +628,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // List contracts
-  fastify.get('/:id/contracts', async (request) => {
+  fastify.get('/:id/contracts', {
+    schema: { tags: ['Clients'] }
+  }, async (request) => {
     const { id } = request.params as { id: string };
 
     const contracts = await prismaPrimary.contract.findMany({
@@ -607,7 +647,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Create contract
-  fastify.post('/:id/contracts', async (request, reply) => {
+  fastify.post('/:id/contracts', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = contractSchema.parse(request.body);
 
@@ -630,7 +672,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Archive contract
-  fastify.post('/:customerId/contracts/:contractId/archive', async (request, reply) => {
+  fastify.post('/:customerId/contracts/:contractId/archive', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { contractId } = request.params as { customerId: string; contractId: string };
     const { reason } = request.body as { reason: string };
 
@@ -686,7 +730,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // List rate cards for a contract
-  fastify.get('/:id/contracts/:contractId/rate-cards', async (request) => {
+  fastify.get('/:id/contracts/:contractId/rate-cards', {
+    schema: { tags: ['Clients'] }
+  }, async (request) => {
     const { contractId } = request.params as { id: string; contractId: string };
 
     const rateCards = await prismaPrimary.rateCard.findMany({
@@ -698,7 +744,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Create rate card
-  fastify.post('/:id/contracts/:contractId/rate-cards', async (request, reply) => {
+  fastify.post('/:id/contracts/:contractId/rate-cards', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { contractId } = request.params as { id: string; contractId: string };
     const body = rateCardSchema.parse(request.body);
 
@@ -723,7 +771,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   // ONBOARDING (Single transaction)
   // ============================================
   
-  fastify.post('/onboard', async (request, reply) => {
+  fastify.post('/onboard', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const body = request.body as {
       client: { name: string; slug: string; status?: string };
       contact: { first_name: string; last_name: string; email?: string; phone?: string; title?: string };
@@ -856,7 +906,9 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // Update client settings
-  fastify.put('/:id/settings', async (request, reply) => {
+  fastify.put('/:id/settings', {
+    schema: { tags: ['Clients'] }
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const settingsData = request.body as {
       portal_enabled?: boolean;

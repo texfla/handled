@@ -20,7 +20,9 @@ interface BatchResult {
 
 export async function uploadRoutes(fastify: FastifyInstance) {
   // Upload and import multiple files (batch)
-  fastify.post('/:integrationId', async (request, reply) => {
+  fastify.post('/:integrationId', {
+    schema: { tags: ['Integrations'] }
+  }, async (request, reply) => {
     const { integrationId } = request.params as { integrationId: string };
     
     // Get integration
