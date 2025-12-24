@@ -62,6 +62,12 @@ export const PERMISSIONS = {
 
   // Design system permissions
   VIEW_DESIGNS: 'view_designs',
+
+  // Development permissions
+  VIEW_DEV_TOOLS: 'view_dev_tools',
+  VIEW_STYLE_GUIDE: 'view_style_guide',
+  VIEW_API_DOCS: 'view_api_docs',
+  VIEW_DOCUMENTATION: 'view_documentation',
 } as const;
 
 export const PERMISSION_CATEGORIES = {
@@ -75,6 +81,7 @@ export const PERMISSION_CATEGORIES = {
   REPORTS: 'reports',
   INTEGRATIONS: 'integrations',
   DESIGNS: 'designs',
+  DEVELOPMENT: 'development',
 } as const;
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
@@ -396,6 +403,36 @@ export const PERMISSION_INFO: Record<Permission, {
     description: 'Access component library, style guide, and design patterns',
     category: PERMISSION_CATEGORIES.DESIGNS,
     resource: 'designs',
+    action: 'view'
+  },
+
+  // Development permissions
+  [PERMISSIONS.VIEW_DEV_TOOLS]: {
+    name: 'View Dev Tools',
+    description: 'Access developer tools section',
+    category: PERMISSION_CATEGORIES.DEVELOPMENT,
+    resource: 'dev_tools',
+    action: 'view'
+  },
+  [PERMISSIONS.VIEW_STYLE_GUIDE]: {
+    name: 'View Style Guide',
+    description: 'Access component library and design patterns',
+    category: PERMISSION_CATEGORIES.DEVELOPMENT,
+    resource: 'style_guide',
+    action: 'view'
+  },
+  [PERMISSIONS.VIEW_API_DOCS]: {
+    name: 'View API Docs',
+    description: 'Access API documentation and specifications',
+    category: PERMISSION_CATEGORIES.DEVELOPMENT,
+    resource: 'api_docs',
+    action: 'view'
+  },
+  [PERMISSIONS.VIEW_DOCUMENTATION]: {
+    name: 'View Documentation',
+    description: 'Access general system documentation',
+    category: PERMISSION_CATEGORIES.DEVELOPMENT,
+    resource: 'documentation',
     action: 'view'
   },
 };

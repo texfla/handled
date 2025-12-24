@@ -53,6 +53,12 @@ export const PERMISSIONS = {
 
   // Design system permissions
   VIEW_DESIGNS: 'view_designs',
+
+  // Development permissions
+  VIEW_DEV_TOOLS: 'view_dev_tools',
+  VIEW_STYLE_GUIDE: 'view_style_guide',
+  VIEW_API_DOCS: 'view_api_docs',
+  VIEW_DOCUMENTATION: 'view_documentation',
 } as const;
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];

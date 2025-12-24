@@ -109,8 +109,16 @@ INSERT INTO config.permissions (code, name, description, category) VALUES
   -- ==================================================
   -- Design system permissions (added: 2024-12-11)
   -- ==================================================
-  ('view_designs', 'View Designs', 'Access component library, style guide, and design patterns', 'designs')
-  
+  ('view_designs', 'View Designs', 'Access component library, style guide, and design patterns', 'designs'),
+
+  -- ==================================================
+  -- Development permissions (added: 2024-12-24)
+  -- ==================================================
+  ('view_dev_tools', 'View Dev Tools', 'Access developer tools section', 'development'),
+  ('view_style_guide', 'View Style Guide', 'Access component library and design patterns', 'development'),
+  ('view_api_docs', 'View API Docs', 'Access API documentation and specifications', 'development'),
+  ('view_documentation', 'View Documentation', 'Access general system documentation', 'development')
+
   -- ==================================================
   -- DEPRECATED PERMISSIONS (removed 2024-12-16)
   -- ==================================================

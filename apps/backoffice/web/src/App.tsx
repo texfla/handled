@@ -28,6 +28,7 @@ import { ActivityLogPage } from './pages/profile/ActivityLogPage';
 import { UsersPage } from './pages/admin/UsersPage';
 import { RolesPage } from './pages/admin/RolesPage';
 import { ApiDocsPage } from './pages/admin/ApiDocsPage';
+import { DocumentationPage } from './pages/admin/DocumentationPage';
 import { StyleGuidePage } from './pages/admin/StyleGuidePage';
 
 // Placeholders
@@ -127,6 +128,7 @@ export default function App() {
           <Route index element={<Navigate to="/dev-tools/style-guide" replace />} />
           <Route path="style-guide" element={<StyleGuidePage />} />
           <Route path="api-docs" element={<ApiDocsPage />} />
+          <Route path="documentation" element={<DocumentationPage />} />
           <Route path="style-guide" element={<StyleGuidePage />} />
         </Route>
 

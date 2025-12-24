@@ -14,6 +14,7 @@ import {
   Code,
   type LucideIcon,
 } from 'lucide-react';
+import { PERMISSIONS } from '../hooks/usePermissions';
 
 export interface NavItem {
   id: string;
@@ -227,10 +228,11 @@ export const navigation: NavSection[] = [
     icon: Code,
     href: '/dev-tools',
     implemented: true,
-    requiredPermission: 'view_designs',
+    requiredPermission: PERMISSIONS.VIEW_DEV_TOOLS,
     children: [
-      { id: 'style-guide', label: 'Style Guide', href: '/dev-tools/style-guide', implemented: true, requiredPermission: 'view_designs' },
-      { id: 'api-docs', label: 'API Documentation', href: '/dev-tools/api-docs', implemented: true, requiredAnyPermission: ['view_users', 'manage_users'] },
+      { id: 'style-guide', label: 'Style Guide', href: '/dev-tools/style-guide', implemented: true, requiredPermission: PERMISSIONS.VIEW_STYLE_GUIDE },
+      { id: 'api-docs', label: 'API Docs', href: '/dev-tools/api-docs', implemented: true, requiredPermission: PERMISSIONS.VIEW_API_DOCS },
+      { id: 'documentation', label: 'Documentation', href: '/dev-tools/documentation', implemented: true, requiredPermission: PERMISSIONS.VIEW_DOCUMENTATION },
     ],
   },
 ];
