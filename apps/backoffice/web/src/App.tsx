@@ -123,8 +123,10 @@ export default function App() {
         </Route>
 
         {/* Designs */}
-        <Route path="designs">
-          <Route index element={<Navigate to="/designs/style-guide" replace />} />
+        <Route path="dev-tools">
+          <Route index element={<Navigate to="/dev-tools/style-guide" replace />} />
+          <Route path="style-guide" element={<StyleGuidePage />} />
+          <Route path="api-docs" element={<ApiDocsPage />} />
           <Route path="style-guide" element={<StyleGuidePage />} />
         </Route>
 
@@ -133,7 +135,6 @@ export default function App() {
           <Route index element={<Navigate to="/admin/users" replace />} />
           <Route path="users" element={<UsersPage />} />
           <Route path="roles" element={<RolesPage />} />
-          <Route path="api-docs" element={<ApiDocsPage />} />
           <Route path="company" element={<ComingSoonPage />} />
           <Route path="warehouse" element={<ComingSoonPage />} />
           <Route path="billing-rules" element={<ComingSoonPage />} />

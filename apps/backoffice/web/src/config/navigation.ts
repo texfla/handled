@@ -11,7 +11,7 @@ import {
   BarChart3,
   Plug,
   Shield,
-  Palette,
+  Code,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -205,17 +205,6 @@ export const navigation: NavSection[] = [
     ],
   },
   {
-    id: 'designs',
-    label: 'Designs',
-    icon: Palette,
-    href: '/designs',
-    implemented: true,
-    requiredPermission: 'view_designs',
-    children: [
-      { id: 'style-guide', label: 'Style Guide', href: '/designs/style-guide', implemented: true, requiredPermission: 'view_designs' },
-    ],
-  },
-  {
     id: 'administration',
     label: 'Administration',
     icon: Shield,
@@ -226,11 +215,22 @@ export const navigation: NavSection[] = [
     children: [
       { id: 'users', label: 'Users & Roles', href: '/admin/users', implemented: true, requiredAnyPermission: ['view_users', 'manage_users'] },
       { id: 'roles', label: 'Role Permissions', href: '/admin/roles', implemented: true, requiredAnyPermission: ['view_roles', 'manage_roles'] },
-      { id: 'api-docs', label: 'API Documentation', href: '/admin/api-docs', implemented: true, requiredAnyPermission: ['view_users', 'manage_users'] },
       { id: 'company', label: 'Company Settings', href: '/admin/company', implemented: false },
       { id: 'billing-rules', label: 'Billing Rules', href: '/admin/billing-rules', implemented: false },
       { id: 'notifications', label: 'Notifications', href: '/admin/notifications', implemented: false },
       { id: 'audit-log', label: 'Audit Log', href: '/admin/audit-log', implemented: false },
+    ],
+  },
+  {
+    id: 'dev-tools',
+    label: 'Dev Tools',
+    icon: Code,
+    href: '/dev-tools',
+    implemented: true,
+    requiredPermission: 'view_designs',
+    children: [
+      { id: 'style-guide', label: 'Style Guide', href: '/dev-tools/style-guide', implemented: true, requiredPermission: 'view_designs' },
+      { id: 'api-docs', label: 'API Documentation', href: '/dev-tools/api-docs', implemented: true, requiredAnyPermission: ['view_users', 'manage_users'] },
     ],
   },
 ];
@@ -240,4 +240,3 @@ export const mainNavigation = navigation;
 
 // Get pinned bottom navigation (empty now - kept for compatibility)
 export const bottomNavigation: NavSection[] = [];
-
