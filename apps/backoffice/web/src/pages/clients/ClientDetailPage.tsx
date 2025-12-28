@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { ArrowLeft, Edit, Plus, Trash2, Warehouse, Users as UsersIcon, FileText, MapPin, BarChart3, Building, Settings } from 'lucide-react';
 import { WebGLCoverageMap, MapSettings } from '@/components/map';
 import type { MapFeatureFlags } from '@/components/map';
-import { RateCardList } from '../../components/billing/RateCardList';
+import { RateCardList } from '../../components/billing';
 
 interface WarehouseAllocation {
   id: string;

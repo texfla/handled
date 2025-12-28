@@ -11,19 +11,13 @@ import { Checkbox } from '../ui/checkbox';
 import { Badge } from '../ui/badge';
 import { AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-interface RateCardFormProps {
-  customerId: string;
-  rateCard?: any | null; // If provided and rateCardType === 'adjustment', this is the parent
-  isOpen: boolean;
-  onClose: () => void;
-}
+import type { RateCard, RateCardFormProps } from './types';
 
 export function RateCardForm({ customerId, rateCard, isOpen, onClose }: RateCardFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEdit = !!rateCard;
-  const isCreatingAdjustment = !isEdit && rateCard?.rateCardType !== 'adjustment' && rateCard; // rateCard passed but not an adjustment = creating adjustment for this parent
+  const isCreatingAdjustment = !isEdit && rateCard !== null && rateCard !== undefined && (rateCard as RateCard).rateCardType !== 'adjustment'; // rateCard passed but not an adjustment = creating adjustment for this parent
 
   // Fetch contracts for customer
   const { data: customerData } = useQuery({
@@ -52,7 +46,7 @@ export function RateCardForm({ customerId, rateCard, isOpen, onClose }: RateCard
         setExpiresDateDisplay('');
 
         // Pre-select contracts from parent
-        const parentContracts = rateCard.contractLinks?.map((link: any) => link.contract.id) || [];
+        const parentContracts = (rateCard as RateCard).contractLinks?.map((link: any) => link.contract.id) || [];
         setSelectedContracts(parentContracts);
 
         // Leave other fields empty for partial adjustments
@@ -277,9 +271,9 @@ export function RateCardForm({ customerId, rateCard, isOpen, onClose }: RateCard
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/26b89348-0298-4d8a-845e-c1915c47fc05',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RateCardForm.tsx:156',message:'updateMutation.mutationFn START',data:{rateCardId:rateCard.id,customerId,dataKeys:Object.keys(data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'H4'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/26b89348-0298-4d8a-845e-c1915c47fc05',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RateCardForm.tsx:156',message:'updateMutation.mutationFn START',data:{rateCardId:rateCard!.id,customerId,dataKeys:Object.keys(data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'H4'})}).catch(()=>{});
       // #endregion
-      const response: any = await api.put(`/api/rate-cards/${rateCard.id}`, data);
+      const response: any = await api.put(`/api/rate-cards/${rateCard!.id}`, data);
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/26b89348-0298-4d8a-845e-c1915c47fc05',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RateCardForm.tsx:157',message:'updateMutation.mutationFn RESPONSE',data:{responseKeys:response?Object.keys(response):null,hasData:!!response},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'H4'})}).catch(()=>{});
       // #endregion
@@ -407,10 +401,10 @@ export function RateCardForm({ customerId, rateCard, isOpen, onClose }: RateCard
       contractIds: selectedContracts,
     };
 
-    if (isCreatingAdjustment) {
+    if (isCreatingAdjustment && rateCard) {
       // Create adjustment for parent rate card
-      createAdjustmentMutation.mutate({ parentId: rateCard.id, payload });
-    } else if (isEdit) {
+      createAdjustmentMutation.mutate({ parentId: (rateCard as RateCard).id, payload });
+    } else if (isEdit && rateCard) {
       updateMutation.mutate(payload);
     } else {
       createMutation.mutate(payload);
@@ -430,16 +424,16 @@ export function RateCardForm({ customerId, rateCard, isOpen, onClose }: RateCard
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {isCreatingAdjustment
-              ? `Create Adjustment for ${rateCard?.name}`
-              : isEdit
-                ? `Create New Version (v${(rateCard?.version || 0) + 1})`
+            {isCreatingAdjustment && rateCard
+              ? `Create Adjustment for ${(rateCard as RateCard).name}`
+              : isEdit && rateCard
+                ? `Create New Version (v${((rateCard as RateCard).version || 0) + 1})`
                 : 'Create New Rate Card (v1)'}
           </DialogTitle>
           <DialogDescription asChild>
-            {isCreatingAdjustment ? (
+            {isCreatingAdjustment && rateCard ? (
               <span className="block space-y-1">
-                <span className="block">Creating an adjustment for: <strong>{rateCard?.name}</strong></span>
+                <span className="block">Creating an adjustment for: <strong>{(rateCard as RateCard).name}</strong></span>
                 <span className="block text-xs text-muted-foreground">
                   Adjustments allow you to correct specific rates for specific time periods.
                   Only specify the rates you want to change - others will use the parent card.
