@@ -1,3 +1,83 @@
+/**
+ * @fileoverview Rate Card Service - Core business logic for 3PL billing system
+ *
+ * This service manages the complete lifecycle of rate cards in the 3PL billing system,
+ * handling complex operations including versioning, adjustments, contract relationships,
+ * and dynamic rate resolution for accurate billing across time periods.
+ *
+ * @author Handled Platform Team
+ * @version 1.0.0
+ * @since 2025-12-28
+ */
+
+/**
+ * Rate Card Service
+ * =================
+ *
+ * PURPOSE:
+ * Core business logic layer for managing rate cards, the foundation of the 3PL billing system.
+ * Handles all rate card operations from creation and versioning to dynamic rate resolution
+ * during billing activities. Ensures data integrity, business rules, and audit trails.
+ *
+ * SCOPE:
+ * ✅ Rate card CRUD operations with comprehensive validation
+ * ✅ Version management and supersession logic (v1, v2, v3...)
+ * ✅ Adjustment rate cards for temporary overrides
+ * ✅ Dynamic rate resolution for billing activities
+ * ✅ Contract relationship management (primary + addendums)
+ * ✅ Date conflict prevention and lifecycle management
+ * ✅ Archive/restore operations with audit trails
+ *
+ * OUT OF SCOPE:
+ * ❌ Direct database schema management
+ * ❌ HTTP request/response handling (routes layer)
+ * ❌ UI rendering and user interactions
+ * ❌ Payment processing and invoicing
+ * ❌ Contract document storage/management
+ *
+ * DEPENDENCIES:
+ * - Prisma ORM (@prisma/client-primary) - Database operations
+ * - Zod schemas (rateCardSchema.ts) - Input validation
+ * - Fastify routes (rateCards.ts) - HTTP integration
+ * - PostgreSQL (customer schema) - Data persistence
+ *
+ * BUSINESS RULES:
+ * 🏢 One active standard rate card per customer at any time
+ * 📅 Multiple adjustment cards allowed with date precedence
+ * 💰 Service-level rate resolution (most recent rate wins per service)
+ * 📄 Minimum one contract per rate card (primary + addendums)
+ * 🔒 Immutable after billing activity (archive-only changes)
+ * ⏰ Date integrity - no overlapping active periods
+ * 🔄 Soft deletion - archive instead of hard delete
+ *
+ * RATE RESOLUTION LOGIC:
+ * 1. Find all applicable rate cards for billing date
+ * 2. Sort by effective date (most recent first)
+ * 3. Resolve by service: Most recent card defining rate wins
+ * 4. VAS rates: Chronological merging (parent → adjustments)
+ *
+ * DATA FLOW:
+ * Client Request → Routes → Service → Validation → Database → Response
+ *                      ↓
+ *              Business Rules & Logic
+ *
+ * ARCHITECTURAL ROLE:
+ * Service Layer in Clean Architecture - contains all business logic,
+ * orchestrates data access, enforces rules, maintains invariants.
+ *
+ * @example
+ * ```typescript
+ * const service = new RateCardService(prisma);
+ *
+ * // Create new rate card
+ * const card = await service.createStandardRateCard(customerId, input);
+ *
+ * // Resolve rates for billing
+ * const sources = await service.getActiveRateSources(customerId, activityDate);
+ * const rates = service.resolveEffectiveRates(sources, 'fulfillment');
+ * ```
+ */
+
 import type { PrismaClient } from '@prisma/client-primary';
 import type { CreateRateCardInput, UpdateRateCardInput, AddContractLinkInput } from '../validation/rateCardSchema.js';
 

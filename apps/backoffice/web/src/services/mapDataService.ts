@@ -1,4 +1,4 @@
-import type { Zip3ReferenceMap, ZoneMatrix } from '@/components/map/types';
+import type { Zip3ReferenceMap, ZoneMatrix } from '@/components/map';
 
 export class MapDataService {
   private static zip3Reference: Zip3ReferenceMap | null = null;

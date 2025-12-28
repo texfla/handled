@@ -1,3 +1,144 @@
+/**
+ * @fileoverview Rate Cards API Routes - HTTP interface for rate card management
+ *
+ * This file defines the RESTful HTTP API endpoints for rate card management in the 3PL billing system.
+ * It provides the external interface that frontend applications and integrations use to interact with
+ * rate cards, contracts, and billing configuration.
+ *
+ * @author Handled Platform Team
+ * @version 1.0.0
+ * @since 2025-12-28
+ */
+
+/**
+ * Rate Cards API Routes
+ * =====================
+ *
+ * PURPOSE:
+ * HTTP API layer providing RESTful endpoints for rate card management in the 3PL billing system.
+ * Defines the external interface that frontend applications, mobile apps, and third-party integrations
+ * use to create, read, update, and manage rate cards and their associated contracts.
+ *
+ * SCOPE:
+ * ✅ RESTful CRUD operations for standard rate cards (v1, v2, v3...)
+ * ✅ Adjustment rate card creation (temporary overrides)
+ * ✅ Contract relationship management (link/unlink primary + addendums)
+ * ✅ Rate card lifecycle operations (activate/deactivate/archive/restore)
+ * ✅ Input validation using Zod schemas
+ * ✅ Comprehensive error handling and HTTP status codes
+ * ✅ OpenAPI documentation generation for API clients
+ * ✅ Authentication/authorization integration
+ *
+ * OUT OF SCOPE:
+ * ❌ Direct database operations (handled by service layer)
+ * ❌ Business logic validation (handled by service layer)
+ * ❌ Complex calculations (handled by service layer)
+ * ❌ File uploads/storage (different route modules)
+ * ❌ Real-time notifications (different route modules)
+ *
+ * ARCHITECTURAL ROLE:
+ * Routes Layer in Clean Architecture - handles HTTP protocol concerns including:
+ * - Request/response serialization (JSON)
+ * - HTTP status codes and headers (200, 201, 400, 404, etc.)
+ * - RESTful URL design and HTTP methods
+ * - Authentication and authorization checks
+ * - Input validation and sanitization
+ * - Error translation and user-friendly messages
+ * - OpenAPI/Swagger documentation generation
+ *
+ * ENDPOINTS OVERVIEW:
+ *
+ * 📖 READ OPERATIONS:
+ * GET  /customers/:customerId/rate-cards          # Get all rate cards for customer
+ * GET  /customers/:customerId/rate-cards/active   # Get currently active rate card
+ * GET  /rate-cards/:id                            # Get specific rate card by ID
+ *
+ * ✏️ WRITE OPERATIONS:
+ * POST /customers/:customerId/rate-cards          # Create NEW rate card (v1)
+ * PUT  /rate-cards/:id                            # Edit rate card (creates v2+)
+ * POST /rate-cards/:parentId/adjustments          # Create adjustment rate card
+ *
+ * 🔗 CONTRACT MANAGEMENT:
+ * POST   /rate-cards/:id/contracts                # Add contract to rate card
+ * DELETE /rate-cards/:id/contracts/:contractId    # Remove contract from rate card
+ *
+ * 🔄 LIFECYCLE OPERATIONS:
+ * POST   /rate-cards/:id/deactivate               # Deactivate rate card
+ * DELETE /rate-cards/:id                          # Archive rate card
+ * POST   /rate-cards/:id/restore                  # Restore archived rate card
+ *
+ * AUTHENTICATION REQUIREMENTS:
+ * ┌─────────────────┬──────────────┬─────────────────────────────────┐
+ * │ Operation Type  │ Required?    │ Reason                         │
+ * ├─────────────────┼──────────────┼─────────────────────────────────┤
+ * │ Read Operations │ Optional     │ Public display access         │
+ * │ Write Operations│ Required     │ Audit trail + business rules  │
+ * │ Archive Ops     │ Required     │ Audit trail needs user context│
+ * └─────────────────┴──────────────┴─────────────────────────────────┘
+ *
+ * HTTP STATUS CODES:
+ * - 200: Success (GET/PUT/POST)
+ * - 201: Resource created (POST)
+ * - 204: Success, no content (DELETE)
+ * - 400: Validation error or business rule violation
+ * - 401: Authentication required
+ * - 404: Rate card not found
+ *
+ * ERROR RESPONSE FORMAT:
+ * {
+ *   "error": "Human-readable error message from service layer"
+ * }
+ *
+ * REQUEST VALIDATION:
+ * - All inputs validated using Zod schemas from rateCardSchema.ts
+ * - Automatic type coercion and sanitization
+ * - Detailed error messages for validation failures
+ *
+ * INTEGRATION POINTS:
+ * - Service Layer: RateCardService handles all business logic
+ * - Validation: Zod schemas ensure type safety and constraints
+ * - Authentication: requireAuth middleware for protected routes
+ * - Database: Indirect access via Prisma ORM (service layer)
+ * - Frontend: React components consume these REST endpoints
+ *
+ * API STABILITY & VERSIONING:
+ * - Current: v1 API (no version prefix in URLs)
+ * - Semantic versioning for breaking changes
+ * - Deprecation headers for sunset endpoints
+ * - OpenAPI spec auto-generated for client SDK generation
+ *
+ * PERFORMANCE CONSIDERATIONS:
+ * - Efficient database queries via service layer optimization
+ * - Pagination support for large result sets (future)
+ * - Caching headers for read operations (future)
+ * - Rate limiting at Fastify level (future)
+ *
+ * TESTING STRATEGY:
+ * - Unit tests: Route handlers with mocked service layer
+ * - Integration tests: Full request/response cycles
+ * - API contract tests: OpenAPI spec validation
+ * - Load tests: Concurrent rate card operations
+ *
+ * DATA FLOW:
+ * Client Request → Fastify Route → Input Validation → Service Method → Database
+ *                      ↓
+ *              Response Formatting ← Error Handling ← Business Logic
+ *
+ * EXAMPLE USAGE:
+ * ```bash
+ * # Create new rate card
+ * POST /customers/cust-123/rate-cards
+ * {
+ *   "effectiveDate": "2024-01-01T00:00:00Z",
+ *   "rates": { "fulfillment": { "baseOrder": 5.00 } },
+ *   "contractIds": ["contract-456"]
+ * }
+ *
+ * # Get active rate card
+ * GET /customers/cust-123/rate-cards/active
+ * ```
+ */
+
 import type { FastifyPluginAsync } from 'fastify';
 import { prismaPrimary } from '../db/index.js';
 import { RateCardService } from '../services/rateCardService.js';

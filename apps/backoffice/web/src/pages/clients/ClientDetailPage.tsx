@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Checkbox } from '../../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { ArrowLeft, Edit, Plus, Trash2, Warehouse, Users as UsersIcon, FileText, MapPin, BarChart3, Building, Settings } from 'lucide-react';
-import WebGLCoverageMap from '@/components/map/WebGLCoverageMap';
+import { WebGLCoverageMap } from '@/components/map';
 import { RateCardList } from '../../components/billing/RateCardList';
 
 interface WarehouseAllocation {
