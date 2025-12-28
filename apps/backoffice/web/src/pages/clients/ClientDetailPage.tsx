@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions';
@@ -15,6 +15,7 @@ import { Checkbox } from '../../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { ArrowLeft, Edit, Plus, Trash2, Warehouse, Users as UsersIcon, FileText, MapPin, BarChart3, Building, Settings } from 'lucide-react';
 import WebGLCoverageMap from '@/components/map/WebGLCoverageMap';
+import { RateCardList } from '../../components/billing/RateCardList';
 
 interface WarehouseAllocation {
   id: string;
@@ -153,6 +154,7 @@ export function ClientDetailPage() {
   const canManageClients = hasPermission(PERMISSIONS.MANAGE_CLIENTS);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
   // Dialog state
@@ -222,8 +224,24 @@ export function ClientDetailPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['client', id],
-    queryFn: () => api.get<{ client: Client }>(`/api/clients/${id}`).then(r => r.client),
+    queryFn: () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/26b89348-0298-4d8a-845e-c1915c47fc05',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ClientDetailPage.tsx:226',message:'client query queryFn EXECUTING',data:{clientId:id},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'H3'})}).catch(()=>{});
+      // #endregion
+      return api.get<{ client: Client }>(`/api/clients/${id}`).then(r => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/26b89348-0298-4d8a-845e-c1915c47fc05',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ClientDetailPage.tsx:227',message:'client query queryFn RESPONSE',data:{clientId:id,hasClient:!!r.client,clientName:r.client?.name,warehouseAllocations:r.client?.warehouseAllocations?.length,contacts:r.client?.contacts?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'H1,H4'})}).catch(()=>{});
+        // #endregion
+        return r.client;
+      });
+    },
   });
+
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7242/ingest/26b89348-0298-4d8a-845e-c1915c47fc05',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ClientDetailPage.tsx:228',message:'CLIENT DATA CHANGED',data:{clientId:id,hasData:!!data,dataKeys:data?Object.keys(data):null,isLoading,warehouseAllocations:data?.warehouseAllocations?.length,contacts:data?.contacts?.length,contracts:data?.contracts?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'H1,H5,H6'})}).catch(()=>{});
+  }, [data, isLoading, id]);
+  // #endregion
 
   // Fetch all warehouses for allocation dropdown
   const { data: warehousesData } = useQuery({
@@ -613,6 +631,12 @@ export function ClientDetailPage() {
 
   const client = data;
 
+  // Tab state management
+  const activeTab = searchParams.get('tab') || 'overview';
+  const handleTabChange = (value: string) => {
+    setSearchParams({ tab: value });
+  };
+
   return (
     <div className="space-y-3">
       {/* Back Button */}
@@ -636,7 +660,7 @@ export function ClientDetailPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="allocations">
@@ -1385,62 +1409,77 @@ export function ClientDetailPage() {
         </TabsContent>
 
         {/* Tab 4: Contracts */}
-        <TabsContent value="contracts" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Contracts & Rate Cards</h2>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Contract
-            </Button>
+        <TabsContent value="contracts" className="space-y-6">
+          {/* Contracts Section */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-semibold">Contracts</h2>
+                <p className="text-sm text-muted-foreground">Legal agreements and terms</p>
+              </div>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Contract
+              </Button>
+            </div>
+
+            {client.contracts && client.contracts.length > 0 ? (
+              <div className="space-y-4">
+                {(client.contracts || []).map((contract: Contract) => (
+                  <Card key={contract.id}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-lg">
+                            {contract.name}
+                          </CardTitle>
+                          <CardDescription>
+                            {contract.contractNumber && `#${contract.contractNumber} • `}
+                            {new Date(contract.startDate).toLocaleDateString()}
+                            {contract.endDate && ` - ${new Date(contract.endDate).toLocaleDateString()}`}
+                          </CardDescription>
+                        </div>
+                        <Badge variant={contract.status === 'active' ? 'default' : 'secondary'}>
+                          {contract.status}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Billing Cycle:</span>{' '}
+                          <span className="capitalize">{contract.billingCycle || 'Not set'}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-4 text-lg font-semibold">No contracts</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Create a contract to establish billing and terms
+                  </p>
+                  <Button className="mt-4">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Contract
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
-          {client.contracts && client.contracts.length > 0 ? (
-            <div className="space-y-4">
-              {(client.contracts || []).map((contract: Contract) => (
-                <Card key={contract.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">
-                          {contract.name}
-                        </CardTitle>
-                        <CardDescription>
-                          {contract.contractNumber && `#${contract.contractNumber} • `}
-                          {new Date(contract.startDate).toLocaleDateString()}
-                          {contract.endDate && ` - ${new Date(contract.endDate).toLocaleDateString()}`}
-                        </CardDescription>
-                      </div>
-                      <Badge variant={contract.status === 'active' ? 'default' : 'secondary'}>
-                        {contract.status}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Billing Cycle:</span>{' '}
-                        <span className="capitalize">{contract.billingCycle || 'Not set'}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-semibold">No contracts</h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Create a contract to establish billing and terms
-                </p>
-                <Button className="mt-4">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Contract
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+          {/* Divider */}
+          <div className="border-t" />
+
+          {/* Rate Cards Section */}
+          <RateCardList 
+            customerId={client.id} 
+            canEdit={hasPermission(PERMISSIONS.MANAGE_CLIENTS)}
+          />
         </TabsContent>
 
         {/* Tab 5: Integrations */}

@@ -60,17 +60,19 @@ const contractSchema = z.object({
   notes: z.string().optional(),
 });
 
+// DEPRECATED: Old rate card schema - now handled by /api/rate-cards routes
+/*
 const rateCardSchema = z.object({
   contract_id: z.string(),
   name: z.string().min(1),
   effective_date: z.string(),
-  expiration_date: z.string().optional(),
   version: z.number().optional(),
   supersedes_id: z.string().optional(),
   rates: z.record(z.number()),
   is_active: z.boolean().optional(),
   notes: z.string().optional(),
 });
+*/
 
 export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
@@ -141,9 +143,17 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
         },
         contracts: {
           include: {
-            rateCards: {
-              where: { isActive: true },
+            rateCardLinks: {
+              include: {
+                rateCard: true,
+              },
             },
+          },
+        },
+        rateCards: {
+          where: {
+            isActive: true,
+            archivedAt: null,
           },
         },
         settings: true,
@@ -636,8 +646,10 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
     const contracts = await prismaPrimary.contract.findMany({
       where: { customerId: id },
       include: {
-        rateCards: {
-          where: { isActive: true },
+        rateCardLinks: {
+          include: {
+            rateCard: true,
+          },
         },
       },
       orderBy: { startDate: 'desc' },
@@ -726,9 +738,12 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // ============================================
-  // RATE CARDS
+  // RATE CARDS (DEPRECATED - use /api/rate-cards routes instead)
   // ============================================
-
+  // These routes are deprecated - rate cards now use the junction table
+  // via /api/rate-cards routes to support multi-contract relationships
+  
+  /*
   // List rate cards for a contract
   fastify.get('/:id/contracts/:contractId/rate-cards', {
     schema: { tags: ['Clients'] }
@@ -755,7 +770,6 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
         contractId,
         name: body.name,
         effectiveDate: new Date(body.effective_date),
-        expirationDate: body.expiration_date ? new Date(body.expiration_date) : null,
         version: body.version || 1,
         supersedesId: body.supersedes_id || null,
         rates: body.rates as any,
@@ -766,6 +780,7 @@ export const clientsRoutes: FastifyPluginAsync = async (fastify) => {
 
     return reply.status(201).send({ rateCard });
   });
+  */
 
   // ============================================
   // ONBOARDING (Single transaction)

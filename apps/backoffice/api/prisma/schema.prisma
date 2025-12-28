@@ -71,10 +71,16 @@ model User {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  userRole        Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  sessions        Session[]
-  integrationRuns IntegrationRun[]
-  warehouses      Warehouse[]
+  userRole               Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  sessions               Session[]
+  integrationRuns        IntegrationRun[]
+  warehouses             Warehouse[]
+  // Billing relations
+  createdRateCards       RateCard[]
+  linkedRateCardContracts RateCardContract[]
+  importedBillingActivities BillingActivity[]
+  createdInvoices        Invoice[]
+  recordedPayments       Payment[]
 
   @@map("users")
   @@schema("config")
@@ -173,6 +179,10 @@ model Customer {
   contacts             Contact[]
   contracts            Contract[]
   settings             CustomerSettings?
+  // Billing relations
+  rateCards            RateCard[]
+  billingActivities    BillingActivity[]
+  invoices             Invoice[]
 
   @@map("customers")
   @@schema("customer")
@@ -248,50 +258,85 @@ model Contact {
 }
 
 model Contract {
-  id             String    @id @default(dbgenerated("'contract_'::text || gen_random_uuid()"))
-  customerId     String    @map("customer_id")
-  contractNumber String?   @unique @map("contract_number")
-  name           String
-  startDate      DateTime  @map("start_date") @db.Date
-  endDate        DateTime? @map("end_date") @db.Date
-  autoRenew      Boolean?  @default(false) @map("auto_renew")
-  status         String    @default("draft")
-  billingCycle   String?   @map("billing_cycle")
-  paymentTerms   String?   @map("payment_terms")
-  notes          String?
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+  id                      String    @id @default(dbgenerated("'contract_'::text || gen_random_uuid()"))
+  customerId              String    @map("customer_id")
+  contractNumber          String?   @unique @map("contract_number")
+  name                    String
+  startDate               DateTime  @map("start_date") @db.Date
+  endDate                 DateTime? @map("end_date") @db.Date
+  autoRenew               Boolean?  @default(false) @map("auto_renew")
+  status                  String    @default("draft")
+  billingCycle            String?   @map("billing_cycle")
+  paymentTerms            String?   @map("payment_terms")
+  notes                   String?
+  // Billing system enhancements
+  contractType            String?   @map("contract_type")
+  parentContractId        String?   @map("parent_contract_id")
+  supersededByContractId  String?   @map("superseded_by_contract_id")
+  executionDate           DateTime? @map("execution_date") @db.Date
+  amendmentNumber         Int?      @map("amendment_number")
+  documentUrl             String?   @map("document_url")
+  terms                   Json?
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  customer  Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  rateCards RateCard[]
+  customer              Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  rateCards             RateCard[]
+  rateCardLinks         RateCardContract[]
+  // Self-referential relations for amendments
+  parentContract        Contract?          @relation("ContractAmendments", fields: [parentContractId], references: [id])
+  childContracts        Contract[]         @relation("ContractAmendments")
+  supersededBy          Contract?          @relation("ContractSupersession", fields: [supersededByContractId], references: [id])
+  supersedes            Contract[]         @relation("ContractSupersession")
 
   @@map("contracts")
   @@schema("customer")
   @@index([customerId])
   @@index([status])
   @@index([startDate, endDate])
+  @@index([contractType])
+  @@index([parentContractId])
 }
 
 model RateCard {
-  id             String    @id @default(dbgenerated("'rate_'::text || gen_random_uuid()"))
-  contractId     String    @map("contract_id")
-  name           String
-  effectiveDate  DateTime  @map("effective_date") @db.Date
-  expirationDate DateTime? @map("expiration_date") @db.Date
-  version        Int?      @default(1)
-  supersedesId   String?   @map("supersedes_id")
-  rates          Json      @default("{}")
-  isActive       Boolean?  @default(true) @map("is_active")
-  notes          String?
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+  id                   String    @id @default(dbgenerated("'rate_'::text || gen_random_uuid()"))
+  customerId           String?   @map("customer_id")
+  name                 String
+  effectiveDate        DateTime  @map("effective_date")
+  expiresDate          DateTime? @map("expires_date")
+  version              Int?      @default(1)
+  supersedesId         String?   @map("supersedes_id")
+  rates                Json      @default("{}")
+  isActive             Boolean?  @default(true) @map("is_active")
+  notes                String?
+  // Billing system enhancements
+  billingCycles        Json      @default("{}") @map("billing_cycles")
+  minimumMonthlyCharge Decimal?  @map("minimum_monthly_charge") @db.Decimal(10, 2)
+  basedOnTemplate      String?   @map("based_on_template")
+  // Adjustment support
+  rateCardType         String?   @default("standard") @map("rate_card_type")
+  parentRateCardId     String?   @map("parent_rate_card_id")
+  createdBy            String?   @map("created_by")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  contract   Contract   @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  supersedes RateCard?  @relation("RateCardSupersedes", fields: [supersedesId], references: [id])
-  superseded RateCard[] @relation("RateCardSupersedes")
+  customer         Customer?          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdByUser    User?              @relation(fields: [createdBy], references: [id])
+  supersedes       RateCard?          @relation("RateCardSupersedes", fields: [supersedesId], references: [id])
+  superseded       RateCard[]         @relation("RateCardSupersedes")
+  parent           RateCard?          @relation("RateCardAdjustments", fields: [parentRateCardId], references: [id])
+  adjustments      RateCard[]         @relation("RateCardAdjustments")
+  contractLinks    RateCardContract[]
+  billingActivities BillingActivity[]
 
   @@map("rate_cards")
   @@schema("customer")
+  @@index([customerId])
+  @@index([effectiveDate])
+  @@index([expiresDate])
+  @@index([customerId, isActive])
+  @@index([rateCardType])
+  @@index([parentRateCardId])
 }
 
 model CustomerSettings {
@@ -310,6 +355,156 @@ model CustomerSettings {
   @@map("settings")
   @@schema("customer")
   @@index([portalEnabled])
+}
+
+// ============================================
+// BILLING MODELS
+// ============================================
+
+model RateCardContract {
+  rateCardId String   @map("rate_card_id")
+  contractId String   @map("contract_id")
+  linkType   String?  @map("link_type")
+  linkedAt   DateTime @default(now()) @map("linked_at")
+  linkedBy   String?  @map("linked_by")
+  notes      String?
+
+  rateCard     RateCard @relation(fields: [rateCardId], references: [id], onDelete: Cascade)
+  contract     Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  linkedByUser User?    @relation(fields: [linkedBy], references: [id])
+
+  @@id([rateCardId, contractId])
+  @@map("rate_card_contracts")
+  @@schema("customer")
+  @@index([rateCardId])
+  @@index([contractId])
+}
+
+model BillingActivity {
+  id                 String    @id @default(dbgenerated("'act_'::text || gen_random_uuid()"))
+  customerId         String    @map("customer_id")
+  activityDate       DateTime  @map("activity_date")
+  type               String
+  quantity           Decimal   @db.Decimal(10, 3)
+  unit               String?
+  description        String?
+  referenceId        String?   @map("reference_id")
+  importBatchId      String?   @map("import_batch_id")
+  rateApplied        Decimal?  @map("rate_applied") @db.Decimal(10, 2)
+  rateCardId         String?   @map("rate_card_id")
+  amount             Decimal?  @db.Decimal(12, 2)
+  billingCycle       String    @map("billing_cycle")
+  billingPeriodStart DateTime? @map("billing_period_start") @db.Date
+  isManualOverride   Boolean?  @default(false) @map("is_manual_override")
+  overrideReason     String?   @map("override_reason")
+  source             String?
+  metadata           Json?
+  invoiced           Boolean?  @default(false)
+  invoiceId          String?   @map("invoice_id")
+  importedAt         DateTime  @default(now()) @map("imported_at")
+  importedBy         String?   @map("imported_by")
+
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  rateCard      RateCard?    @relation(fields: [rateCardId], references: [id])
+  invoice       Invoice?     @relation(fields: [invoiceId], references: [id])
+  importedByUser User?       @relation(fields: [importedBy], references: [id])
+  invoiceLines  InvoiceLine[]
+
+  @@unique([customerId, referenceId, activityDate, type])
+  @@map("billing_activities")
+  @@schema("customer")
+  @@index([customerId])
+  @@index([activityDate])
+  @@index([type])
+  @@index([referenceId])
+  @@index([customerId, billingCycle, billingPeriodStart])
+  @@index([customerId, invoiced])
+  @@index([importBatchId])
+  @@index([rateCardId])
+  @@index([invoiceId])
+}
+
+model Invoice {
+  id             String    @id @default(dbgenerated("'inv_'::text || gen_random_uuid()"))
+  customerId     String    @map("customer_id")
+  invoiceNumber  String    @unique @map("invoice_number")
+  billingCycle   String    @map("billing_cycle")
+  periodStart    DateTime  @map("period_start") @db.Date
+  periodEnd      DateTime  @map("period_end") @db.Date
+  issuedAt       DateTime? @map("issued_at")
+  dueDate        DateTime? @map("due_date")
+  status         String    @default("draft")
+  subtotal       Decimal   @db.Decimal(12, 2)
+  tax            Decimal   @default(0) @db.Decimal(12, 2)
+  total          Decimal   @db.Decimal(12, 2)
+  balanceDue     Decimal   @map("balance_due") @db.Decimal(12, 2)
+  dataSnapshot   Json?     @map("data_snapshot")
+  pdfUrl         String?   @map("pdf_url")
+  notes          String?
+  internalNotes  String?   @map("internal_notes")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  createdBy      String?   @map("created_by")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  customer        Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdByUser   User?             @relation(fields: [createdBy], references: [id])
+  lines           InvoiceLine[]
+  payments        Payment[]
+  billingActivities BillingActivity[]
+
+  @@map("invoices")
+  @@schema("customer")
+  @@index([customerId])
+  @@index([invoiceNumber])
+  @@index([customerId, periodStart, periodEnd])
+  @@index([status])
+  @@index([billingCycle])
+  @@index([dueDate, status])
+}
+
+model InvoiceLine {
+  id          String   @id @default(dbgenerated("'line_'::text || gen_random_uuid()"))
+  invoiceId   String   @map("invoice_id")
+  activityId  String?  @map("activity_id")
+  description String
+  category    String?
+  quantity    Decimal  @db.Decimal(10, 3)
+  unit        String?
+  unitRate    Decimal  @map("unit_rate") @db.Decimal(10, 2)
+  lineTotal   Decimal  @map("line_total") @db.Decimal(12, 2)
+  lineOrder   Int?     @map("line_order")
+
+  invoice  Invoice          @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  activity BillingActivity? @relation(fields: [activityId], references: [id])
+
+  @@map("invoice_lines")
+  @@schema("customer")
+  @@index([invoiceId])
+  @@index([activityId])
+  @@index([category])
+}
+
+model Payment {
+  id         String   @id @default(dbgenerated("'pay_'::text || gen_random_uuid()"))
+  invoiceId  String   @map("invoice_id")
+  amount     Decimal  @db.Decimal(12, 2)
+  paymentDate DateTime @map("payment_date") @db.Date
+  method     String
+  reference  String?
+  status     String   @default("applied")
+  notes      String?
+  recordedAt DateTime @default(now()) @map("recorded_at")
+  recordedBy String?  @map("recorded_by")
+
+  invoice       Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  recordedByUser User?  @relation(fields: [recordedBy], references: [id])
+
+  @@map("payments")
+  @@schema("customer")
+  @@index([invoiceId])
+  @@index([paymentDate])
+  @@index([status])
+  @@index([method])
 }
 
 // ============================================

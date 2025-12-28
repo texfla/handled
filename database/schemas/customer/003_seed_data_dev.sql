@@ -161,47 +161,104 @@ ON CONFLICT (id) DO UPDATE SET
 -- SAMPLE RATE CARDS
 -- ============================================
 
-INSERT INTO customer.rate_cards (id, contract_id, name, effective_date, expiration_date, version, rates, is_active, notes) VALUES
+INSERT INTO customer.rate_cards (id, customer_id, name, effective_date, version, rates, is_active, notes) VALUES
   (
     'rate_acme_2024_v1',
-    'contract_acme_2024',
+    'cust_acme',
     'Acme 2024 Rate Schedule',
     '2024-01-01',
-    NULL,
     1,
     jsonb_build_object(
-      'storage_per_pallet_per_month', 25.00,
-      'pick_fee', 1.50,
-      'pack_fee', 2.00,
-      'shipping_handling_fee', 5.00,
-      'receiving_per_pallet', 10.00
+      'receiving', jsonb_build_object(
+        'standardPallet', 10.00,
+        'oversizePallet', 15.00,
+        'containerDevanning20ft', 150.00,
+        'containerDevanning40ft', 250.00,
+        'perItem', 0.50,
+        'perHour', 45.00
+      ),
+      'storage', jsonb_build_object(
+        'palletMonthly', 25.00,
+        'palletDaily', 1.00,
+        'cubicFootMonthly', 2.50,
+        'longTermPenaltyMonthly', 5.00
+      ),
+      'fulfillment', jsonb_build_object(
+        'baseOrder', 2.00,
+        'additionalItem', 1.50,
+        'b2bPallet', 8.00,
+        'pickPerLine', 0.75
+      ),
+      'shipping', jsonb_build_object(
+        'markupPercent', 15.00,
+        'labelFee', 0.25
+      ),
+      'vas', jsonb_build_object(
+        'kitting', 2.50,
+        'labeling', 0.50,
+        'bundling', 1.75
+      )
     ),
     TRUE,
-    'Initial rate card for 2024'
+    'Standard rate card for 2024'
   ),
   (
     'rate_beta_2024_v1',
-    'contract_beta_2024',
+    'cust_beta',
     'Beta 2024 Rate Schedule',
     '2024-06-01',
-    NULL,
     1,
     jsonb_build_object(
-      'storage_per_pallet_per_month', 22.00,
-      'pick_fee', 1.25,
-      'pack_fee', 1.75,
-      'shipping_handling_fee', 4.50
+      'receiving', jsonb_build_object(
+        'standardPallet', 8.50,
+        'oversizePallet', 12.00,
+        'containerDevanning20ft', 125.00,
+        'containerDevanning40ft', 200.00,
+        'perItem', 0.40,
+        'perHour', 40.00
+      ),
+      'storage', jsonb_build_object(
+        'palletMonthly', 22.00,
+        'palletDaily', 0.85,
+        'cubicFootMonthly', 2.25,
+        'longTermPenaltyMonthly', 4.00
+      ),
+      'fulfillment', jsonb_build_object(
+        'baseOrder', 1.75,
+        'additionalItem', 1.25,
+        'b2bPallet', 7.00,
+        'pickPerLine', 0.65
+      ),
+      'shipping', jsonb_build_object(
+        'markupPercent', 12.00,
+        'labelFee', 0.20
+      ),
+      'vas', jsonb_build_object(
+        'kitting', 2.00,
+        'labeling', 0.40,
+        'bundling', 1.50
+      )
     ),
     TRUE,
     'Discounted rates for volume commitment'
   )
 ON CONFLICT (id) DO UPDATE SET
+  customer_id = EXCLUDED.customer_id,
   name = EXCLUDED.name,
   effective_date = EXCLUDED.effective_date,
   rates = EXCLUDED.rates,
   is_active = EXCLUDED.is_active,
   notes = EXCLUDED.notes,
   updated_at = NOW();
+
+-- ============================================
+-- LINK RATE CARDS TO CONTRACTS (Junction Table)
+-- ============================================
+
+INSERT INTO customer.rate_card_contracts (rate_card_id, contract_id, link_type, linked_at) VALUES
+  ('rate_acme_2024_v1', 'contract_acme_2024', 'primary', NOW()),
+  ('rate_beta_2024_v1', 'contract_beta_2024', 'primary', NOW())
+ON CONFLICT (rate_card_id, contract_id) DO NOTHING;
 
 -- ============================================
 -- SAMPLE CUSTOMER SETTINGS

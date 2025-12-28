@@ -73,8 +73,44 @@ BEGIN
 END $$;
 
 -- =============================================================================
+-- EXPLICIT GRANTS FOR BILLING TABLES (for clarity)
+-- =============================================================================
+
+-- Core customer tables
+GRANT SELECT, INSERT, UPDATE, DELETE ON customer.customers TO handled_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customer.warehouse_allocations TO handled_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customer.facilities TO handled_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customer.contacts TO handled_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customer.contact_log TO handled_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customer.contracts TO handled_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customer.rate_cards TO handled_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customer.settings TO handled_user;
+
+-- Billing tables
+GRANT SELECT, INSERT, UPDATE, DELETE ON customer.rate_card_contracts TO handled_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customer.billing_activities TO handled_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customer.invoices TO handled_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customer.invoice_lines TO handled_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customer.payments TO handled_user;
+
+-- =============================================================================
 -- VERIFICATION
 -- =============================================================================
+
+\echo '=== Verifying permissions for handled_user ==='
+SELECT 
+  schemaname,
+  tablename,
+  has_table_privilege('handled_user', schemaname || '.' || tablename, 'SELECT') AS can_select,
+  has_table_privilege('handled_user', schemaname || '.' || tablename, 'INSERT') AS can_insert,
+  has_table_privilege('handled_user', schemaname || '.' || tablename, 'UPDATE') AS can_update,
+  has_table_privilege('handled_user', schemaname || '.' || tablename, 'DELETE') AS can_delete
+FROM pg_tables 
+WHERE schemaname = 'customer' 
+ORDER BY tablename;
+
+\echo ''
+\echo '✓ Permissions granted to handled_user for all customer tables including billing'
 
 DO $$
 DECLARE

@@ -68,7 +68,7 @@ export function ApiDocsPage() {
           docExpansion="list"
           deepLinking={false}
           presets={[SwaggerUI.presets.apis]}
-          requestInterceptor={(req) => {
+          requestInterceptor={(req: any) => {
             // Ensure cookies are included for authenticated requests
             return req;
           }}

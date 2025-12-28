@@ -17,6 +17,7 @@ import { roleRoutes } from './routes/roles.js';
 import { warehousesRoutes } from './routes/warehouses.js';
 import { clientsRoutes } from './routes/clients.js';
 import { usersRoutes } from './routes/users.js';
+import rateCardsRoutes from './routes/rateCards.js';
 
 const fastify = Fastify({
   logger: true,
@@ -53,7 +54,10 @@ await fastify.register(swagger, {
         name: 'Integrations',
         description: 'Data import/export and integration management'
       },
-
+      {
+        name: 'rate-cards',
+        description: 'Rate card management and versioning'
+      },
       {
         name: 'Roles',
         description: 'Role and permission management'
@@ -141,6 +145,7 @@ await fastify.register(roleRoutes, { prefix: '/api/roles' });
 await fastify.register(warehousesRoutes, { prefix: '/api/warehouses' });
 await fastify.register(clientsRoutes, { prefix: '/api/clients' });
 await fastify.register(usersRoutes, { prefix: '/api/users' });
+await fastify.register(rateCardsRoutes, { prefix: '/api' });
 
 // Health check
 fastify.get('/api/health', {
