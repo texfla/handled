@@ -14,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Checkbox } from '../../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { ArrowLeft, Edit, Plus, Trash2, Warehouse, Users as UsersIcon, FileText, MapPin, BarChart3, Building, Settings } from 'lucide-react';
-import { WebGLCoverageMap } from '@/components/map';
+import { WebGLCoverageMap, MapSettings } from '@/components/map';
+import type { MapFeatureFlags } from '@/components/map';
 import { RateCardList } from '../../components/billing/RateCardList';
 
 interface WarehouseAllocation {
@@ -168,7 +169,7 @@ export function ClientDetailPage() {
 
   // Map settings state
   const [showMapSettings, setShowMapSettings] = useState(false);
-  const [mapSettings, setMapSettings] = useState({
+  const [mapSettings, setMapSettings] = useState<MapFeatureFlags>({
     enableDragging: true,
     enableHover: true,
     enableTooltips: true,
@@ -1009,7 +1010,7 @@ export function ClientDetailPage() {
                 <CardHeader className="py-1 flex flex-row items-center justify-between space-y-0">
                   <CardTitle className="py-2">Location & Coverage Map</CardTitle>
                   <div className="flex items-center gap-3 text-sm">
-                
+
                     <div className="flex rounded-md border border-gray-200">
                       <button
                         onClick={() => setDeliveryGoal(2)}
@@ -1042,94 +1043,6 @@ export function ClientDetailPage() {
                     </button>
                   </div>
                 </CardHeader>
-
-                {/* Map Settings Popup */}
-                {showMapSettings && (
-                  <div className="absolute top-12 right-4 z-50 bg-[#1e1e1e] border border-[#3e3e3e] rounded shadow-lg p-3 min-w-[220px] font-mono text-xs">
-                    <div className="text-[#d4d4d4] mb-2 font-semibold text-[11px]">Map Settings</div>
-
-                    <div className="space-y-1">
-                      <label className="flex items-center gap-2 text-[#d4d4d4] hover:bg-[#2d2d2d] px-1 py-0.5 rounded cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={mapSettings.enableDragging}
-                          onChange={(e) => setMapSettings(prev => ({...prev, enableDragging: e.target.checked}))}
-                          className="w-3 h-3 accent-[#4f8bf9]"
-                        />
-                        <span>draggable:</span>
-                        <span className="text-[#4f8bf9] ml-auto">{mapSettings.enableDragging ? 'true' : 'false'}</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 text-[#d4d4d4] hover:bg-[#2d2d2d] px-1 py-0.5 rounded cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={mapSettings.enableHover}
-                          onChange={(e) => setMapSettings(prev => ({...prev, enableHover: e.target.checked}))}
-                          className="w-3 h-3 accent-[#4f8bf9]"
-                        />
-                        <span>hover:</span>
-                        <span className="text-[#4f8bf9] ml-auto">{mapSettings.enableHover ? 'true' : 'false'}</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 text-[#d4d4d4] hover:bg-[#2d2d2d] px-1 py-0.5 rounded cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={mapSettings.enableTooltips}
-                          onChange={(e) => setMapSettings(prev => ({...prev, enableTooltips: e.target.checked}))}
-                          className="w-3 h-3 accent-[#4f8bf9]"
-                        />
-                        <span>tooltips:</span>
-                        <span className="text-[#4f8bf9] ml-auto">{mapSettings.enableTooltips ? 'true' : 'false'}</span>
-                      </label>
-
-                      <div className="flex items-center gap-2 text-[#d4d4d4] px-1 py-0.5">
-                        <span>boundaries:</span>
-                        <div className="flex gap-1 ml-auto">
-                          <label className="flex items-center gap-1 hover:bg-[#2d2d2d] px-1 py-0.5 rounded cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={mapSettings.enableZip3Boundaries}
-                              onChange={(e) => setMapSettings(prev => ({...prev, enableZip3Boundaries: e.target.checked}))}
-                              className="w-3 h-3 accent-[#4f8bf9]"
-                            />
-                            <span className="text-[#6a9955]">ZIP3</span>
-                          </label>
-                          <label className="flex items-center gap-1 hover:bg-[#2d2d2d] px-1 py-0.5 rounded cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={mapSettings.enableStateBoundaries}
-                              onChange={(e) => setMapSettings(prev => ({...prev, enableStateBoundaries: e.target.checked}))}
-                              className="w-3 h-3 accent-[#4f8bf9]"
-                            />
-                            <span className="text-[#6a9955]">State</span>
-                          </label>
-                        </div>
-                      </div>
-
-                      <label className="flex items-center gap-2 text-[#d4d4d4] hover:bg-[#2d2d2d] px-1 py-0.5 rounded cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={mapSettings.enableAnimation}
-                          onChange={(e) => setMapSettings(prev => ({...prev, enableAnimation: e.target.checked}))}
-                          className="w-3 h-3 accent-[#4f8bf9]"
-                        />
-                        <span>animation:</span>
-                        <span className="text-[#4f8bf9] ml-auto">{mapSettings.enableAnimation ? 'true' : 'false'}</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 text-[#d4d4d4] hover:bg-[#2d2d2d] px-1 py-0.5 rounded cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={mapSettings.enableLegend}
-                          onChange={(e) => setMapSettings(prev => ({...prev, enableLegend: e.target.checked}))}
-                          className="w-3 h-3 accent-[#4f8bf9]"
-                        />
-                        <span>legend:</span>
-                        <span className="text-[#4f8bf9] ml-auto">{mapSettings.enableLegend ? 'true' : 'false'}</span>
-                      </label>
-                    </div>
-                  </div>
-                )}
 
                 <CardContent className="px-2 pt-2 pb-0">
                 {mapWarehouses.length > 0 ? (
@@ -1298,6 +1211,7 @@ export function ClientDetailPage() {
               </CardContent>
             </Card>
           )}
+
         </TabsContent>
 
         {/* Tab 3: Communications */}
@@ -1602,6 +1516,19 @@ export function ClientDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Map Settings Popup - Fixed positioning relative to viewport */}
+      {showMapSettings && (
+        <div className="fixed top-24 right-6 z-50">
+          <MapSettings
+            settings={mapSettings}
+            onSettingsChange={(newSettings) => {
+              setMapSettings({ ...mapSettings, ...newSettings });
+            }}
+            onClose={() => setShowMapSettings(false)}
+          />
+        </div>
+      )}
 
       {/* Add/Edit Contact Dialog */}
       <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>

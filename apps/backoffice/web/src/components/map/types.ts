@@ -67,3 +67,14 @@ export interface WebGLCoverageMapProps {
   enableAnimation: boolean;
   enableLegend: boolean;
 }
+
+// Type for just the feature flags (what the settings UI controls)
+export type MapFeatureFlags = Pick<WebGLCoverageMapProps,
+  'enableDragging' |
+  'enableHover' |
+  'enableTooltips' |
+  'enableZip3Boundaries' |
+  'enableStateBoundaries' |
+  'enableAnimation' |
+  'enableLegend'
+>;

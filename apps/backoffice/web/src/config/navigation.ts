@@ -1,6 +1,6 @@
 import {
   LayoutDashboard,
-  Building2,
+  Users as UsersIcon,
   Package,
   PackageCheck,
   ShoppingCart,
@@ -51,7 +51,7 @@ export const navigation: NavSection[] = [
   {
     id: 'clients',
     label: 'Clients',
-    icon: Building2,
+    icon: UsersIcon,
     href: '/clients',
     implemented: true,
     requiredAnyPermission: ['view_clients', 'manage_clients'],
