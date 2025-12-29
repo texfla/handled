@@ -115,17 +115,74 @@ CREATE TRIGGER update_warehouse_zones_updated_at
 COMMENT ON TABLE company.warehouse_zones IS 'Detailed zone/bay layout within warehouses';
 
 -- ============================================
+-- BILLING SERVICES CATALOG
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS company.billing_categories (
+  id SERIAL PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  sort_order INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+COMMENT ON TABLE company.billing_categories IS 'Categories for organizing billing services (fulfillment, receiving, etc.)';
+
+CREATE TABLE IF NOT EXISTS company.billing_services (
+  id SERIAL PRIMARY KEY,
+  category_id INTEGER NOT NULL REFERENCES company.billing_categories(id),
+  code TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  unit TEXT NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(category_id, code)
+);
+
+COMMENT ON TABLE company.billing_services IS 'Catalog of all billable services offered';
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_billing_categories_active ON company.billing_categories(is_active);
+CREATE INDEX IF NOT EXISTS idx_billing_services_category_active ON company.billing_services(category_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_billing_services_code ON company.billing_services(code);
+
+-- Triggers
+CREATE TRIGGER update_billing_categories_updated_at
+  BEFORE UPDATE ON company.billing_categories
+  FOR EACH ROW EXECUTE FUNCTION company.update_updated_at();
+
+CREATE TRIGGER update_billing_services_updated_at
+  BEFORE UPDATE ON company.billing_services
+  FOR EACH ROW EXECUTE FUNCTION company.update_updated_at();
+
+-- ============================================
 -- VERIFICATION
 -- ============================================
 
-SELECT 
+SELECT
   'company.warehouses' as table_name,
   COUNT(*) as row_count
 FROM company.warehouses
 UNION ALL
-SELECT 
+SELECT
   'company.warehouse_zones',
   COUNT(*)
-FROM company.warehouse_zones;
+FROM company.warehouse_zones
+UNION ALL
+SELECT
+  'company.billing_categories',
+  COUNT(*)
+FROM company.billing_categories
+UNION ALL
+SELECT
+  'company.billing_services',
+  COUNT(*)
+FROM company.billing_services;
 
 

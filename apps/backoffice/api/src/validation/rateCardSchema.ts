@@ -1,56 +1,112 @@
 import { z } from 'zod';
 
 // ============================================
-// RATE STRUCTURES
+// SERVICE VALIDATION SCHEMAS
 // ============================================
 
-// Receiving rates
-export const receivingRatesSchema = z.object({
-  standardPallet: z.number().positive().optional(),
-  oversizePallet: z.number().positive().optional(),
-  containerDevanning20ft: z.number().positive().optional(),
-  containerDevanning40ft: z.number().positive().optional(),
-  perItem: z.number().positive().optional(),
-  perHour: z.number().positive().optional(),
+/**
+ * Service tier validation
+ */
+export const serviceTierSchema = z.object({
+  minVolume: z.number().int().min(0),
+  maxVolume: z.number().int().positive().nullable(),
+  rate: z.number().positive(),
+}).refine(
+  (tier) => !tier.maxVolume || tier.maxVolume > tier.minVolume,
+  { message: 'maxVolume must be greater than minVolume when specified' }
+);
+
+/**
+ * Service zone validation (for shipping)
+ */
+export const serviceZoneSchema = z.object({
+  zone: z.string().min(1),
+  tiers: z.array(serviceTierSchema).min(1),
 }).strict();
 
-// Storage rates
-export const storageRatesSchema = z.object({
-  palletMonthly: z.number().positive().optional(),
-  palletDaily: z.number().positive().optional(),
-  cubicFootMonthly: z.number().positive().optional(),
-  longTermPenaltyMonthly: z.number().positive().optional(),
+/**
+ * Service item validation (for VAS)
+ */
+export const serviceItemSchema = z.object({
+  item: z.string().min(1),
+  unit: z.string().min(1),
+  rate: z.number().positive(),
 }).strict();
 
-// Fulfillment rates
-export const fulfillmentRatesSchema = z.object({
-  baseOrder: z.number().positive().optional(),
-  additionalItem: z.number().positive().optional(),
-  b2bPallet: z.number().positive().optional(),
-  pickPerLine: z.number().positive().optional(),
-}).strict();
+/**
+ * Individual service validation
+ */
+export const serviceRateSchema = z.object({
+  serviceType: z.string().regex(/^[A-Za-z]+_[A-Za-z]+$/, 'Service type must be in Category_Service format'),
+  description: z.string().min(1),
+  unit: z.string().min(1),
+  baseRate: z.number().positive().optional(),
+  tiers: z.array(serviceTierSchema).optional(),
+  zones: z.array(serviceZoneSchema).optional(),
+  items: z.array(serviceItemSchema).optional(),
+}).strict().refine(
+  (service) => service.baseRate || service.tiers || service.zones || service.items,
+  'Service must have at least one pricing mechanism (baseRate, tiers, zones, or items)'
+);
 
-// Shipping rates
-export const shippingRatesSchema = z.object({
-  markupPercent: z.number().min(0).optional(), // No max - markups can exceed 100%
-  labelFee: z.number().positive().optional(),
-}).strict();
+/**
+ * Surcharge validation
+ */
+export const surchargeSchema = z.object({
+  type: z.string().min(1),
+  amount: z.number().positive().optional(),
+  percentage: z.number().min(0).max(100).optional(),
+  appliesFrom: z.string().datetime().optional(),
+  appliesTo: z.string().datetime().optional(),
+  conditions: z.record(z.any()).optional(),
+}).strict().refine(
+  (surcharge) => surcharge.amount || surcharge.percentage,
+  'Surcharge must have either amount or percentage'
+);
 
-// Volume discount tier
-export const volumeDiscountSchema = z.object({
-  minOrdersMonthly: z.number().int().positive(),
-  discountPercent: z.number().min(0).max(100), // Discounts are 0-100%
-});
-
-// Main rate card rates schema
+/**
+ * Updated rate card rates validation
+ */
 export const rateCardRatesSchema = z.object({
-  receiving: receivingRatesSchema.optional(),
-  storage: storageRatesSchema.optional(),
-  fulfillment: fulfillmentRatesSchema.optional(),
-  shipping: shippingRatesSchema.optional(),
-  vas: z.record(z.string(), z.number().positive()).optional(), // Flexible VAS: { kitting: 2.00, labeling: 0.50 }
-  volumeDiscounts: z.array(volumeDiscountSchema).optional(),
-}).strict();
+  services: z.array(serviceRateSchema).min(1, 'At least one service is required'),
+  surcharges: z.array(surchargeSchema).optional(),
+  minimums: z.object({
+    monthlyMinimum: z.number().positive().optional(),
+    orderMinimum: z.number().positive().optional(),
+  }).optional(),
+}).refine(
+  (rates) => {
+    // Validate all tier arrays (contiguous, no overlaps)
+    return rates.services.every(service =>
+      !service.tiers || validateTiers(service.tiers)
+    );
+  },
+  { message: 'Service tiers must be contiguous with no overlaps or gaps' }
+);
+
+// Helper function for tier validation
+function validateTiers(tiers: Array<{minVolume: number, maxVolume: number | null, rate: number}>): boolean {
+  if (!tiers || tiers.length === 0) return true;
+
+  const sorted = [...tiers].sort((a, b) => a.minVolume - b.minVolume);
+
+  // Check for gaps or overlaps
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const current = sorted[i];
+    const next = sorted[i + 1];
+
+    if (current.maxVolume === null) {
+      // Can't have tiers after an unbounded tier
+      return false;
+    }
+    if (current.maxVolume >= next.minVolume) {
+      // Overlapping tiers
+      return false;
+    }
+  }
+
+  return true;
+}
 
 // ============================================
 // BILLING CYCLES

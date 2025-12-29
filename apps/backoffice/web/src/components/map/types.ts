@@ -66,6 +66,10 @@ export interface WebGLCoverageMapProps {
   enableStateBoundaries: boolean;
   enableAnimation: boolean;
   enableLegend: boolean;
+
+  // Lifecycle callbacks (optional)
+  onMapReady?: () => void;
+  onMapError?: (error: Error) => void;
 }
 
 // Type for just the feature flags (what the settings UI controls)

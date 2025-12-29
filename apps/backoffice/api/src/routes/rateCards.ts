@@ -219,7 +219,45 @@ const rateCards: FastifyPluginAsync = async (fastify) => {
     const { customerId } = request.params as { customerId: string };
     const userId = (request.user as any)?.id; // Optional, only if authenticated
 
-    // Validate input
+    // Pre-flight validation: Check that all service codes exist in catalog
+    const { rates } = request.body as any;
+    if (rates?.services) {
+      const serviceCodes = rates.services.map((s: any) => s.serviceType);
+      const validServices = await prismaPrimary.billingService.findMany({
+        where: {
+          code: { in: serviceCodes },
+          isActive: true
+        },
+        select: { code: true, unit: true }
+      });
+
+      const validCodes = new Set(validServices.map(s => s.code));
+      const invalidCodes = serviceCodes.filter((code: string) => !validCodes.has(code));
+
+      if (invalidCodes.length > 0) {
+        return reply.code(400).send({
+          error: 'Invalid service codes',
+          invalidCodes,
+          message: `The following service codes are not in the billing catalog: ${invalidCodes.join(', ')}`
+        });
+      }
+
+      // Cross-reference units for consistency warnings
+      const serviceUnits = Object.fromEntries(
+        validServices.map(s => [s.code, s.unit])
+      );
+
+      const unitMismatches = rates.services
+        .filter((s: any) => serviceUnits[s.serviceType] !== s.unit)
+        .map((s: any) => `${s.serviceType}: expected '${serviceUnits[s.serviceType]}', got '${s.unit}'`);
+
+      if (unitMismatches.length > 0) {
+        // Log warning but don't block - allows flexibility
+        request.log.warn('Unit mismatches in rate card:', unitMismatches);
+      }
+    }
+
+    // Validate input with Zod
     const validatedInput = createRateCardSchema.parse(request.body);
 
     try {

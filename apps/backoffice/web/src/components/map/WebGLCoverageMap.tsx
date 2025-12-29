@@ -20,7 +20,7 @@
  * - enableAnimation: Enable warehouse marker pulsing
  * - enableLegend: Show transit days legend above map
  */
-import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
 import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
 import { OrthographicView } from '@deck.gl/core';
@@ -162,7 +162,7 @@ function findZip3ForDropPosition(
   return nearestZip3;
 }
 
-export default function WebGLCoverageMap({
+function WebGLCoverageMapComponent({
   warehouses,
   deliveryGoal = 2,
   zip3Reference,
@@ -175,6 +175,8 @@ export default function WebGLCoverageMap({
   enableStateBoundaries,
   enableAnimation,
   enableLegend,
+  onMapReady,
+  onMapError,
 }: WebGLCoverageMapProps) {
   const [statesGeoJson, setStatesGeoJson] = useState<any>(null);
   const [zip3GeoJson, setZip3GeoJson] = useState<any>(null);
@@ -192,6 +194,7 @@ export default function WebGLCoverageMap({
   const [dragPosition, setDragPosition] = useState<[number, number] | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const deckRef = useRef<any>(null);
   
   const effectiveZip3Reference = zip3Reference || loadedZip3Reference;
   
@@ -300,6 +303,34 @@ export default function WebGLCoverageMap({
       .then(data => setLoadedZip3Reference(data))
       .catch(err => console.error('Failed to load ZIP3 reference:', err));
   }, [zip3Reference, loadedZip3Reference]);
+
+  // Cleanup WebGL resources on unmount
+  useEffect(() => {
+    return () => {
+      if (deckRef.current) {
+        try {
+          deckRef.current.finalize();
+          deckRef.current = null;
+        } catch (err) {
+          console.error('Error cleaning up DeckGL:', err);
+        }
+      }
+    };
+  }, []);
+
+  // Report map readiness when data is loaded
+  useEffect(() => {
+    if (dimensions.width > 0 && loadedZip3Reference && onMapReady) {
+      onMapReady();
+    }
+  }, [dimensions.width, loadedZip3Reference, onMapReady]);
+
+  // Report errors to parent component
+  useEffect(() => {
+    if (webglError && onMapError) {
+      onMapError(new Error(webglError));
+    }
+  }, [webglError, onMapError]);
 
   // Calculate coverage when warehouses change
   useEffect(() => {
@@ -918,6 +949,7 @@ export default function WebGLCoverageMap({
         ) : projectedGeoJson && projectedStatesGeoJson ? (
           <>
             <DeckGL
+              ref={deckRef}
               initialViewState={initialViewState}
               controller={false}
               layers={layers}
@@ -1012,3 +1044,23 @@ export default function WebGLCoverageMap({
     </div>
   );
 }
+
+// Export with React.memo for performance optimization
+export default React.memo(
+  WebGLCoverageMapComponent,
+  (prevProps, nextProps) => {
+    // Custom comparison function - only re-render if these props actually change
+    return (
+      prevProps.deliveryGoal === nextProps.deliveryGoal &&
+      prevProps.enableDragging === nextProps.enableDragging &&
+      prevProps.enableHover === nextProps.enableHover &&
+      prevProps.enableTooltips === nextProps.enableTooltips &&
+      prevProps.enableZip3Boundaries === nextProps.enableZip3Boundaries &&
+      prevProps.enableStateBoundaries === nextProps.enableStateBoundaries &&
+      prevProps.enableAnimation === nextProps.enableAnimation &&
+      prevProps.enableLegend === nextProps.enableLegend &&
+      JSON.stringify(prevProps.warehouses) === JSON.stringify(nextProps.warehouses) &&
+      prevProps.zip3Reference === nextProps.zip3Reference
+    );
+  }
+);

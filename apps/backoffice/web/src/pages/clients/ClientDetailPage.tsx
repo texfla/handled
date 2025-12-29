@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { ArrowLeft, Edit, Plus, Trash2, Warehouse, Users as UsersIcon, FileText, MapPin, BarChart3, Building, Settings } from 'lucide-react';
 import { WebGLCoverageMap, MapSettings } from '@/components/map';
 import type { MapFeatureFlags } from '@/components/map';
+import MapErrorBoundary from '../../components/map/MapErrorBoundary';
 import { RateCardList } from '../../components/billing';
 
 interface WarehouseAllocation {
@@ -222,6 +223,10 @@ export function ClientDetailPage() {
   const [portalSubdomain, setPortalSubdomain] = useState('');
   const [notificationEmail, setNotificationEmail] = useState('');
   const [timezone, setTimezone] = useState('America/Chicago');
+
+  // Map loading and error states
+  const [isMapLoading, setIsMapLoading] = useState(true);
+  const [mapError, setMapError] = useState<Error | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['client', id],
@@ -632,8 +637,11 @@ export function ClientDetailPage() {
 
   const client = data;
 
-  // Tab state management
-  const activeTab = searchParams.get('tab') || 'overview';
+  // Tab state management with validation
+  const validTabs = ['overview', 'allocations', 'contacts', 'contracts', 'integrations', 'settings'];
+  const rawTab = searchParams.get('tab') || 'overview';
+  const activeTab = validTabs.includes(rawTab) ? rawTab : 'overview';
+  
   const handleTabChange = (value: string) => {
     setSearchParams({ tab: value });
   };
@@ -679,8 +687,12 @@ export function ClientDetailPage() {
           <TabsTrigger value="settings">Account Setup</TabsTrigger>
         </TabsList>
 
-        {/* Tab 1: Overview */}
-        <TabsContent value="overview" className="space-y-6">
+        {/* Tab 1: Overview - Keep mounted for map performance */}
+        <TabsContent 
+          value="overview" 
+          forceMount 
+          className={activeTab === 'overview' ? 'space-y-6' : 'hidden'}
+        >
           {/* Client Details & Primary Contact */}
           <div className="grid gap-4 md:grid-cols-2">
             {/* Client Details */}
@@ -1006,60 +1018,86 @@ export function ClientDetailPage() {
 
             {/* Coverage Map */}
             <div className="md:col-span-3">
-              <Card>
-                <CardHeader className="py-1 flex flex-row items-center justify-between space-y-0">
-                  <CardTitle className="py-2">Location & Coverage Map</CardTitle>
-                  <div className="flex items-center gap-3 text-sm">
-
-                    <div className="flex rounded-md border border-gray-200">
-                      <button
-                        onClick={() => setDeliveryGoal(2)}
-                        className={`px-2 py-0.5 text-xs rounded transition-colors ${
-                          deliveryGoal === 2
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-600 hover:bg-gray-50'
-                        }`}
-                      >
-                        2 day
-                      </button>
-                      <button
-                        onClick={() => setDeliveryGoal(3)}
-                        className={`px-2 py-0.5 text-xs rounded transition-colors ${
-                          deliveryGoal === 3
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-600 hover:bg-gray-50'
-                        }`}
-                      >
-                        3 day
-                      </button>
-                    </div>
-
-                    <button
-                      onClick={() => setShowMapSettings(!showMapSettings)}
-                      className="px-1 hover:bg-gray-100 rounded ml-2"
-                      title="Map Settings"
-                    >
-                      <Settings className="h-4 w-4" />
-                    </button>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="px-2 pt-2 pb-0">
-                {mapWarehouses.length > 0 ? (
-    <>
-                  <WebGLCoverageMap
-                    warehouses={mapWarehouses}
-                    deliveryGoal={deliveryGoal}
-                    enableDragging={mapSettings.enableDragging}
-                    enableHover={mapSettings.enableHover}
-                    enableTooltips={mapSettings.enableTooltips}
-                    enableZip3Boundaries={mapSettings.enableZip3Boundaries}
-                    enableStateBoundaries={mapSettings.enableStateBoundaries}
-                    enableAnimation={mapSettings.enableAnimation}
-                    enableLegend={mapSettings.enableLegend}
-                  />
-    </>
-                  ) : (
+              {mapWarehouses.length > 0 ? (
+                <MapErrorBoundary>
+                  <Card>
+                    <CardHeader className="py-1 flex flex-row items-center justify-between space-y-0">
+                      <CardTitle className="py-2 flex items-center gap-2">
+                        <MapPin className="h-5 w-5" />
+                        Location & Coverage Map
+                        {isMapLoading && (
+                          <span className="text-sm text-muted-foreground ml-2">(Loading...)</span>
+                        )}
+                        {mapError && (
+                          <span className="text-sm text-destructive ml-2">(Error)</span>
+                        )}
+                      </CardTitle>
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="flex rounded-md border border-gray-200">
+                          <button
+                            onClick={() => setDeliveryGoal(2)}
+                            className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                              deliveryGoal === 2
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-600 hover:bg-gray-50'
+                            }`}
+                          >
+                            2 day
+                          </button>
+                          <button
+                            onClick={() => setDeliveryGoal(3)}
+                            className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                              deliveryGoal === 3
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-600 hover:bg-gray-50'
+                            }`}
+                          >
+                            3 day
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => setShowMapSettings(!showMapSettings)}
+                          className="px-1 hover:bg-gray-100 rounded ml-2"
+                          title="Map Settings"
+                        >
+                          <Settings className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-2 pt-2 pb-0">
+                      <WebGLCoverageMap
+                        key={`map-${id}`}
+                        warehouses={mapWarehouses}
+                        deliveryGoal={deliveryGoal}
+                        enableDragging={mapSettings.enableDragging}
+                        enableHover={mapSettings.enableHover}
+                        enableTooltips={mapSettings.enableTooltips}
+                        enableZip3Boundaries={mapSettings.enableZip3Boundaries}
+                        enableStateBoundaries={mapSettings.enableStateBoundaries}
+                        enableAnimation={mapSettings.enableAnimation}
+                        enableLegend={mapSettings.enableLegend}
+                        onMapReady={() => {
+                          setIsMapLoading(false);
+                          setMapError(null);
+                        }}
+                        onMapError={(error) => {
+                          console.error('Map failed to load:', error);
+                          setMapError(error);
+                          setIsMapLoading(false);
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
+                </MapErrorBoundary>
+              ) : (
+                <Card>
+                  <CardHeader className="py-1">
+                    <CardTitle className="py-2 flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      Location & Coverage Map
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-2 pt-2 pb-0">
                     <div className="h-[300px] relative bg-muted/20 rounded-lg border-2 border-dashed flex items-center justify-center">
                       <div className="text-center">
                         <MapPin className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
@@ -1069,9 +1107,9 @@ export function ClientDetailPage() {
                         </p>
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
 

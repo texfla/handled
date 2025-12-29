@@ -211,6 +211,44 @@ model WarehouseZone {
   @@index([warehouseId])
 }
 
+model BillingCategory {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique                    // 'fulfillment', 'receiving', 'storage'
+  name        String                              // 'Fulfillment Services', 'Receiving Services'
+  description String?                             // Human-readable description
+  sortOrder   Int      @default(0) @map("sort_order")     // Display ordering
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  services BillingService[]
+
+  @@map("billing_categories")
+  @@schema("company")
+  @@index([isActive])
+}
+
+model BillingService {
+  id          Int      @id @default(autoincrement())
+  categoryId  Int      @map("category_id")        // Foreign key to BillingCategory
+  code        String                              // 'Fulfillment_BaseOrder'
+  name        String                              // 'Order Processing Fee'
+  description String?                             // Human-readable description
+  unit        String                              // 'per order', 'per pallet', 'percentage'
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")     // Within category ordering
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  category BillingCategory @relation(fields: [categoryId], references: [id])
+
+  @@unique([categoryId, code])                    // Code unique within category
+  @@map("billing_services")
+  @@schema("company")
+  @@index([categoryId, isActive])
+  @@index([code])
+}
+
 // ============================================
 // CUSTOMER SCHEMA - THEIR data (multi-tenant)
 // ============================================

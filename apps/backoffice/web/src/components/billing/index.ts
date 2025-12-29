@@ -8,6 +8,7 @@
 export { RateCardList } from './RateCardList';
 export { RateCardForm } from './RateCardForm';
 export { RateCardViewer } from './RateCardViewer';
+export { ServiceSelector } from './ServiceSelector';
 
 // Re-export all shared types
 export type {
@@ -15,6 +16,8 @@ export type {
   RateCardListProps,
   RateCardFormProps,
   RateCardViewerProps,
+  BillingCategory,
+  BillingService,
   Contract,
   Customer,
   WarehouseAllocation,

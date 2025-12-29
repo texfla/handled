@@ -18,6 +18,7 @@ import { warehousesRoutes } from './routes/warehouses.js';
 import { clientsRoutes } from './routes/clients.js';
 import { usersRoutes } from './routes/users.js';
 import rateCardsRoutes from './routes/rateCards.js';
+import billingServicesRoutes from './routes/billingServices.js';
 
 const fastify = Fastify({
   logger: true,
@@ -146,6 +147,7 @@ await fastify.register(warehousesRoutes, { prefix: '/api/warehouses' });
 await fastify.register(clientsRoutes, { prefix: '/api/clients' });
 await fastify.register(usersRoutes, { prefix: '/api/users' });
 await fastify.register(rateCardsRoutes, { prefix: '/api' });
+await fastify.register(billingServicesRoutes, { prefix: '/api' });
 
 // Health check
 fastify.get('/api/health', {

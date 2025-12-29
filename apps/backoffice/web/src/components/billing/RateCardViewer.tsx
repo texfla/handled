@@ -13,7 +13,54 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import type { RateCard, RateCardViewerProps } from './types';
+import type { RateCard, RateCardViewerProps, ServiceRate, ServiceTier } from './types';
+import { formatCurrency } from '../../utils/currency';
+
+function TieredPricingDisplay({ tiers }: { tiers: ServiceTier[] }) {
+  if (!tiers || tiers.length === 0) return null;
+
+  return (
+    <div className="border rounded p-3 bg-muted/20 mt-2">
+      <h5 className="font-medium text-sm mb-3">Volume-Based Pricing</h5>
+      <div className="space-y-2">
+        {tiers.map((tier, index) => (
+          <div key={index} className="flex items-center gap-4 text-sm">
+            <span className="font-medium min-w-[120px]">
+              {tier.minVolume === 0 ? '<' : tier.minVolume}
+              {tier.maxVolume ? `-${tier.maxVolume}` : '+'} orders:
+            </span>
+            <span className="font-mono">
+              {tier.rate ? formatCurrency(tier.rate) : 'Contact for pricing'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ServiceDisplay({ service }: { service: ServiceRate }) {
+  return (
+    <div className="service-item border rounded p-4">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="font-medium">{service.description}</h4>
+        <Badge variant="outline" className="text-xs">
+          {service.unit}
+        </Badge>
+      </div>
+
+      {service.tiers ? (
+        <TieredPricingDisplay tiers={service.tiers} />
+      ) : service.baseRate ? (
+        <div className="base-rate font-mono text-lg">
+          {service.serviceType.includes('Percent') ? `${service.baseRate}%` : formatCurrency(service.baseRate)}
+        </div>
+      ) : (
+        <div className="text-muted-foreground">Contact for pricing</div>
+      )}
+    </div>
+  );
+}
 
 export function RateCardViewer({
   rateCard,
@@ -23,14 +70,6 @@ export function RateCardViewer({
   onEdit,
   onCreateAdjustment
 }: RateCardViewerProps) {
-  const formatCurrency = (amount?: number | null) => {
-    if (amount == null) return '-';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -39,49 +78,6 @@ export function RateCardViewer({
     });
   };
 
-  const getGroupedServices = (rateCard: RateCard) => {
-    const billingCycles = rateCard.billingCycles || {};
-    const rates = rateCard.rates || {};
-
-    return {
-      shipping: {
-        cycle: billingCycles.shipping,
-        rates: {
-          markupPercent: rates.shipping?.markupPercent,
-          labelFee: rates.shipping?.labelFee
-        }
-      },
-      fulfillment: {
-        cycle: billingCycles.fulfillment,
-        rates: {
-          baseOrder: rates.fulfillment?.baseOrder,
-          additionalItem: rates.fulfillment?.additionalItem,
-          b2bPallet: rates.fulfillment?.b2bPallet,
-          pickPerLine: rates.fulfillment?.pickPerLine
-        }
-      },
-      receiving: {
-        cycle: billingCycles.receiving,
-        rates: {
-          standardPallet: rates.receiving?.standardPallet,
-          oversizePallet: rates.receiving?.oversizePallet,
-          containerDevanning20ft: rates.receiving?.containerDevanning20ft,
-          containerDevanning40ft: rates.receiving?.containerDevanning40ft,
-          perItem: rates.receiving?.perItem,
-          perHour: rates.receiving?.perHour
-        }
-      },
-      storage: {
-        cycle: billingCycles.storage,
-        rates: {
-          palletMonthly: rates.storage?.palletMonthly,
-          palletDaily: rates.storage?.palletDaily,
-          cubicFootMonthly: rates.storage?.cubicFootMonthly,
-          longTermPenaltyMonthly: rates.storage?.longTermPenaltyMonthly
-        }
-      }
-    };
-  };
 
   return (
     <Card className={isActive ? "border-primary ring-1 ring-primary/20" : ""}>
@@ -139,47 +135,48 @@ export function RateCardViewer({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Grouped Services by Billing Cycle */}
-        <div className="space-y-4">
-          {Object.entries(getGroupedServices(rateCard)).map(([serviceType, serviceData]) => {
-            const hasRates = Object.values(serviceData.rates).some(rate => rate !== undefined && rate !== null);
-
-            if (!hasRates) return null;
-
-            return (
-              <div key={serviceType} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium capitalize text-sm">{serviceType}:</span>
-                  <Badge variant="outline" className="text-xs">
-                    {serviceData.cycle ? `${serviceData.cycle} Billing` : 'Not Set'}
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm pl-4">
-                  {Object.entries(serviceData.rates).map(([rateName, value]) =>
-                    value !== undefined && value !== null ? (
-                      <div key={rateName} className="flex justify-between">
-                        <span className="text-muted-foreground capitalize">
-                          {rateName.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:
-                        </span>
-                        <span className="font-medium">
-                          {rateName.includes('Percent') ? `${value}%` : formatCurrency(value)}
-                        </span>
-                      </div>
-                    ) : null
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Minimum Monthly Charge */}
-        {rateCard.minimumMonthlyCharge && (
-          <div className="text-sm">
-            <span className="text-muted-foreground">Monthly Minimum:</span>{' '}
-            <span className="font-medium">{formatCurrency(rateCard.minimumMonthlyCharge)}</span>
+        {/* Service-Based Display */}
+        {rateCard.rates.services && rateCard.rates.services.length > 0 && (
+          <div className="space-y-4">
+            {rateCard.rates.services.map((service, index) => (
+              <ServiceDisplay key={`${service.serviceType}-${index}`} service={service} />
+            ))}
           </div>
         )}
+
+        {/* Minimums */}
+        {rateCard.rates.minimums && (
+          <div className="space-y-2">
+            {rateCard.rates.minimums.monthlyMinimum && (
+              <div className="text-sm">
+                <span className="text-muted-foreground">Monthly Minimum:</span>{' '}
+                <span className="font-medium">{formatCurrency(rateCard.rates.minimums.monthlyMinimum)}</span>
+              </div>
+            )}
+            {rateCard.rates.minimums.orderMinimum && (
+              <div className="text-sm">
+                <span className="text-muted-foreground">Order Minimum:</span>{' '}
+                <span className="font-medium">{formatCurrency(rateCard.rates.minimums.orderMinimum)}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Surcharges */}
+        {rateCard.rates.surcharges && rateCard.rates.surcharges.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">Surcharges</h4>
+            {rateCard.rates.surcharges.map((surcharge, index) => (
+              <div key={index} className="text-sm">
+                <span className="text-muted-foreground">{surcharge.type}:</span>{' '}
+                <span className="font-medium">
+                  {surcharge.percentage ? `${surcharge.percentage}%` : surcharge.amount ? formatCurrency(surcharge.amount) : 'Contact for pricing'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
 
         {/* Linked Contracts */}
         {rateCard.contractLinks && rateCard.contractLinks.length > 0 && (

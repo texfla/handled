@@ -169,34 +169,138 @@ INSERT INTO customer.rate_cards (id, customer_id, name, effective_date, version,
     '2024-01-01',
     1,
     jsonb_build_object(
-      'receiving', jsonb_build_object(
-        'standardPallet', 10.00,
-        'oversizePallet', 15.00,
-        'containerDevanning20ft', 150.00,
-        'containerDevanning40ft', 250.00,
-        'perItem', 0.50,
-        'perHour', 45.00
+      'services', jsonb_build_array(
+        -- Fulfillment with tiered pricing
+        jsonb_build_object(
+          'serviceType', 'Fulfillment_BaseOrder',
+          'description', 'Ecommerce order processing fee',
+          'unit', 'per order',
+          'tiers', jsonb_build_array(
+            jsonb_build_object('minVolume', 0, 'maxVolume', 999, 'rate', 4.00),
+            jsonb_build_object('minVolume', 1000, 'maxVolume', 2499, 'rate', 3.75),
+            jsonb_build_object('minVolume', 2500, 'maxVolume', 4999, 'rate', 3.50),
+            jsonb_build_object('minVolume', 5000, 'maxVolume', null, 'rate', null)
+          )
+        ),
+        jsonb_build_object(
+          'serviceType', 'Fulfillment_AdditionalItem',
+          'description', 'Additional item fee per order',
+          'unit', 'per item',
+          'baseRate', 1.50
+        ),
+        jsonb_build_object(
+          'serviceType', 'Fulfillment_B2BPallet',
+          'description', 'B2B pallet handling fee',
+          'unit', 'per pallet',
+          'baseRate', 8.00
+        ),
+        jsonb_build_object(
+          'serviceType', 'Fulfillment_PickPerLine',
+          'description', 'Pick per line fee',
+          'unit', 'per line',
+          'baseRate', 0.75
+        ),
+
+        -- Receiving with flat rates
+        jsonb_build_object(
+          'serviceType', 'Receiving_StandardPallet',
+          'description', 'Standard pallet receiving',
+          'unit', 'per pallet',
+          'baseRate', 10.00
+        ),
+        jsonb_build_object(
+          'serviceType', 'Receiving_OversizePallet',
+          'description', 'Oversize pallet receiving',
+          'unit', 'per pallet',
+          'baseRate', 15.00
+        ),
+        jsonb_build_object(
+          'serviceType', 'Receiving_Container20ft',
+          'description', '20ft container devanning',
+          'unit', 'per container',
+          'baseRate', 150.00
+        ),
+        jsonb_build_object(
+          'serviceType', 'Receiving_Container40ft',
+          'description', '40ft container devanning',
+          'unit', 'per container',
+          'baseRate', 250.00
+        ),
+        jsonb_build_object(
+          'serviceType', 'Receiving_PerItem',
+          'description', 'Per item receiving',
+          'unit', 'per item',
+          'baseRate', 0.50
+        ),
+        jsonb_build_object(
+          'serviceType', 'Receiving_HourlyLabor',
+          'description', 'Hourly receiving labor',
+          'unit', 'per hour',
+          'baseRate', 45.00
+        ),
+
+        -- Storage
+        jsonb_build_object(
+          'serviceType', 'Storage_PalletMonthly',
+          'description', 'Monthly pallet storage',
+          'unit', 'per pallet/month',
+          'baseRate', 25.00
+        ),
+        jsonb_build_object(
+          'serviceType', 'Storage_PalletDaily',
+          'description', 'Daily pallet storage',
+          'unit', 'per pallet/day',
+          'baseRate', 1.00
+        ),
+        jsonb_build_object(
+          'serviceType', 'Storage_CubicFootMonthly',
+          'description', 'Cubic foot monthly storage',
+          'unit', 'per cubic foot/month',
+          'baseRate', 2.50
+        ),
+        jsonb_build_object(
+          'serviceType', 'Storage_LongTermPenalty',
+          'description', 'Long-term storage penalty',
+          'unit', 'per pallet/month',
+          'baseRate', 5.00
+        ),
+
+        -- Shipping
+        jsonb_build_object(
+          'serviceType', 'Shipping_CarrierCostMarkup',
+          'description', 'Carrier cost markup',
+          'unit', 'percentage',
+          'baseRate', 15.0
+        ),
+        jsonb_build_object(
+          'serviceType', 'Shipping_LabelFee',
+          'description', 'Shipping label fee',
+          'unit', 'per label',
+          'baseRate', 0.25
+        ),
+
+        -- VAS
+        jsonb_build_object(
+          'serviceType', 'VAS_Kitting',
+          'description', 'Kitting service',
+          'unit', 'per kit',
+          'baseRate', 2.50
+        ),
+        jsonb_build_object(
+          'serviceType', 'VAS_Labeling',
+          'description', 'Custom labeling',
+          'unit', 'per item',
+          'baseRate', 0.50
+        ),
+        jsonb_build_object(
+          'serviceType', 'VAS_Bundling',
+          'description', 'Product bundling',
+          'unit', 'per bundle',
+          'baseRate', 1.75
+        )
       ),
-      'storage', jsonb_build_object(
-        'palletMonthly', 25.00,
-        'palletDaily', 1.00,
-        'cubicFootMonthly', 2.50,
-        'longTermPenaltyMonthly', 5.00
-      ),
-      'fulfillment', jsonb_build_object(
-        'baseOrder', 2.00,
-        'additionalItem', 1.50,
-        'b2bPallet', 8.00,
-        'pickPerLine', 0.75
-      ),
-      'shipping', jsonb_build_object(
-        'markupPercent', 15.00,
-        'labelFee', 0.25
-      ),
-      'vas', jsonb_build_object(
-        'kitting', 2.50,
-        'labeling', 0.50,
-        'bundling', 1.75
+      'minimums', jsonb_build_object(
+        'monthlyMinimum', 500.00
       )
     ),
     TRUE,
